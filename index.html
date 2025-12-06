@@ -81,326 +81,371 @@
 
                             <div style="margin-left: 10px; margin-top: 30px; padding: 5px;">
                                 <h2>key naming conventions</h2>
-                                <p>use the <b>internal name</b> when defining a key in your custom layout string. the
-                                    basic
-                                    syntax is:</p>
-                                <blockquote class="cs-note"
-                                    style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
+                                <p>use the <b>internal name</b> when defining a key in your custom layout string. the basic syntax is:</p>
+                                <blockquote class="cs-note" style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
                                     🛈 comma separated for multiple keys<br>
-                                    <code>[internal_name]:"[label]":<span style="color: #ffcc00;">[width class]</span></code>
+                                    <code>[internal_name]:"[label]":[width class]</code>
+                                </blockquote>
+
+                                <h3 style="margin-top: 20px;">multi-key bindings</h3>
+                                <p>you can bind multiple keys to the same visual element using the pipe <code>|</code> separator:</p>
+                                <blockquote class="cs-note" style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
+                                    <code>key_w|mouse_4:"W"</code> - both W and mouse4 activate the same element<br>
+                                    <code>key_q|key_e:"use"</code> - both Q and E show "use"<br>
+                                    <code>key_c|key_leftcrtl:"duck"</code> - both C and CTRL show "duck"
                                 </blockquote>
 
                                 <h3 style="margin-top: 20px;">standard keys (a-z, 0-9, and symbols)</h3>
                                 <table class="key-list-table">
                                     <thead>
-                                        <tr>
-                                            <th>label example</th>
-                                            <th>internal name</th>
-                                        </tr>
+                                    <tr>
+                                        <th>label example</th>
+                                        <th>internal name</th>
+                                    </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td>a - z</td>
-                                            <td><code>key_a</code> - <code>key_z</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>0 - 9</td>
-                                            <td><code>key_0</code> - <code>key_9</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>` (tilde)</td>
-                                            <td><code>key_backtick</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>- (minus)</td>
-                                            <td><code>key_minus</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>= (equals)</td>
-                                            <td><code>key_equals</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>[ (open bracket)</td>
-                                            <td><code>key_openbracket</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>] (close bracket)</td>
-                                            <td><code>key_closebracket</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>\ (backslash)</td>
-                                            <td><code>key_backslash</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>; (semicolon)</td>
-                                            <td><code>key_semicolon</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>' (apostrophe)</td>
-                                            <td><code>key_apostrophe</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>, (comma)</td>
-                                            <td><code>key_comma</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>. (period)</td>
-                                            <td><code>key_period</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>/ (slash)</td>
-                                            <td><code>key_slash</code></td>
-                                        </tr>
+                                    <tr>
+                                        <td>a - z</td>
+                                        <td><code>key_a</code> - <code>key_z</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>0 - 9</td>
+                                        <td><code>key_0</code> - <code>key_9</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>` (tilde)</td>
+                                        <td><code>key_backtick</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>- (minus)</td>
+                                        <td><code>key_minus</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>= (equals)</td>
+                                        <td><code>key_equals</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>[ (open bracket)</td>
+                                        <td><code>key_openbracket</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>] (close bracket)</td>
+                                        <td><code>key_closebracket</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>\ (backslash)</td>
+                                        <td><code>key_backslash</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>; (semicolon)</td>
+                                        <td><code>key_semicolon</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>' (apostrophe)</td>
+                                        <td><code>key_apostrophe</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>, (comma)</td>
+                                        <td><code>key_comma</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>. (period)</td>
+                                        <td><code>key_period</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>/ (slash)</td>
+                                        <td><code>key_slash</code></td>
+                                    </tr>
                                     </tbody>
                                 </table>
 
                                 <h3 style="margin-top: 20px;">control & special keys</h3>
                                 <table class="key-list-table">
                                     <thead>
-                                        <tr>
-                                            <th>label example</th>
-                                            <th>internal name</th>
-                                        </tr>
+                                    <tr>
+                                        <th>label example</th>
+                                        <th>internal name</th>
+                                    </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td>esc</td>
-                                            <td><code>key_escape</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>tab</td>
-                                            <td><code>key_tab</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>caps</td>
-                                            <td><code>key_capslock</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>shift (left/right)</td>
-                                            <td><code>key_leftshift</code>, <code>key_rightshift</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>ctrl (left/right)</td>
-                                            <td><code>key_leftctrl</code>, <code>key_rightctrl</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>alt (left/right)</td>
-                                            <td><code>key_leftalt</code>, <code>key_rightalt</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>win/meta (left/right)</td>
-                                            <td><code>key_leftwin</code>, <code>key_rightwin</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>space</td>
-                                            <td><code>key_space</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>enter</td>
-                                            <td><code>key_enter</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>backspace</td>
-                                            <td><code>key_backspace</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>menu</td>
-                                            <td><code>key_menu</code></td>
-                                        </tr>
+                                    <tr>
+                                        <td>esc</td>
+                                        <td><code>key_escape</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>tab</td>
+                                        <td><code>key_tab</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>caps</td>
+                                        <td><code>key_capslock</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>shift (left/right)</td>
+                                        <td><code>key_leftshift</code>, <code>key_rightshift</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>ctrl (left/right)</td>
+                                        <td><code>key_leftctrl</code>, <code>key_rightctrl</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>alt (left/right)</td>
+                                        <td><code>key_leftalt</code>, <code>key_rightalt</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>win/meta (left/right)</td>
+                                        <td><code>key_leftwin</code>, <code>key_rightwin</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>space</td>
+                                        <td><code>key_space</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>enter</td>
+                                        <td><code>key_enter</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>backspace</td>
+                                        <td><code>key_backspace</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>menu</td>
+                                        <td><code>key_menu</code></td>
+                                    </tr>
                                     </tbody>
                                 </table>
 
                                 <h3 style="margin-top: 20px;">function & utility keys</h3>
                                 <table class="key-list-table">
                                     <thead>
-                                        <tr>
-                                            <th>label example</th>
-                                            <th>internal name</th>
-                                        </tr>
+                                    <tr>
+                                        <th>label example</th>
+                                        <th>internal name</th>
+                                    </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td>f1 - f12</td>
-                                            <td><code>key_f1</code> - <code>key_f12</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>prtscn</td>
-                                            <td><code>key_printscreen</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>scrlck</td>
-                                            <td><code>key_scrolllock</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>pause</td>
-                                            <td><code>key_pause</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>ins</td>
-                                            <td><code>key_insert</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>del</td>
-                                            <td><code>key_delete</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>home / end</td>
-                                            <td><code>key_home</code>, <code>key_end</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>pgup / pgdn</td>
-                                            <td><code>key_pageup</code>, <code>key_pagedown</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>arrows</td>
-                                            <td><code>key_leftarrow</code>, <code>key_uparrow</code>,
-                                                <code>key_rightarrow</code>, <code>key_downarrow</code>
-                                            </td>
-                                        </tr>
+                                    <tr>
+                                        <td>f1 - f12</td>
+                                        <td><code>key_f1</code> - <code>key_f12</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>prtscn</td>
+                                        <td><code>key_printscreen</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>scrlck</td>
+                                        <td><code>key_scrolllock</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>pause</td>
+                                        <td><code>key_pause</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>ins</td>
+                                        <td><code>key_insert</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>del</td>
+                                        <td><code>key_delete</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>home / end</td>
+                                        <td><code>key_home</code>, <code>key_end</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>pgup / pgdn</td>
+                                        <td><code>key_pageup</code>, <code>key_pagedown</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>arrows</td>
+                                        <td><code>key_leftarrow</code>, <code>key_uparrow</code>, <code>key_rightarrow</code>, <code>key_downarrow</code></td>
+                                    </tr>
                                     </tbody>
                                 </table>
 
                                 <h3 style="margin-top: 20px;">numpad keys</h3>
                                 <table class="key-list-table">
                                     <thead>
-                                        <tr>
-                                            <th>label example</th>
-                                            <th>internal name</th>
-                                        </tr>
+                                    <tr>
+                                        <th>label example</th>
+                                        <th>internal name</th>
+                                    </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td>numlock</td>
-                                            <td><code>key_numlock</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>/ * - +</td>
-                                            <td><code>key_numpad_divide</code>, <code>key_numpad_multiply</code>,
-                                                <code>key_numpad_subtract</code>, <code>key_numpad_add</code>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td>7 - 9</td>
-                                            <td><code>key_numpad_7</code>, <code>key_numpad_8</code>,
-                                                <code>key_numpad_9</code>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td>4 - 6</td>
-                                            <td><code>key_numpad_4</code>, <code>key_numpad_5</code>,
-                                                <code>key_numpad_6</code>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td>1 - 3</td>
-                                            <td><code>key_numpad_1</code>, <code>key_numpad_2</code>,
-                                                <code>key_numpad_3</code>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td>0 . enter</td>
-                                            <td><code>key_numpad_0</code>, <code>key_numpad_decimal</code>,
-                                                <code>key_numpad_enter</code>
-                                            </td>
-                                        </tr>
+                                    <tr>
+                                        <td>numlock</td>
+                                        <td><code>key_numlock</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>/ * - +</td>
+                                        <td><code>key_numpad_divide</code>, <code>key_numpad_multiply</code>, <code>key_numpad_subtract</code>, <code>key_numpad_add</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>7 - 9</td>
+                                        <td><code>key_numpad_7</code>, <code>key_numpad_8</code>, <code>key_numpad_9</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>4 - 6</td>
+                                        <td><code>key_numpad_4</code>, <code>key_numpad_5</code>, <code>key_numpad_6</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>1 - 3</td>
+                                        <td><code>key_numpad_1</code>, <code>key_numpad_2</code>, <code>key_numpad_3</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>0 . enter</td>
+                                        <td><code>key_numpad_0</code>, <code>key_numpad_decimal</code>, <code>key_numpad_enter</code></td>
+                                    </tr>
                                     </tbody>
                                 </table>
 
                                 <h3 style="margin-top: 20px;">mouse and scroller identifiers</h3>
                                 <table class="key-list-table">
                                     <thead>
-                                        <tr>
-                                            <th>label example</th>
-                                            <th>internal name / type</th>
-                                        </tr>
+                                    <tr>
+                                        <th>label example</th>
+                                        <th>internal name / type</th>
+                                    </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td>m1 (left)</td>
-                                            <td><code>mouse_left</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>m2 (right)</td>
-                                            <td><code>mouse_right</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>m3 (middle/wheel)</td>
-                                            <td><code>mouse_middle</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>m4</td>
-                                            <td><code>mouse_4</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>m5</td>
-                                            <td><code>mouse_5</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td>scroller display</td>
-                                            <td><code>scroller</code> (requires 4 labels: default, up, down)</td>
-                                        </tr>
-                                        <tr>
-                                            <td>side button combo</td>
-                                            <td><code>mouse_side</code> (requires 3 labels: display, m4, m5)</td>
-                                        </tr>
+                                    <tr>
+                                        <td>m1 (left)</td>
+                                        <td><code>mouse_left</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>m2 (right)</td>
+                                        <td><code>mouse_right</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>m3 (middle/wheel)</td>
+                                        <td><code>mouse_middle</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>m4</td>
+                                        <td><code>mouse_4</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>m5</td>
+                                        <td><code>mouse_5</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>scroller display</td>
+                                        <td><code>scroller:"default":"up":"down"</code> (3 labels required)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>side button combo</td>
+                                        <td><code>mouse_side:"m5":"m4"</code> (2 labels required)</td>
+                                    </tr>
                                     </tbody>
                                 </table>
 
                                 <h3 style="margin-top: 20px;">width classes</h3>
                                 <p>use these for the optional <code>[width class]</code> part of the key definition:</p>
-                                <blockquote class="cs-note"
-                                    style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
-                                    🛈 <code>u0-01</code> to <code>u7</code><br>increments of 0.01u
+                                <blockquote class="cs-note" style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
+                                    🛈 <code>u0-01</code> to <code>u7</code> - increments of 0.01u available
                                 </blockquote>
                                 <table class="key-list-table">
                                     <thead>
-                                        <tr>
-                                            <th>class name</th>
-                                            <th>width</th>
-                                            <th>notes</th>
-                                        </tr>
+                                    <tr>
+                                        <th>class name</th>
+                                        <th>width</th>
+                                        <th>notes</th>
+                                    </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td>(none)</td>
-                                            <td>1u</td>
-                                            <td>default width.</td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>u1-25</code></td>
-                                            <td>1.25u</td>
-                                            <td></td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>u1-5u</code></td>
-                                            <td>1.5u</td>
-                                            <td>common for tab, ctrl, alt.</td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>u1-75</code></td>
-                                            <td>1.75u</td>
-                                            <td></td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>u2</code></td>
-                                            <td>2u</td>
-                                            <td>common for shift.</td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>u6-25</code></td>
-                                            <td>6.25u</td>
-                                            <td>full size space bar.</td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>u3</code></td>
-                                            <td>3u</td>
-                                            <td>used specifically for the tiny spacebar.</td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>invisible</code></td>
-                                            <td>1u</td>
-                                            <td>key exists for press detection but is hidden.</td>
-                                        </tr>
+                                    <tr>
+                                        <td>(none)</td>
+                                        <td>1u</td>
+                                        <td>default width for all keys</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>u1-25</code></td>
+                                        <td>1.25u</td>
+                                        <td>common for ctrl, alt on some layouts</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>u1-5</code></td>
+                                        <td>1.5u</td>
+                                        <td>common for tab, ctrl, alt</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>u1-75</code></td>
+                                        <td>1.75u</td>
+                                        <td>common for caps lock</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>u2</code></td>
+                                        <td>2u</td>
+                                        <td>common for shift, backspace, enter</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>u2-25</code></td>
+                                        <td>2.25u</td>
+                                        <td>common for larger shift keys</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>u2-47</code></td>
+                                        <td>2.47u</td>
+                                        <td>optimized for mouse buttons</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>u3</code></td>
+                                        <td>3u</td>
+                                        <td>used for compact space bars</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>u3-33</code></td>
+                                        <td>3.33u</td>
+                                        <td>balanced space bar size</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>u6-25</code></td>
+                                        <td>6.25u</td>
+                                        <td>full size space bar</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>mouse-wide</code></td>
+                                        <td>special</td>
+                                        <td>optimized width for wide mouse buttons</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>invisible</code></td>
+                                        <td>1u</td>
+                                        <td>key exists for press detection but is hidden. supports width classes like <code>u2</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>dummy</code></td>
+                                        <td>none</td>
+                                        <td>placeholder to skip positions without creating visible elements</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+
+                                <h3 style="margin-top: 20px;">special syntax</h3>
+                                <table class="key-list-table">
+                                    <thead>
+                                    <tr>
+                                        <th>syntax</th>
+                                        <th>description</th>
+                                        <th>example</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td><code>invisible</code></td>
+                                        <td>creates an invisible spacer</td>
+                                        <td><code>invisible</code> or with width: <code>key_escape:"invis":u2</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>dummy</code></td>
+                                        <td>empty row placeholder</td>
+                                        <td><code>dummy</code> (used to remove rows)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>|</code></td>
+                                        <td>multi-key binding separator</td>
+                                        <td><code>key_w|key_c:"C"</code></td>
+                                    </tr>
                                     </tbody>
                                 </table>
                             </div>

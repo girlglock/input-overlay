@@ -1,6 +1,14 @@
 //guh
 import {RAW_CODE_TO_KEY_NAME, MOUSE_BUTTON_MAP} from "../consts.js";
 
+/**
+ * @typedef {Object} InputEvent
+ * @property {string} event_type
+ * @property {number} [rawcode]
+ * @property {number} [button]
+ * @property {number} [rotation]
+ */
+
 export class WebSocketManager {
     constructor(url, statusEl, visualizer) {
         this.wsUrl = url;

@@ -32,19 +32,21 @@ export class LayoutParser {
             };
         }
 
-        const standardMatch = elementString.match(/^(\w+):"([^"]+)"(?::([-\w.]+))?$/);
+        const standardMatch = elementString.match(/^([\w|]+):"([^"]+)"(?::([-\w.]+))?$/);
         if (standardMatch) {
-            const key = standardMatch[1];
+            const keyString = standardMatch[1];
             const label = standardMatch[2];
             const customClass = standardMatch[3];
 
+            const keys = keyString.split('|');
             let type = "key";
-            if (key.startsWith("mouse_") || key === "scroller") {
+            if (keys[0].startsWith("mouse_") || keys[0] === "scroller") {
                 type = "mouse";
             }
 
             const elementDef = {
-                key: key,
+                key: keys[0],
+                keys: keys,
                 label: label,
                 type: type
             };
@@ -56,7 +58,6 @@ export class LayoutParser {
             } else if (customClass) {
                 elementDef.class = customClass;
             }
-
 
             return elementDef;
         }

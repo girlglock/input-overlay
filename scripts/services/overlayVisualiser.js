@@ -231,10 +231,13 @@ export class OverlayVisualiser {
                     if (!item.class || (item.class !== "invisible" && item.class !== "dummy")) {
                         const targetMap = item.type === "mouse" ? mouseElements : keyElements;
 
-                        if (!targetMap.has(item.key)) {
-                            targetMap.set(item.key, []);
-                        }
-                        targetMap.get(item.key).push(el);
+                        const keysToRegister = item.keys || [item.key];
+                        keysToRegister.forEach(keyName => {
+                            if (!targetMap.has(keyName)) {
+                                targetMap.set(keyName, []);
+                            }
+                            targetMap.get(keyName).push(el);
+                        });
                     }
                 }
             });
