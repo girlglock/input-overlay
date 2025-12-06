@@ -1,5 +1,5 @@
 //guh
-import {BROWSER_BUTTON_TO_KEY_NAME, BROWSER_CODE_TO_KEY_NAME, COLOR_PICKERS, DEFAULT_LAYOUT_STRINGS} from "../consts.js";
+import { BROWSER_BUTTON_TO_KEY_NAME, BROWSER_CODE_TO_KEY_NAME, COLOR_PICKERS, DEFAULT_LAYOUT_STRINGS } from "../consts.js";
 
 export class ConfiguratorMode {
     constructor(utils, urlManager, layoutParser, visualizer) {
@@ -15,9 +15,11 @@ export class ConfiguratorMode {
         this.setupBackgroundVideo();
         this.setupCheatSheetToggle();
 
-        COLOR_PICKERS.forEach(cp => {
-            this.initPickrColorInput(cp.id, cp.defaultColor);
-        });
+        setTimeout(() => {
+            COLOR_PICKERS.forEach(cp => {
+                this.initPickrColorInput(cp.id, cp.defaultColor);
+            });
+        }, 100);
 
         this.loadSettingsFromLink(true);
         this.setupConfigInputs();
@@ -105,7 +107,7 @@ export class ConfiguratorMode {
                 }
                 if (el.type === "range") {
                     this.updateSliderLabel(el);
-                    el.dispatchEvent(new Event("input", {bubbles: true}));
+                    el.dispatchEvent(new Event("input", { bubbles: true }));
                 }
             }
         };
@@ -339,11 +341,11 @@ export class ConfiguratorMode {
     }
 
     setupPreviewInputListeners() {
-        document.addEventListener("keydown", e => this.handlePreviewInput(e, "key_pressed"), {capture: true});
-        document.addEventListener("keyup", e => this.handlePreviewInput(e, "key_released"), {capture: true});
+        document.addEventListener("keydown", e => this.handlePreviewInput(e, "key_pressed"), { capture: true });
+        document.addEventListener("keyup", e => this.handlePreviewInput(e, "key_released"), { capture: true });
         document.addEventListener("mousedown", e => this.handlePreviewInput(e, "mouse_pressed"));
         document.addEventListener("mouseup", e => this.handlePreviewInput(e, "mouse_released"));
-        document.addEventListener("wheel", e => this.handlePreviewInput(e, "mouse_wheel"), {passive: true});
+        document.addEventListener("wheel", e => this.handlePreviewInput(e, "mouse_wheel"), { passive: true });
     }
 
     handlePreviewInput(event, type) {
