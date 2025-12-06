@@ -76,7 +76,7 @@
                         <details class="fullscreen-details" id="cheatSheetDetails"
                             style="margin-top: -10px; margin-left: 10px; margin-bottom: 10px;">
                             <summary>cheat sheet</summary>
-                            <summary class="close-btn" id="closeCheatSheet">x</summary>
+                            <div class="close-btn  cs-btn" id="closeCheatSheet"></div>
 
                             <div style="margin-left: 10px; margin-top: 30px; padding: 5px;">
                                 <h2>key naming conventions</h2>
@@ -576,7 +576,7 @@
                                     value="100">
                                 <label for="pressscale">press scale</label>
                             </div>
-                            <div class="cs-form-group" >
+                            <div class="cs-form-group">
                                 <div class="cs-checkbox">
                                     <input type="checkbox" class="config-input" id="hidemouse">
                                     <label for="hidemouse" class="cs-checkbox__label">hide mouse buttons</label>
@@ -594,8 +594,8 @@
                             <div class="cs-slider">
                                 <div id="animationspeedvalue" class="value">1.0x</div>
                                 <div class="cs-ruler"></div>
-                                <input id="animationspeed" class="config-input" max="300" min="0" step="10"
-                                    type="range" value="100">
+                                <input id="animationspeed" class="config-input" max="300" min="0" step="10" type="range"
+                                    value="100">
                                 <label for="animationspeed">speed</label>
                             </div>
                             <div class="cs-form-group">
@@ -660,9 +660,20 @@
                     </div>
                     <details class="fullscreen-details" id="patchSheetDetails" style="margin-top: 10px;">
                         <summary style="color: #394533;">patch notes</summary>
-                        <summary class="close-btn" id="closePatchSheet">x</summary>
+                        <div class="close-btn cs-btn" id="closePatchSheet"></div>
 
                         <div class="patchnotes">
+                            <!-- 2025-12-06 -->
+                            <h1>2025-12-06</h1>
+                            <br>
+                            <h3>bug fixes</h3>
+                            <ul>
+                                <li>fix mouse_4 and mouse5 elements</li>
+                                <li>fix oversight in unpress logic causing wrong held keys to be unpressed</li>
+                            </ul>
+                            <br>
+
+                            <!-- 2025-12-04 -->
                             <h1>2025-12-04</h1>
                             <br>
                             <h3>bug fixes</h3>
@@ -681,6 +692,8 @@
                                 <li>invisible keys now support width classes <i>(key_escape:"invis":u2-25)</i></li>
                             </ul>
                             <br>
+
+                            <!-- 2025-12-03 -->
                             <h1>2025-12-03</h1>
                             <br>
                             <h3>bug fixes</h3>
@@ -696,6 +709,8 @@
                                 <li>mouse buttons support width classes including scroller</li>
                             </ul>
                             <br>
+
+                            <!-- 2025-12-02 -->
                             <h1>2025-12-02</h1>
                             <br>
                             <h3>bug fixes</h3>
@@ -707,16 +722,16 @@
                             <br>
                             <h3>quality of life</h3>
                             <ul>
-                                <li>add url cfg compression to save 50% size, legacy params should continue to work
-                                    fine</li>
-                                <li>add "edit this layout" button inside the overlay mode that shows on mouse hover
+                                <li>add url cfg compression to save 50% size, legacy params should continue to work fine
                                 </li>
-                                <li>rework how key states are handled to compare against an array of previous
-                                    websocket messages to prevent stuck keys on unfocused or busy (lagging) browser
-                                    src</li>
+                                <li>add "edit this layout" button inside the overlay mode that shows on mouse hover</li>
+                                <li>rework how key states are handled to compare against an array of previous websocket
+                                    messages to prevent stuck keys on unfocused or busy (lagging) browser src</li>
                                 <li>make sheet flyouts smaller</li>
                             </ul>
                             <br>
+
+                            <!-- 2025-12-01 -->
                             <h1>2025-12-01</h1>
                             <br>
                             <h3>bug fixes</h3>
@@ -735,17 +750,17 @@
                                     configurations (obs url still needs to be obtained through the copy button)</li>
                             </ul>
                             <br>
+
+                            <!-- 2025-11-30 -->
                             <h1>2025-11-30</h1>
                             <br>
                             <h3>bug fixes</h3>
                             <ul>
                                 <li>fixed mouse label not scaling correctly inside its element.</li>
-                                <li>added a dedicated “dummy” string to remove rows without needing
-                                    <code>invisible</code> tags.
-                                </li>
+                                <li>added a dedicated "dummy" string to remove rows without needing
+                                    <code>invisible</code> tags.</li>
                             </ul>
                             <br>
-
                             <h3>quality of life</h3>
                             <ul>
                                 <li>added patch notes viewer.</li>
@@ -755,23 +770,19 @@
                                 <li>default scroll arrows updated to a thicker style.</li>
                             </ul>
                             <br>
-
                             <h3>custom mouse row</h3>
                             <ul>
                                 <li>added fully customizable mouse row.</li>
-                                <li>implemented wide left mouse button: <code>mouse_left:"m1":mouse-wide</code>.
-                                </li>
+                                <li>implemented wide left mouse button: <code>mouse_left:"m1":mouse-wide</code>.</li>
                                 <li>added improved 3-label scroller: <code>scroller:"-":"↑":"↓"</code>.</li>
                                 <li>added right mouse button: <code>mouse_right:"m2"</code>.</li>
                             </ul>
                             <br>
-
                             <h3>cheat sheets</h3>
                             <ul>
                                 <li>added cheat sheet support for custom configuration elements.</li>
                             </ul>
                             <br>
-
                             <h3>key styling</h3>
                             <ul>
                                 <li>refactored internal key width styling system.</li>

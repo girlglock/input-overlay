@@ -93,7 +93,7 @@ export class WebSocketManager {
         const keysToCheck = new Set([...Object.keys(isKeyActive), ...Object.keys(this.keyStates)]);
 
         for (const keyId of keysToCheck) {
-            const isActive = isKeyActive[keyId] !== undefined ? isKeyActive[keyId] : false;
+            const isActive = isKeyActive[keyId] !== undefined ? isKeyActive[keyId] : (this.keyStates[keyId] === true);
             const wasActive = this.keyStates[keyId] === true;
 
             if (isActive !== wasActive && this.elements) {
@@ -130,6 +130,7 @@ export class WebSocketManager {
                 if (this.visualizer.previewElements.scrollDisplay) {
                     this.visualizer.handleScroll(dir);
                 }
+                return;
             }
 
             this.messageHistory.push(event);
@@ -137,12 +138,11 @@ export class WebSocketManager {
                 this.messageHistory.shift();
             }
 
-            if (event.event_type.startsWith("key_") || event.event_type.startsWith("mouse_")) {
+            if (event.event_type === "key_released" || event.event_type === "mouse_released" || event.event_type === "key_pressed" || event.event_type === "mouse_pressed") {
                 this.recalculateKeyStates();
             }
 
-        } catch (err) {
-        }
+        } catch (err) {}
     }
 
     clearStuckKeys() {

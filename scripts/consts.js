@@ -215,16 +215,16 @@ export const MOUSE_BUTTON_MAP = {
     1: "mouse_left",
     2: "mouse_right",
     3: "mouse_middle",
-    4: "mouse4",
-    5: "mouse5"
+    4: "mouse_4",
+    5: "mouse_5"
 };
 
 export const BROWSER_BUTTON_TO_KEY_NAME = {
     0: "mouse_left",
     1: "mouse_middle",
     2: "mouse_right",
-    3: "mouse4",
-    4: "mouse5"
+    3: "mouse_4",
+    4: "mouse_5"
 };
 
 export const DEFAULT_LAYOUT_STRINGS = {
