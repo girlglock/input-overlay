@@ -141,6 +141,16 @@ export class WebSocketManager {
                 return;
             }
 
+            if (event.event_type === "key_pressed" && this.visualizer.previewElements) {
+                const keyName = RAW_CODE_TO_KEY_NAME[event.rawcode];
+                if (keyName && this.visualizer.scrollerAliases && this.visualizer.scrollerAliases.has(keyName)) {
+                    const scrollDir = this.visualizer.scrollerAliases.get(keyName);
+                    if (this.visualizer.previewElements.scrollDisplay) {
+                        this.visualizer.handleScroll(scrollDir);
+                    }
+                }
+            }
+
             this.messageHistory.push(event);
             if (this.messageHistory.length > this.HISTORY_MAX_LENGTH) {
                 this.messageHistory.shift();
@@ -150,16 +160,22 @@ export class WebSocketManager {
                 this.recalculateKeyStates();
             }
 
-        } catch (err) {}
+        } catch (err) { }
     }
 
     clearStuckKeys() {
         if (!this.visualizer.previewElements) return;
         this.visualizer.previewElements.keyElements.forEach(elements => {
-            elements.forEach(el => el.classList.remove("active"));
+            elements.forEach(el => {
+                el.classList.remove("active");
+                this.visualizer.activeElements.delete(el);
+            });
         });
         this.visualizer.previewElements.mouseElements.forEach(elements => {
-            elements.forEach(el => el.classList.remove("active"));
+            elements.forEach(el => {
+                el.classList.remove("active");
+                this.visualizer.activeElements.delete(el);
+            });
         });
 
         this.visualizer.activeKeys.clear();
@@ -168,6 +184,7 @@ export class WebSocketManager {
         if (this.visualizer.previewElements.scrollDisplays && this.visualizer.previewElements.scrollDisplays.length > 0) {
             this.visualizer.previewElements.scrollDisplays.forEach((display, index) => {
                 display.classList.remove("active");
+                this.visualizer.activeElements.delete(display);
                 this.visualizer.previewElements.scrollArrows[index].textContent = display.dataset.defaultLabel || "-";
                 this.visualizer.previewElements.scrollCounts[index].textContent = "";
             });

@@ -6,6 +6,8 @@ export class OverlayVisualiser {
         this.previewElements = null;
         this.activeKeys = new Set();
         this.activeMouseButtons = new Set();
+        this.activeElements = new Set();
+        this.scrollerAliases = new Map();
         this.currentScrollCount = 0;
         this.lastScrollDirection = null;
         this.scrollTimeout = null;
@@ -14,15 +16,23 @@ export class OverlayVisualiser {
 
     updateElementState(el, keyName, isActive, activeSet) {
         if (isActive) {
-            if (!activeSet.has(keyName)) {
+            if (!this.activeElements.has(el)) {
                 el.classList.add("active");
-                activeSet.add(keyName);
+                this.activeElements.add(el);
                 this.Z_INDEX_COUNTER++;
                 el.style.zIndex = this.Z_INDEX_COUNTER.toString();
             }
+            activeSet.add(keyName);
         } else {
             el.classList.remove("active");
-            activeSet.delete(keyName);
+            this.activeElements.delete(el);
+            const elementsMap = this.previewElements.keyElements.get(keyName) || this.previewElements.mouseElements.get(keyName);
+            if (elementsMap) {
+                const anyActive = elementsMap.some(elem => this.activeElements.has(elem));
+                if (!anyActive) {
+                    activeSet.delete(keyName);
+                }
+            }
         }
     }
 
@@ -45,74 +55,83 @@ export class OverlayVisualiser {
         }
 
         styleEl.textContent = `
-            :root {
-                --active-color: ${opts.activecolor};
-                --font-weight: ${fontWeight};
-                --gap-modifier: ${gapModifier};
-            }
-            .key, .mouse-btn, .scroll-display {
-                border-radius: ${opts.borderradius}px !important;
-                color: ${opts.inactivecolor} !important;
-                background: ${opts.backgroundcolor} !important;
-                border-color: ${opts.outlinecolor} !important;
-                transition: all ${animDuration} cubic-bezier(0.4,0,0.2,1) !important;
-                position: relative !important;
-                font-weight: ${fontWeight} !important;
-            }
-            .key.active, .mouse-btn.active, .scroll-display.active {
-                border-color: ${opts.activecolor} !important;
-                box-shadow: 0 2px ${opts.glowradius}px ${opts.activecolor} !important;
-                color: ${opts.fontcolor} !important;
-                transform: translateY(-2px) scale(${pressscalevalue}) !important;
-                background: ${opts.activebgcolor} !important;
-            }
-            .key.active::before, .mouse-btn.active::before, .scroll-display.active::before {
-                background: linear-gradient(135deg, ${activeColorForGradient}, ${activeColorForGradient}) !important;
-            }
-
-            .mouse-btn.mouse-side {
-                padding: 5px;
-            }
-            .mouse-btn.mouse-side span {
-                background: ${opts.backgroundcolor} !important;
-                border-color: ${opts.outlinecolor} !important;
-                color: ${opts.inactivecolor} !important;
-                width: 18px !important;
-                transition: all ${animDuration} cubic-bezier(0.4,0,0.2,1) !important;
-            }
-            .mouse-btn.mouse-side span.active {
-                border-color: ${opts.activecolor} !important;
-                box-shadow: 0 0 ${opts.glowradius}px ${opts.activecolor} !important;
-                color: ${opts.fontcolor} !important;
-                background: ${opts.activebgcolor} !important;
-                transform: scale(${pressscalevalue}) !important;
-            }
-
-            .scroll-count {
-                color: ${opts.fontcolor} !important;
-                display: ${opts.hidescrollcombo ? "none" : "flex"} !important;
-                font-weight: ${fontWeight} !important;
-            }
-            .mouse-section {
-                display: ${opts.hidemouse ? "none" : "flex"} !important;
-            }
-        `;
-    }
-
-    applyTransformations(targetElement, settings) {
-        const scaleVal = parseInt(settings.scale) / 100;
-        const opacityVal = parseInt(settings.opacity) / 100;
-
-        targetElement.style.transform = `scale(${scaleVal})`;
-        targetElement.style.opacity = opacityVal.toString();
-        targetElement.style.transformOrigin = document.getElementById("overlay").classList.contains("show") ? "top left" : "center";
-    }
-
-    applyContainerTransformations(settings) {
-        const previewContainer = document.querySelector(".preview-container") || document.getElementById("inner-overlay-container");
-        if (previewContainer) {
-            this.applyTransformations(previewContainer, settings);
+        :root {
+            --active-color: ${opts.activecolor};
+            --font-weight: ${fontWeight};
+            --gap-modifier: ${gapModifier};
         }
+        .key, .mouse-btn, .scroll-display {
+            border-radius: ${opts.borderradius}px !important;
+            color: ${opts.inactivecolor} !important;
+            background: ${opts.backgroundcolor} !important;
+            border-color: ${opts.outlinecolor} !important;
+            transition: all ${animDuration} cubic-bezier(0.4,0,0.2,1) !important;
+            position: relative !important;
+            font-weight: ${fontWeight} !important;
+        }
+        .key.active, .mouse-btn.active, .scroll-display.active {
+            border-color: ${opts.activecolor} !important;
+            box-shadow: 0 2px ${opts.glowradius}px ${opts.activecolor} !important;
+            color: ${opts.fontcolor} !important;
+            transform: translateY(-2px) scale(${pressscalevalue}) !important;
+            background: ${opts.activebgcolor} !important;
+        }
+        .key.active::before, .mouse-btn.active::before, .scroll-display.active::before {
+            background: linear-gradient(135deg, ${activeColorForGradient}, ${activeColorForGradient}) !important;
+        }
+
+        .key img, .mouse-btn img, .scroll-display img {
+            max-width: 200% !important;
+            max-height: 200% !important;
+            width: auto !important;
+            height: auto !important;
+            object-fit: contain !important;
+            display: block !important;
+            margin: auto !important;
+            pointer-events: none !important;
+        }
+        
+        .key, .mouse-btn, .scroll-display {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        .scroll-arrow img {
+            max-width: 90% !important;
+            max-height: 90% !important;
+        }
+
+        .mouse-btn.mouse-side {
+            padding: 5px;
+        }
+        .mouse-btn.mouse-side span {
+            background: ${opts.backgroundcolor} !important;
+            border-color: ${opts.outlinecolor} !important;
+            color: ${opts.inactivecolor} !important;
+            width: 18px !important;
+            transition: all ${animDuration} cubic-bezier(0.4,0,0.2,1) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .mouse-btn.mouse-side span.active {
+            border-color: ${opts.activecolor} !important;
+            box-shadow: 0 0 ${opts.glowradius}px ${opts.activecolor} !important;
+            color: ${opts.fontcolor} !important;
+            background: ${opts.activebgcolor} !important;
+            transform: scale(${pressscalevalue}) !important;
+        }
+
+        .scroll-count {
+            color: ${opts.fontcolor} !important;
+            display: ${opts.hidescrollcombo ? "none" : "flex"} !important;
+            font-weight: ${fontWeight} !important;
+        }
+        .mouse-section {
+            display: ${opts.hidemouse ? "none" : "flex"} !important;
+        }
+    `;
     }
 
     createKeyOrButtonElement(elementDef) {
@@ -121,7 +140,7 @@ export class OverlayVisualiser {
         let baseClass = "key";
 
         el.className = baseClass + (elementDef.class ? " " + elementDef.class : "");
-        el.textContent = elementDef.label;
+        if (elementDef.label !== undefined && elementDef.label !== null) el.innerHTML = elementDef.label;
         el.dataset.key = elementDef.key;
 
         return el;
@@ -135,7 +154,7 @@ export class OverlayVisualiser {
 
         const scrollArrow = document.createElement("span");
         scrollArrow.className = "scroll-arrow";
-        scrollArrow.textContent = labels[0];
+        scrollArrow.innerHTML = labels[0];
 
         const scrollCount = document.createElement("span");
         scrollCount.className = "scroll-count";
@@ -147,7 +166,7 @@ export class OverlayVisualiser {
         scrollDisplay.dataset.upLabel = labels[1];
         scrollDisplay.dataset.downLabel = labels[2];
 
-        return {el: scrollDisplay, arrow: scrollArrow, count: scrollCount};
+        return { el: scrollDisplay, arrow: scrollArrow, count: scrollCount };
     }
 
     createSideMouseButton(labelM4, labelM5, customClass) {
@@ -155,16 +174,16 @@ export class OverlayVisualiser {
         el.className = "mouse-btn mouse-side" + (customClass ? " " + customClass : "");
 
         const m4El = document.createElement("span");
-        m4El.textContent = labelM4;
+        m4El.innerHTML = labelM4;
         m4El.dataset.key = "mouse4";
 
         const m5El = document.createElement("span");
-        m5El.textContent = labelM5;
+        m5El.innerHTML = labelM5;
         m5El.dataset.key = "mouse5";
         el.appendChild(m5El);
         el.appendChild(m4El);
 
-        return {el, m4El, m5El};
+        return { el, m4El, m5El };
     }
 
     buildInterface(keyboardContainer, mouseContainer, layoutDef, mouseLayoutDef) {
@@ -189,9 +208,11 @@ export class OverlayVisualiser {
         let scrollArrows = [];
         let scrollCounts = [];
 
+        this.scrollerAliases.clear();
+
         const allRows = [...layoutDef];
         if (mouseLayoutDef && mouseLayoutDef.length > 0) {
-            allRows.push({isMouse: true, items: mouseLayoutDef});
+            allRows.push({ isMouse: true, items: mouseLayoutDef });
         }
 
         allRows.forEach((row) => {
@@ -211,6 +232,28 @@ export class OverlayVisualiser {
                         mouseElements.set("mouse_middle", []);
                     }
                     mouseElements.get("mouse_middle").push(display.el);
+
+                    if (item.keys && item.keys.length > 0) {
+                        item.keys.forEach((keyName, index) => {
+                            if (keyName !== "scroller") {
+                                const isMouseButton = keyName.startsWith("mouse_");
+                                const targetMap = isMouseButton ? mouseElements : keyElements;
+
+                                if (!targetMap.has(keyName)) {
+                                    targetMap.set(keyName, []);
+                                }
+                                targetMap.get(keyName).push(display.el);
+
+                                if (index === 1) {
+                                    this.scrollerAliases.set(keyName, -1);
+                                } else if (index === 2) {
+                                    this.scrollerAliases.set(keyName, 1);
+                                } else {
+                                    this.scrollerAliases.set(keyName, 1);
+                                }
+                            }
+                        });
+                    }
                 } else if (item.type === "mouse_side") {
                     const sideBtn = this.createSideMouseButton(item.labels[0], item.labels[1], item.class);
                     rowEl.appendChild(sideBtn.el);
@@ -326,7 +369,7 @@ export class OverlayVisualiser {
             this.lastScrollDirection = null;
             this.currentScrollCount = 0;
 
-            arrow.textContent = display.dataset.defaultLabel || "-";
+            arrow.innerHTML = display.dataset.defaultLabel || "-";
 
             const containerWidth = display.clientWidth - 16;
             const textWidth = this.utils.measureTextWidth(arrow);
@@ -368,7 +411,7 @@ export class OverlayVisualiser {
             const upLabel = scrollDisplay.dataset.upLabel || "↑";
             const downLabel = scrollDisplay.dataset.downLabel || "↓";
 
-            scrollArrow.textContent = dir === -1 ? upLabel : downLabel;
+            scrollArrow.innerHTML = dir === -1 ? upLabel : downLabel;
 
             const containerWidth = scrollDisplay.clientWidth - 16;
             const textWidth = scrollArrow.scrollWidth;

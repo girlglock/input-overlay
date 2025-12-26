@@ -71,414 +71,494 @@
                                 <input class="cs-input config-input" id="wsport" type="number" value="16899">
                             </div>
                         </div>
+                        <div class="cs-form-group" style="margin-top: 10px;">
+                            <label class="cs-input__label" for="generatedlink" style="display: block;">obs
+                                browser source
+                                url</label>
+                            <div class="link-container" style="gap: 10px;">
+                                <input class="cs-input" id="generatedlink" type="text">
+                            </div>
+                        </div>
+                        <div class="nested-grid-2" style="margin-top: 10px;">
+                            <button class="cs-btn" id="loadbtn" style="min-width: 88px;">⟳ load url</button>
+                            <button class="cs-btn" id="copybtn" style="min-width: 88px;">⎘ copy url</button>
+                        </div>
                     </fieldset>
                     <fieldset class="cs-fieldset">
                         <legend>custom layout</legend>
-                        <details class="fullscreen-details" id="cheatSheetDetails"
-                            style="margin-top: -10px; margin-left: 10px; margin-bottom: 10px;">
-                            <summary>cheat sheet</summary>
-                            <div class="close-btn  cs-btn" id="closeCheatSheet"></div>
-
-                            <div style="margin-left: 10px; margin-top: 30px; padding: 5px;">
-                                <h2>key naming conventions</h2>
-                                <p>use the <b>internal name</b> when defining a key in your custom layout string. the basic syntax is:</p>
-                                <blockquote class="cs-note" style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
-                                    🛈 comma separated for multiple keys<br>
-                                    <code>[internal_name]:"[label]":[width class]</code>
-                                </blockquote>
-
-                                <h3 style="margin-top: 20px;">multi-key bindings</h3>
-                                <p>you can bind multiple keys to the same visual element using the pipe <code>|</code> separator:</p>
-                                <blockquote class="cs-note" style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
-                                    <code>key_w|mouse_4:"W"</code> - both W and mouse4 activate the same element<br>
-                                    <code>key_q|key_e:"use"</code> - both Q and E show "use"<br>
-                                    <code>key_c|key_leftcrtl:"duck"</code> - both C and CTRL show "duck"
-                                </blockquote>
-
-                                <h3 style="margin-top: 20px;">standard keys (a-z, 0-9, and symbols)</h3>
-                                <table class="key-list-table">
-                                    <thead>
-                                    <tr>
-                                        <th>label example</th>
-                                        <th>internal name</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr>
-                                        <td>a - z</td>
-                                        <td><code>key_a</code> - <code>key_z</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>0 - 9</td>
-                                        <td><code>key_0</code> - <code>key_9</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>` (tilde)</td>
-                                        <td><code>key_backtick</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>- (minus)</td>
-                                        <td><code>key_minus</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>= (equals)</td>
-                                        <td><code>key_equals</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>[ (open bracket)</td>
-                                        <td><code>key_openbracket</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>] (close bracket)</td>
-                                        <td><code>key_closebracket</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>\ (backslash)</td>
-                                        <td><code>key_backslash</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>; (semicolon)</td>
-                                        <td><code>key_semicolon</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>' (apostrophe)</td>
-                                        <td><code>key_apostrophe</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>, (comma)</td>
-                                        <td><code>key_comma</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>. (period)</td>
-                                        <td><code>key_period</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>/ (slash)</td>
-                                        <td><code>key_slash</code></td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-
-                                <h3 style="margin-top: 20px;">control & special keys</h3>
-                                <table class="key-list-table">
-                                    <thead>
-                                    <tr>
-                                        <th>label example</th>
-                                        <th>internal name</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr>
-                                        <td>esc</td>
-                                        <td><code>key_escape</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>tab</td>
-                                        <td><code>key_tab</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>caps</td>
-                                        <td><code>key_capslock</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>shift (left/right)</td>
-                                        <td><code>key_leftshift</code>, <code>key_rightshift</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>ctrl (left/right)</td>
-                                        <td><code>key_leftctrl</code>, <code>key_rightctrl</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>alt (left/right)</td>
-                                        <td><code>key_leftalt</code>, <code>key_rightalt</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>win/meta (left/right)</td>
-                                        <td><code>key_leftwin</code>, <code>key_rightwin</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>space</td>
-                                        <td><code>key_space</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>enter</td>
-                                        <td><code>key_enter</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>backspace</td>
-                                        <td><code>key_backspace</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>menu</td>
-                                        <td><code>key_menu</code></td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-
-                                <h3 style="margin-top: 20px;">function & utility keys</h3>
-                                <table class="key-list-table">
-                                    <thead>
-                                    <tr>
-                                        <th>label example</th>
-                                        <th>internal name</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr>
-                                        <td>f1 - f12</td>
-                                        <td><code>key_f1</code> - <code>key_f12</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>prtscn</td>
-                                        <td><code>key_printscreen</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>scrlck</td>
-                                        <td><code>key_scrolllock</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>pause</td>
-                                        <td><code>key_pause</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>ins</td>
-                                        <td><code>key_insert</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>del</td>
-                                        <td><code>key_delete</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>home / end</td>
-                                        <td><code>key_home</code>, <code>key_end</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>pgup / pgdn</td>
-                                        <td><code>key_pageup</code>, <code>key_pagedown</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>arrows</td>
-                                        <td><code>key_leftarrow</code>, <code>key_uparrow</code>, <code>key_rightarrow</code>, <code>key_downarrow</code></td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-
-                                <h3 style="margin-top: 20px;">numpad keys</h3>
-                                <table class="key-list-table">
-                                    <thead>
-                                    <tr>
-                                        <th>label example</th>
-                                        <th>internal name</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr>
-                                        <td>numlock</td>
-                                        <td><code>key_numlock</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>/ * - +</td>
-                                        <td><code>key_numpad_divide</code>, <code>key_numpad_multiply</code>, <code>key_numpad_subtract</code>, <code>key_numpad_add</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>7 - 9</td>
-                                        <td><code>key_numpad_7</code>, <code>key_numpad_8</code>, <code>key_numpad_9</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>4 - 6</td>
-                                        <td><code>key_numpad_4</code>, <code>key_numpad_5</code>, <code>key_numpad_6</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>1 - 3</td>
-                                        <td><code>key_numpad_1</code>, <code>key_numpad_2</code>, <code>key_numpad_3</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>0 . enter</td>
-                                        <td><code>key_numpad_0</code>, <code>key_numpad_decimal</code>, <code>key_numpad_enter</code></td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-
-                                <h3 style="margin-top: 20px;">mouse and scroller identifiers</h3>
-                                <table class="key-list-table">
-                                    <thead>
-                                    <tr>
-                                        <th>label example</th>
-                                        <th>internal name / type</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr>
-                                        <td>m1 (left)</td>
-                                        <td><code>mouse_left</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>m2 (right)</td>
-                                        <td><code>mouse_right</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>m3 (middle/wheel)</td>
-                                        <td><code>mouse_middle</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>m4</td>
-                                        <td><code>mouse_4</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>m5</td>
-                                        <td><code>mouse_5</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>scroller display</td>
-                                        <td><code>scroller:"default":"up":"down"</code> (3 labels required)</td>
-                                    </tr>
-                                    <tr>
-                                        <td>side button combo</td>
-                                        <td><code>mouse_side:"m5":"m4"</code> (2 labels required)</td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-
-                                <h3 style="margin-top: 20px;">width classes</h3>
-                                <p>use these for the optional <code>[width class]</code> part of the key definition:</p>
-                                <blockquote class="cs-note" style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
-                                    🛈 <code>u0-01</code> to <code>u7</code> - increments of 0.01u available
-                                </blockquote>
-                                <table class="key-list-table">
-                                    <thead>
-                                    <tr>
-                                        <th>class name</th>
-                                        <th>width</th>
-                                        <th>notes</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr>
-                                        <td>(none)</td>
-                                        <td>1u</td>
-                                        <td>default width for all keys</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>u1-25</code></td>
-                                        <td>1.25u</td>
-                                        <td>common for ctrl, alt on some layouts</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>u1-5</code></td>
-                                        <td>1.5u</td>
-                                        <td>common for tab, ctrl, alt</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>u1-75</code></td>
-                                        <td>1.75u</td>
-                                        <td>common for caps lock</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>u2</code></td>
-                                        <td>2u</td>
-                                        <td>common for shift, backspace, enter</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>u2-25</code></td>
-                                        <td>2.25u</td>
-                                        <td>common for larger shift keys</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>u2-47</code></td>
-                                        <td>2.47u</td>
-                                        <td>optimized for mouse buttons</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>u3</code></td>
-                                        <td>3u</td>
-                                        <td>used for compact space bars</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>u3-33</code></td>
-                                        <td>3.33u</td>
-                                        <td>balanced space bar size</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>u6-25</code></td>
-                                        <td>6.25u</td>
-                                        <td>full size space bar</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>mouse-wide</code></td>
-                                        <td>special</td>
-                                        <td>optimized width for wide mouse buttons</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>invisible</code></td>
-                                        <td>1u</td>
-                                        <td>key exists for press detection but is hidden. supports width classes like <code>u2</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>dummy</code></td>
-                                        <td>none</td>
-                                        <td>placeholder to skip positions without creating visible elements</td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-
-                                <h3 style="margin-top: 20px;">special syntax</h3>
-                                <table class="key-list-table">
-                                    <thead>
-                                    <tr>
-                                        <th>syntax</th>
-                                        <th>description</th>
-                                        <th>example</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr>
-                                        <td><code>invisible</code></td>
-                                        <td>creates an invisible spacer</td>
-                                        <td><code>invisible</code> or with width: <code>key_escape:"invis":u2</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>dummy</code></td>
-                                        <td>empty row placeholder</td>
-                                        <td><code>dummy</code> (used to remove rows)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><code>|</code></td>
-                                        <td>multi-key binding separator</td>
-                                        <td><code>key_w|key_c:"C"</code></td>
-                                    </tr>
-                                    </tbody>
-                                </table>
+                        <div class="nested-grid-2">
+                            <div class="cs-form-group" style="margin-top: 10px;">
+                                <label class="cs-input__label" for="layoutPresets" style="display: block;">TEMPLATES</label>
+                                <select class="cs-select" id="layoutPresets" style="max-height: 26px;">
+                                    <option value="0" selected>-</option>
+                                    <option
+                                        value="https://overlay.girlglock.com?cfg=eNplj99KwzAUxt_lXORqg6Z_NjnQizo3FDbQOfBS0jTtwrKmNu3GHkB8DPENfQSTZsh0PdB8-ZLvd04Y7-RBcK10mya8nEwLImt2Yd4ErkjO-K5qdV8X3qbMVZ4QfzevvB1P82JCie47JeszIS5dkVLXnTfK4SOV0sc0jEnLCtmbNCBNK4wxnCmRUhoQ0whRpFEQkIo1e13IUgrb2O5zrQqHSynhven0fslOtuVaH2m6E6dXYSGNQJD1QRoYOYsiUK9ChNCrCCHyKkaI4T8rHFgdyxE22S1gT8fJcPsN4cnnjggvXtluc69ahPUVKxpYSpSd2cqyQ3i-f1hsLDMcMgwh82ljj7wqEO68KhEWV8Tkl8i7ViHMNuvlxYzugCnbKFtuLmzTMG5HfX7MZnNrR-Mo-gNe6d6IdO_-AwJhRd2U43g6MrzVSgn7vlUECN-fX-9--YCRT7Sy2rpIeI78AJYqzXQ">
+                                        qwerty</option>
+                                    <option
+                                        value="http://127.0.0.1:3000/index.html?cfg=eNptUMtKxDAU_ZcssqrQTNvpEMhCdKUWRBlcDmkenTBpU5LGUnArfob4h36CTeJCR3Mhj3PP4xLKJvUsmNHGkorJbc2hGugPcJeHgi1lp84aP_AEIxqqrWDitl2Cy7rlWwSNn7Qavh1KGQpKM0wJkHHBTpuZbEpoKVfekRyOVjjnGNWCIJRDNwrBSZHnsKNjb7iSSqzB67s1mgc7guBRcdEb71YJZN5Npr-jyxr_YGZEuO_75RzekMg_aCEnDBoEspNYDjMGTyBLHau6Y2gV4FxbkMClGFwmlcPgMd04Btd_6OX_E1TRhb2EPUzBJqtX-f7qFmCPLqo6c8warYWNFDdSJjC42Tf3AIPP94_XdLwl9u6XfRP_IsZ-AX7Xqww">
+                                        wasd
+                                        + duck + jump + mouse</option>
+                                    <option
+                                        value="https://overlay.girlglock.com?cfg=eNptUEtuwyAUvMtbsHIl27GTColFlKarRGqTSF1GmI-Dgo0LplEOUPUYVW_YI9SYVoqa8BYMA29mHpT16k0wo40lJZPTGUeqpRfkfRoKVZQda2t8yyOd0VBVieLbqo50Mav4NEPG91q1vwqFDIWkaftIyHGhWpsTyQtkKVfekRR1VjjnGNWCZFmKXCcEJ5M0RTXtGsOVVGIwHs6V0TzIkQwdFBeN8W5oQcy73jQreh7sN-aUEe6b5vyfzslRnPevGJ4hCeiE4SUigWEZkcWwgWTU3WshewzrDLC_spiMWhTDPPY5DNuIOIaHiCSGR0gcs0ZrMQivJ4Dh-_PrPW4ft3SL29HL0S4EYr3VGBa7zSq03-Vl8ndD9ZB2vtpd8q6jbBhu-zRfLEd-WvwOZ1V9CNPlVynW46eOMX4A00G_vw">
+                                        qwerty minimal</option>
+                                    <option
+                                        value="https://overlay.girlglock.com?cfg=eNptjUtOwzAURffyBh51EDdJiyx5gNQhncCAYeVvsOrEqT-NsgDEMhA7ZAnEMQNU6ivZfkdH7zIRzVUJZ52nrdC7vURmYH_gQ5WDOBPnzrs0yIIxy-EtKi7vCm72XO4wcilaM_xuaHQO0m6IBej1oM66iW4b5Jk0KdAKjV6FEASzimJcoTAqJWldVahjY--k0UYtxcvMnZV5HcVIpBBd_8TmpfLZTZjK1PfzLd7Ss5pPFwIXIGa4mmC4VZvMJgKvcKvXq84IPMIqBQIv5ScJHP7pzf3S9g4-uhQU7fN9skpHAkcMmyC8s1b5ZaqBwPfn13t5PoAkvCm6N91bXI0fXeqdiQ">
+                                        wasd
+                                        + mouse</option>
+                                    <option
+                                        value="https://overlay.girlglock.com?cfg=eNplkst200AMht9FC7MhYOdecbxIQ9qGpiEkKeVSTs_YHidDbY_jS9Ow4gF4IBa8U18B2XKKSTybb-SZf_RLEm6mHqSrA53YHdfv9jxDRaIW7JvFMhzh3q8SnUcehy1RLKdj8FlnxeF2z_G6lqHzLFBRpdD2i2X4Oso44JefsQr01m62jUR4Kk9t04gTmaapKwJpW5ZppLGUnt0yTWMl4lB7yleSHqa9owOvkLMtY608Geo8pSuGm6eZDidiR8_P9day7-XuTpJgLBFGiyG8LAIWgsXURGgytRBaTG2ENlMHocPURegy9RB6TH2EPtMJwgmTiWAyhSrKU4QG7-QmFwFtbd4WpUxj4VJSp4Ph5WI2GI4At41mo5MfemiWHjLhICwHp3SK7JYiG4QPLLdFuKneIZdMCcKcKaOLTDuEz0w5wjWTQhgzaYT3TDHCjCmQfnbnJJSuJJmvlbRarWvRbzVPgUjXCLe3pZkjK63SCjUjDbR7jzAczBaA8jFLROPZlkAYsCLVa8HkIbxl8hHOmFYI50z04gXTd4R3TKR-WVlAmFR6MlTF-EUIbziyyXVGJXtRFS_KJJVtNF2O5tyN3nE72va-Lm6WkPbiYny23PeulPmB8IUFHxE-MblklukB4WNVMGo-EyU0raYG4aq6ocOQSvH059fT759VW2SiNJXiVWWHi_261pR0rfysllPrKP3OQfrD5XxSm6nix1ZRPjfj6UFYBKQ8mCxr4WqEn8e3l_9LZX_8fF67EMqIJu9qNL2uBcvj_2XTsIrK_wXoqoiM">
+                                        full
+                                        qwerty</option>
+                                </select>
                             </div>
-                        </details>
+                            <details class="fullscreen-details" id="cheatSheetDetails"
+                                style="margin-top: 30px; margin-left: 40px;">
+                                <summary>cheat sheet</summary>
+                                <div class="close-btn  cs-btn" id="closeCheatSheet"></div>
+
+                                <div style="margin-left: 10px; margin-top: 30px; padding: 5px;">
+                                    <h2>key naming conventions</h2>
+                                    <p>use the <b>internal name</b> when defining a key in your custom layout string.
+                                        the
+                                        basic syntax is:</p>
+                                    <blockquote class="cs-note"
+                                        style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
+                                        🛈 comma separated for multiple keys<br>
+                                        <code>[internal_name]:"[label]":[width class]</code>
+                                    </blockquote>
+
+                                    <h3 style="margin-top: 20px;">multi-key bindings</h3>
+                                    <p>you can bind multiple keys to the same visual element using the pipe
+                                        <code>|</code>
+                                        separator:
+                                    </p>
+                                    <blockquote class="cs-note"
+                                        style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
+                                        <code>key_w|mouse_4:"W"</code> - both W and mouse4 activate the same element<br>
+                                        <code>key_q|key_e:"use"</code> - both Q and E show "use"<br>
+                                        <code>key_c|key_leftcrtl:"duck"</code> - both C and CTRL show "duck"
+                                    </blockquote>
+
+                                    <h3 style="margin-top: 20px;">standard keys (a-z, 0-9, and symbols)</h3>
+                                    <table class="key-list-table">
+                                        <thead>
+                                            <tr>
+                                                <th>label example</th>
+                                                <th>internal name</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>a - z</td>
+                                                <td><code>key_a</code> - <code>key_z</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>0 - 9</td>
+                                                <td><code>key_0</code> - <code>key_9</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>` (tilde)</td>
+                                                <td><code>key_backtick</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>- (minus)</td>
+                                                <td><code>key_minus</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>= (equals)</td>
+                                                <td><code>key_equals</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>[ (open bracket)</td>
+                                                <td><code>key_openbracket</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>] (close bracket)</td>
+                                                <td><code>key_closebracket</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>\ (backslash)</td>
+                                                <td><code>key_backslash</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>; (semicolon)</td>
+                                                <td><code>key_semicolon</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>' (apostrophe)</td>
+                                                <td><code>key_apostrophe</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>, (comma)</td>
+                                                <td><code>key_comma</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>. (period)</td>
+                                                <td><code>key_period</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>/ (slash)</td>
+                                                <td><code>key_slash</code></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 style="margin-top: 20px;">control & special keys</h3>
+                                    <table class="key-list-table">
+                                        <thead>
+                                            <tr>
+                                                <th>label example</th>
+                                                <th>internal name</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>esc</td>
+                                                <td><code>key_escape</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>tab</td>
+                                                <td><code>key_tab</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>caps</td>
+                                                <td><code>key_capslock</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>shift (left/right)</td>
+                                                <td><code>key_leftshift</code>, <code>key_rightshift</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>ctrl (left/right)</td>
+                                                <td><code>key_leftctrl</code>, <code>key_rightctrl</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>alt (left/right)</td>
+                                                <td><code>key_leftalt</code>, <code>key_rightalt</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>win/meta (left/right)</td>
+                                                <td><code>key_leftwin</code>, <code>key_rightwin</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>space</td>
+                                                <td><code>key_space</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>enter</td>
+                                                <td><code>key_enter</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>backspace</td>
+                                                <td><code>key_backspace</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>menu</td>
+                                                <td><code>key_menu</code></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 style="margin-top: 20px;">function & utility keys</h3>
+                                    <table class="key-list-table">
+                                        <thead>
+                                            <tr>
+                                                <th>label example</th>
+                                                <th>internal name</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>f1 - f12</td>
+                                                <td><code>key_f1</code> - <code>key_f12</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>prtscn</td>
+                                                <td><code>key_printscreen</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>scrlck</td>
+                                                <td><code>key_scrolllock</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>pause</td>
+                                                <td><code>key_pause</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>ins</td>
+                                                <td><code>key_insert</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>del</td>
+                                                <td><code>key_delete</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>home / end</td>
+                                                <td><code>key_home</code>, <code>key_end</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>pgup / pgdn</td>
+                                                <td><code>key_pageup</code>, <code>key_pagedown</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>arrows</td>
+                                                <td><code>key_leftarrow</code>, <code>key_uparrow</code>,
+                                                    <code>key_rightarrow</code>, <code>key_downarrow</code>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 style="margin-top: 20px;">numpad keys</h3>
+                                    <table class="key-list-table">
+                                        <thead>
+                                            <tr>
+                                                <th>label example</th>
+                                                <th>internal name</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>numlock</td>
+                                                <td><code>key_numlock</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>/ * - +</td>
+                                                <td><code>key_numpad_divide</code>, <code>key_numpad_multiply</code>,
+                                                    <code>key_numpad_subtract</code>, <code>key_numpad_add</code>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>7 - 9</td>
+                                                <td><code>key_numpad_7</code>, <code>key_numpad_8</code>,
+                                                    <code>key_numpad_9</code>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>4 - 6</td>
+                                                <td><code>key_numpad_4</code>, <code>key_numpad_5</code>,
+                                                    <code>key_numpad_6</code>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>1 - 3</td>
+                                                <td><code>key_numpad_1</code>, <code>key_numpad_2</code>,
+                                                    <code>key_numpad_3</code>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>0 . enter</td>
+                                                <td><code>key_numpad_0</code>, <code>key_numpad_decimal</code>,
+                                                    <code>key_numpad_enter</code>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 style="margin-top: 20px;">mouse and scroller identifiers</h3>
+                                    <table class="key-list-table">
+                                        <thead>
+                                            <tr>
+                                                <th>label example</th>
+                                                <th>internal name / type</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>m1 (left)</td>
+                                                <td><code>mouse_left</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>m2 (right)</td>
+                                                <td><code>mouse_right</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>m3 (middle/wheel)</td>
+                                                <td><code>mouse_middle</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>m4</td>
+                                                <td><code>mouse_4</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>m5</td>
+                                                <td><code>mouse_5</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>scroller display</td>
+                                                <td><code>scroller:"default":"up":"down"</code> (3 labels required)</td>
+                                            </tr>
+                                            <tr>
+                                                <td>side button combo</td>
+                                                <td><code>mouse_side:"m5":"m4"</code> (2 labels required)</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 style="margin-top: 20px;">width classes</h3>
+                                    <p>use these for the optional <code>[width class]</code> part of the key definition:
+                                    </p>
+                                    <blockquote class="cs-note"
+                                        style="border-left: 5px solid #8b5cf6; padding: 10px; margin: 15px 0;">
+                                        🛈 <code>u0-01</code> to <code>u7</code> - increments of 0.01u available
+                                    </blockquote>
+                                    <table class="key-list-table">
+                                        <thead>
+                                            <tr>
+                                                <th>class name</th>
+                                                <th>width</th>
+                                                <th>notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>(none)</td>
+                                                <td>1u</td>
+                                                <td>default width for all keys</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>u1-25</code></td>
+                                                <td>1.25u</td>
+                                                <td>common for ctrl, alt on some layouts</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>u1-5</code></td>
+                                                <td>1.5u</td>
+                                                <td>common for tab, ctrl, alt</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>u1-75</code></td>
+                                                <td>1.75u</td>
+                                                <td>common for caps lock</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>u2</code></td>
+                                                <td>2u</td>
+                                                <td>common for shift, backspace, enter</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>u2-25</code></td>
+                                                <td>2.25u</td>
+                                                <td>common for larger shift keys</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>u2-47</code></td>
+                                                <td>2.47u</td>
+                                                <td>optimized for mouse buttons</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>u3</code></td>
+                                                <td>3u</td>
+                                                <td>used for compact space bars</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>u3-33</code></td>
+                                                <td>3.33u</td>
+                                                <td>balanced space bar size</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>u6-25</code></td>
+                                                <td>6.25u</td>
+                                                <td>full size space bar</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>mouse-wide</code></td>
+                                                <td>special</td>
+                                                <td>optimized width for wide mouse buttons</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>invisible</code></td>
+                                                <td>1u</td>
+                                                <td>key exists for press detection but is hidden. supports width classes
+                                                    like <code>u2</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>dummy</code></td>
+                                                <td>none</td>
+                                                <td>placeholder to skip positions without creating visible elements</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 style="margin-top: 20px;">special syntax</h3>
+                                    <table class="key-list-table">
+                                        <thead>
+                                            <tr>
+                                                <th>syntax</th>
+                                                <th>description</th>
+                                                <th>example</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><code>invisible</code></td>
+                                                <td>creates an invisible spacer</td>
+                                                <td><code>invisible</code> or with width:
+                                                    <code>key_escape:"invis":u2</code>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>dummy</code></td>
+                                                <td>empty row placeholder</td>
+                                                <td><code>dummy</code> (used to remove rows, this is done for backwards compatibility reasons with older links that didnt have custom rows yet)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><code>|</code></td>
+                                                <td>multi-key binding separator</td>
+                                                <td><code>key_w|key_c:"C"</code></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </details>
+                        </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow1">top row</label>
-                            <textarea class="cs-input config-input" id="customLayoutRow1" rows="2"
-                                spellcheck="false"></textarea>
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                                <textarea class="cs-input config-input" id="customLayoutRow1" rows="2"
+                                    spellcheck="false"></textarea>
+                                <button class="cs-btn" style="max-width: 40px;" id="addKey1">+</button>
+                            </div>
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow2">qwery row</label>
-                            <textarea class="cs-input config-input" id="customLayoutRow2" rows="2"
-                                spellcheck="false"></textarea>
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                                <textarea class="cs-input config-input" id="customLayoutRow2" rows="2"
+                                    spellcheck="false"></textarea>
+                                <button class="cs-btn" style="max-width: 40px;" id="addKey2">+</button>
+                            </div>
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow3">asdf row</label>
-                            <textarea class="cs-input config-input" id="customLayoutRow3" rows="2"
-                                spellcheck="false"></textarea>
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                                <textarea class="cs-input config-input" id="customLayoutRow3" rows="2"
+                                    spellcheck="false"></textarea>
+                                <button class="cs-btn" style="max-width: 40px;" id="addKey3">+</button>
+                            </div>
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow4">zxcv row</label>
-                            <textarea class="cs-input config-input" id="customLayoutRow4" rows="2"
-                                spellcheck="false"></textarea>
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                                <textarea class="cs-input config-input" id="customLayoutRow4" rows="2"
+                                    spellcheck="false"></textarea>
+                                <button class="cs-btn" style="max-width: 40px;" id="addKey4">+</button>
+                            </div>
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow5">space row</label>
-                            <textarea class="cs-input config-input" id="customLayoutRow5" rows="2"
-                                spellcheck="false"></textarea>
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                                <textarea class="cs-input config-input" id="customLayoutRow5" rows="2"
+                                    spellcheck="false"></textarea>
+                                <button class="cs-btn" style="max-width: 40px;" id="addKey5">+</button>
+                            </div>
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutMouse">mouse row</label>
-                            <textarea class="cs-input config-input" id="customLayoutMouse" rows="2"
-                                spellcheck="false"></textarea>
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                                <textarea class="cs-input config-input" id="customLayoutMouse" rows="2"
+                                    spellcheck="false"></textarea>
+                                <button class="cs-btn" style="max-width: 40px;" id="addKeyMouse">+</button>
+                            </div>
                         </div>
                     </fieldset>
                 </div>
@@ -602,7 +682,7 @@
                             </div>
                             <div class="cs-form-group">
                                 <div class="cs-checkbox">
-                                    <input type="checkbox" class="config-input" id="boldfont">
+                                    <input type="checkbox" checked class="config-input" id="boldfont">
                                     <label for="boldfont" class="cs-checkbox__label">bold font</label>
                                 </div>
                             </div>
@@ -660,11 +740,11 @@
                                 </div>
                             </div>
                             <div class="cs-slider">
-                                <div id="scalevalue" class="value">1.0x</div>
+                                <div id="gapmodifiervalue" class="value">100%</div>
                                 <div class="cs-ruler"></div>
-                                <input id="scale" class="config-input" max="200" min="50" step="10" type="range"
+                                <input id="gapmodifier" class="config-input" max="300" min="1" step="1" type="range"
                                     value="100">
-                                <label for="scale">global scale</label>
+                                <label for="gapmodifier">gap</label>
                             </div>
                             <div class="cs-form-group"></div>
                             <div class="cs-form-group">
@@ -676,39 +756,33 @@
                                         type="text" maxlength="9" value="#808080">
                                 </div>
                             </div>
-                            <div class="cs-slider">
-                                <div id="opacityvalue" class="value">100%</div>
-                                <div class="cs-ruler"></div>
-                                <input id="opacity" class="config-input" max="100" min="0" step="5" type="range"
-                                    value="100">
-                                <label for="opacity">opacity</label>
-                            </div>
                             <div class="cs-form-group"></div>
                             <div class="cs-form-group"></div>
-                            <div class="cs-slider">
-                                <div id="gapmodifiervalue" class="value">100%</div>
-                                <div class="cs-ruler"></div>
-                                <input id="gapmodifier" class="config-input" max="300" min="1" step="1" type="range"
-                                    value="100">
-                                <label for="gapmodifier">gap</label>
-                            </div>
                         </div>
                     </fieldset>
                 </div>
                 <div class="full-width">
-                    <label class="cs-input__label" for="generatedlink" style="margin-bottom: 5px; display: block;">obs
-                        browser source
-                        url</label>
-                    <div class="link-container">
-                        <input class="cs-input" id="generatedlink" type="text">
-                        <button class="cs-btn" id="loadbtn" style="min-width: 100px;">⟳ load url</button>
-                        <button class="cs-btn" id="copybtn" style="min-width: 100px;">⎘ copy url</button>
-                    </div>
                     <details class="fullscreen-details" id="patchSheetDetails" style="margin-top: 10px;">
                         <summary style="color: #394533;">patch notes</summary>
                         <div class="close-btn cs-btn" id="closePatchSheet"></div>
 
                         <div class="patchnotes">
+                            <!-- 2025-12-17 -->
+                            <h1>2025-12-27</h1>
+                            <br>
+                            <h3>bug fixes</h3>
+                            <ul>
+                                <li>fix keys not activating when having the same key configured multiple times</li>
+                            </ul>
+                            <br>
+                            <h3>quality of life</h3>
+                            <ul>
+                                <li>added a presets dropdown</li>
+                                <li>added ability to use img tags in key labels</li>
+                                <li>added a + button to add new keys. this should be easier to use for most people</li>
+                            </ul>
+                            <br>
+
                             <!-- 2025-12-06 -->
                             <h1>2025-12-06</h1>
                             <br>
@@ -840,6 +914,176 @@
             </div>
         </div>
     </div>
+    <div class="key-add-popup" id="keyAddPopup" style="display: none;">
+        <div class="key-add-popup-content">
+            <h3>add key</h3>
+
+            <div class="cs-form-group">
+                <label class="cs-input__label" for="popupKeySelect">KEY</label>
+                <select class="cs-select" id="popupKeySelect" style="font-size: 12px;">
+                    <optgroup label="Mouse">
+                        <option value="mouse_left">Mouse Left</option>
+                        <option value="mouse_right">Mouse Right</option>
+                        <option value="mouse_middle">Mouse Middle</option>
+                        <option value="mouse_4">Mouse 4</option>
+                        <option value="mouse_5">Mouse 5</option>
+                    </optgroup>
+                    <optgroup label="Special">
+                        <option value="scroller">Scroller</option>
+                        <option value="invisible">Invisible Spacer</option>
+                        <option value="dummy">Dummy (Empty)</option>
+                    </optgroup>
+                    <optgroup label="Standard Keys">
+                        <option value="key_a">A</option>
+                        <option value="key_b">B</option>
+                        <option value="key_c">C</option>
+                        <option value="key_d">D</option>
+                        <option value="key_e">E</option>
+                        <option value="key_f">F</option>
+                        <option value="key_g">G</option>
+                        <option value="key_h">H</option>
+                        <option value="key_i">I</option>
+                        <option value="key_j">J</option>
+                        <option value="key_k">K</option>
+                        <option value="key_l">L</option>
+                        <option value="key_m">M</option>
+                        <option value="key_n">N</option>
+                        <option value="key_o">O</option>
+                        <option value="key_p">P</option>
+                        <option value="key_q">Q</option>
+                        <option value="key_r">R</option>
+                        <option value="key_s">S</option>
+                        <option value="key_t">T</option>
+                        <option value="key_u">U</option>
+                        <option value="key_v">V</option>
+                        <option value="key_w">W</option>
+                        <option value="key_x">X</option>
+                        <option value="key_y">Y</option>
+                        <option value="key_z">Z</option>
+                    </optgroup>
+                    <optgroup label="Numbers">
+                        <option value="key_0">0</option>
+                        <option value="key_1">1</option>
+                        <option value="key_2">2</option>
+                        <option value="key_3">3</option>
+                        <option value="key_4">4</option>
+                        <option value="key_5">5</option>
+                        <option value="key_6">6</option>
+                        <option value="key_7">7</option>
+                        <option value="key_8">8</option>
+                        <option value="key_9">9</option>
+                    </optgroup>
+                    <optgroup label="Control Keys">
+                        <option value="key_escape">ESC</option>
+                        <option value="key_tab">TAB</option>
+                        <option value="key_capslock">CAPS</option>
+                        <option value="key_leftshift">Left Shift</option>
+                        <option value="key_rightshift">Right Shift</option>
+                        <option value="key_leftctrl">Left Ctrl</option>
+                        <option value="key_rightctrl">Right Ctrl</option>
+                        <option value="key_leftalt">Left Alt</option>
+                        <option value="key_rightalt">Right Alt</option>
+                        <option value="key_leftwin">Left Win</option>
+                        <option value="key_rightwin">Right Win</option>
+                        <option value="key_space">SPACE</option>
+                        <option value="key_enter">ENTER</option>
+                        <option value="key_backspace">BACKSPACE</option>
+                        <option value="key_menu">MENU</option>
+                    </optgroup>
+                    <optgroup label="Symbols">
+                        <option value="key_minus">- (Minus)</option>
+                        <option value="key_equals">= (Equals)</option>
+                        <option value="key_openbracket">[ (Open Bracket)</option>
+                        <option value="key_closebracket">] (Close Bracket)</option>
+                        <option value="key_backslash">\ (Backslash)</option>
+                        <option value="key_semicolon">; (Semicolon)</option>
+                        <option value="key_apostrophe">' (Apostrophe)</option>
+                        <option value="key_comma">, (Comma)</option>
+                        <option value="key_period">. (Period)</option>
+                        <option value="key_slash">/ (Slash)</option>
+                    </optgroup>
+                    <optgroup label="Function Keys">
+                        <option value="key_f1">F1</option>
+                        <option value="key_f2">F2</option>
+                        <option value="key_f3">F3</option>
+                        <option value="key_f4">F4</option>
+                        <option value="key_f5">F5</option>
+                        <option value="key_f6">F6</option>
+                        <option value="key_f7">F7</option>
+                        <option value="key_f8">F8</option>
+                        <option value="key_f9">F9</option>
+                        <option value="key_f10">F10</option>
+                        <option value="key_f11">F11</option>
+                        <option value="key_f12">F12</option>
+                    </optgroup>
+                    <optgroup label="Navigation">
+                        <option value="key_insert">INSERT</option>
+                        <option value="key_delete">DELETE</option>
+                        <option value="key_home">HOME</option>
+                        <option value="key_end">END</option>
+                        <option value="key_pageup">PAGE UP</option>
+                        <option value="key_pagedown">PAGE DOWN</option>
+                        <option value="key_leftarrow">← Left Arrow</option>
+                        <option value="key_uparrow">↑ Up Arrow</option>
+                        <option value="key_rightarrow">→ Right Arrow</option>
+                        <option value="key_downarrow">↓ Down Arrow</option>
+                    </optgroup>
+                    <optgroup label="Numpad">
+                        <option value="key_numlock">NUM LOCK</option>
+                        <option value="key_numpad_0">Numpad 0</option>
+                        <option value="key_numpad_1">Numpad 1</option>
+                        <option value="key_numpad_2">Numpad 2</option>
+                        <option value="key_numpad_3">Numpad 3</option>
+                        <option value="key_numpad_4">Numpad 4</option>
+                        <option value="key_numpad_5">Numpad 5</option>
+                        <option value="key_numpad_6">Numpad 6</option>
+                        <option value="key_numpad_7">Numpad 7</option>
+                        <option value="key_numpad_8">Numpad 8</option>
+                        <option value="key_numpad_9">Numpad 9</option>
+                        <option value="key_numpad_decimal">Numpad .</option>
+                        <option value="key_numpad_divide">Numpad /</option>
+                        <option value="key_numpad_multiply">Numpad *</option>
+                        <option value="key_numpad_subtract">Numpad -</option>
+                        <option value="key_numpad_add">Numpad +</option>
+                        <option value="key_numpad_enter">Numpad Enter</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="cs-form-group">
+                <label class="cs-input__label" for="popupKeyLabel">LABEL</label>
+                <input class="cs-input" id="popupKeyLabel" type="text" placeholder="e.g., W, SHIFT, etc.">
+            </div>
+
+            <div class="cs-form-group" id="popupScrollerLabels" style="display: none;">
+                <label class="cs-input__label">SCROLLER LABELS</label>
+                <input class="cs-input" id="popupScrollerDefault" type="text" placeholder="Default (e.g., -)"
+                    style="margin-bottom: 5px;">
+                <input class="cs-input" id="popupScrollerUp" type="text" placeholder="Up (e.g., ↑)"
+                    style="margin-bottom: 5px;">
+                <input class="cs-input" id="popupScrollerDown" type="text" placeholder="Down (e.g., ↓)">
+            </div>
+
+            <div class="cs-form-group" id="popupMouseSideLabels" style="display: none;">
+                <label class="cs-input__label">MOUSE SIDE LABELS</label>
+                <input class="cs-input" id="popupMouseSideM5" type="text" placeholder="M5 Label"
+                    style="margin-bottom: 5px;">
+                <input class="cs-input" id="popupMouseSideM4" type="text" placeholder="M4 Label">
+            </div>
+
+            <div class="cs-slider">
+                <div id="popupWidthValue" class="value">1u</div>
+                <div class="cs-ruler"></div>
+                <input id="popupWidthSlider" max="700" min="1" step="1" type="range" value="100">
+                <label for="popupWidthSlider">WIDTH</label>
+            </div>
+
+            <div class="popup-buttons">
+                <button class="cs-btn" id="popupAddBtn">add</button>
+                <button class="cs-btn" id="popupCancelBtn">cancel</button>
+            </div>
+        </div>
+    </div>
     <script src="scripts/libs/pickr.min.js"></script>
     <script src="scripts/libs/pako.min.js"></script>
     <script type="module" src="scripts/main.js"></script>
@@ -875,8 +1119,8 @@
             }
         }
 
-        setDynamicScale();
-        window.addEventListener('resize', setDynamicScale);
+        //setDynamicScale();
+        //window.addEventListener('resize', setDynamicScale);
     </script>
 </body>
 

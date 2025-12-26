@@ -1,5 +1,5 @@
 //guh
-import {DEFAULT_LAYOUT_STRINGS} from "../consts.js";
+import { DEFAULT_LAYOUT_STRINGS } from "../consts.js";
 
 export class LayoutParser {
     constructor() {
@@ -8,14 +8,18 @@ export class LayoutParser {
 
     parseElementDef(elementString) {
         if (!elementString) return null;
+        elementString = elementString.trim();
+        if (elementString === "dummy") return null;
+        if (elementString === "invisible") return { class: "invisible" };
 
-        if (elementString === "invisible" || elementString === "dummy")
-            return {class: "dummy"};
+        const scrollerMatch = elementString.match(/^([\w|]+):"([^"]+)":"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/);
+        if (scrollerMatch && scrollerMatch[1].includes('scroller')) {
+            const keyString = scrollerMatch[1];
+            const keys = keyString.split('|');
 
-        const scrollerMatch = elementString.match(/^(scroller):"([^"]+)":"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/);
-        if (scrollerMatch) {
             return {
-                key: scrollerMatch[1],
+                key: keys[0],
+                keys: keys,
                 labels: [scrollerMatch[2], scrollerMatch[3], scrollerMatch[4]],
                 class: scrollerMatch[5] || "",
                 type: "scroller"

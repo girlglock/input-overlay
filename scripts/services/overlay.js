@@ -13,12 +13,6 @@ export class OverlayMode {
         const settings = this.urlManager.getOverlaySettings();
 
         requestAnimationFrame(() => {
-            const innerContainer = document.getElementById("inner-overlay-container");
-
-            if (innerContainer) {
-                this.visualizer.applyTransformations(innerContainer, settings);
-            }
-
             this.visualizer.applyStyles(settings);
             this.visualizer.rebuildInterface(settings);
 

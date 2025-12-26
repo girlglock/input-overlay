@@ -1,5 +1,5 @@
 //guh
-import {DEFAULT_LAYOUT_STRINGS} from "../consts.js";
+import { DEFAULT_LAYOUT_STRINGS } from "../consts.js";
 
 export class UrlManager {
     constructor(utils) {
@@ -10,7 +10,7 @@ export class UrlManager {
 
     compressSettings(paramsString) {
         try {
-            const compressed = pako.deflate(paramsString, {level: 9});
+            const compressed = pako.deflate(paramsString, { level: 9 });
             const base64 = btoa(String.fromCharCode.apply(null, compressed));
             return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
         } catch (e) {
@@ -28,7 +28,7 @@ export class UrlManager {
             for (let i = 0; i < binary.length; i++) {
                 bytes[i] = binary.charCodeAt(i);
             }
-            return pako.inflate(bytes, {to: "string"});
+            return pako.inflate(bytes, { to: "string" });
         } catch (e) {
             console.error("decompression error:", e);
             return null;
@@ -129,12 +129,12 @@ export class UrlManager {
                     boldfont: decompressedParams.get("boldfont") === "1",
                     hidemouse: decompressedParams.get("hidemouse") === "1",
                     hidescrollcombo: decompressedParams.get("hidescrollcombo") === "1",
-                    customLayoutRow1: decompressedParams.get("customLayoutRow1") || DEFAULT_LAYOUT_STRINGS.row1,
-                    customLayoutRow2: decompressedParams.get("customLayoutRow2") || DEFAULT_LAYOUT_STRINGS.row2,
-                    customLayoutRow3: decompressedParams.get("customLayoutRow3") || DEFAULT_LAYOUT_STRINGS.row3,
-                    customLayoutRow4: decompressedParams.get("customLayoutRow4") || DEFAULT_LAYOUT_STRINGS.row4,
-                    customLayoutRow5: decompressedParams.get("customLayoutRow5") || DEFAULT_LAYOUT_STRINGS.row5,
-                    customLayoutMouse: decompressedParams.get("customLayoutMouse") || DEFAULT_LAYOUT_STRINGS.mouse,
+                    customLayoutRow1: decompressedParams.has("customLayoutRow1") ? decompressedParams.get("customLayoutRow1") : DEFAULT_LAYOUT_STRINGS.row1,
+                    customLayoutRow2: decompressedParams.has("customLayoutRow2") ? decompressedParams.get("customLayoutRow2") : DEFAULT_LAYOUT_STRINGS.row2,
+                    customLayoutRow3: decompressedParams.has("customLayoutRow3") ? decompressedParams.get("customLayoutRow3") : DEFAULT_LAYOUT_STRINGS.row3,
+                    customLayoutRow4: decompressedParams.has("customLayoutRow4") ? decompressedParams.get("customLayoutRow4") : DEFAULT_LAYOUT_STRINGS.row4,
+                    customLayoutRow5: decompressedParams.has("customLayoutRow5") ? decompressedParams.get("customLayoutRow5") : DEFAULT_LAYOUT_STRINGS.row5,
+                    customLayoutMouse: decompressedParams.has("customLayoutMouse") ? decompressedParams.get("customLayoutMouse") : DEFAULT_LAYOUT_STRINGS.mouse,
 
                     gapmodifier: decompressedParams.get("gapmodifier") || "100",
                 };
@@ -158,12 +158,12 @@ export class UrlManager {
             boldfont: params.get("boldfont") === "1",
             hidemouse: params.get("hidemouse") === "1",
             hidescrollcombo: params.get("hidescrollcombo") === "1",
-            customLayoutRow1: params.get("customLayoutRow1") || DEFAULT_LAYOUT_STRINGS.row1,
-            customLayoutRow2: params.get("customLayoutRow2") || DEFAULT_LAYOUT_STRINGS.row2,
-            customLayoutRow3: params.get("customLayoutRow3") || DEFAULT_LAYOUT_STRINGS.row3,
-            customLayoutRow4: params.get("customLayoutRow4") || DEFAULT_LAYOUT_STRINGS.row4,
-            customLayoutRow5: params.get("customLayoutRow5") || DEFAULT_LAYOUT_STRINGS.row5,
-            customLayoutMouse: params.get("customLayoutMouse") || DEFAULT_LAYOUT_STRINGS.mouse,
+            customLayoutRow1: params.has("customLayoutRow1") ? params.get("customLayoutRow1") : DEFAULT_LAYOUT_STRINGS.row1,
+            customLayoutRow2: params.has("customLayoutRow2") ? params.get("customLayoutRow2") : DEFAULT_LAYOUT_STRINGS.row2,
+            customLayoutRow3: params.has("customLayoutRow3") ? params.get("customLayoutRow3") : DEFAULT_LAYOUT_STRINGS.row3,
+            customLayoutRow4: params.has("customLayoutRow4") ? params.get("customLayoutRow4") : DEFAULT_LAYOUT_STRINGS.row4,
+            customLayoutRow5: params.has("customLayoutRow5") ? params.get("customLayoutRow5") : DEFAULT_LAYOUT_STRINGS.row5,
+            customLayoutMouse: params.has("customLayoutMouse") ? params.get("customLayoutMouse") : DEFAULT_LAYOUT_STRINGS.mouse,
 
             gapmodifier: params.get("gapmodifier") || "100",
         };

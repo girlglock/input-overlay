@@ -7,6 +7,7 @@ export class ConfiguratorMode {
         this.urlManager = urlManager;
         this.visualizer = visualizer;
         this.pickrInstances = {};
+        this.urlDebounceTimer = null;
 
         document.getElementById("configurator").style.display = "block";
         document.getElementById("overlay").classList.remove("show");
@@ -19,12 +20,51 @@ export class ConfiguratorMode {
             COLOR_PICKERS.forEach(cp => {
                 this.initPickrColorInput(cp.id, cp.defaultColor);
             });
-        }, 100);
+        }, 25);
 
-        this.loadSettingsFromLink(true);
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasParams = urlParams.has("cfg") || Array.from(urlParams.keys()).some(key => key !== "ws");
+
+        if (hasParams) {
+            this.loadSettingsFromLink(true);
+        } else {
+            this.applyDefaultSettings();
+        }
+
         this.setupConfigInputs();
+        this.setupKeyAddButtons();
         this.setupPreviewInputListeners();
         this.updateState();
+    }
+
+    applyDefaultSettings() {
+        const defaultSettings = {
+            wsaddress: "localhost",
+            wsport: "16899",
+            activecolor: "#5cf67d",
+            inactivecolor: "#808080",
+            backgroundcolor: "#1a1a1ad1",
+            activebgcolor: "#47bd61",
+            outlinecolor: "#4f4f4f",
+            fontcolor: "#ffffff",
+            glowradius: "24",
+            borderradius: "1",
+            pressscale: "110",
+            animationspeed: "300",
+            fontfamily: "",
+            hidemouse: false,
+            hidescrollcombo: false,
+            boldfont: true,
+            gapmodifier: "100",
+            customLayoutRow1: DEFAULT_LAYOUT_STRINGS.row1,
+            customLayoutRow2: DEFAULT_LAYOUT_STRINGS.row2,
+            customLayoutRow3: DEFAULT_LAYOUT_STRINGS.row3,
+            customLayoutRow4: DEFAULT_LAYOUT_STRINGS.row4,
+            customLayoutRow5: DEFAULT_LAYOUT_STRINGS.row5,
+            customLayoutMouse: DEFAULT_LAYOUT_STRINGS.mouse
+        };
+
+        this.applySettings(defaultSettings);
     }
 
     initDefaultLayoutValues() {
@@ -50,8 +90,6 @@ export class ConfiguratorMode {
             borderradius: document.getElementById("borderradius").value,
             pressscale: document.getElementById("pressscale").value,
             animationspeed: document.getElementById("animationspeed").value,
-            scale: document.getElementById("scale").value,
-            opacity: document.getElementById("opacity").value,
             fontfamily: document.getElementById("fontfamily").value,
             hidemouse: document.getElementById("hidemouse").checked,
             hidescrollcombo: document.getElementById("hidescrollcombo").checked,
@@ -89,15 +127,17 @@ export class ConfiguratorMode {
 
         const applyValue = (id, value) => {
             const el = document.getElementById(id);
-            if (el && value !== undefined) {
+            if (el) {
                 if (el.type === "checkbox") {
                     el.checked = value === "true" || value === "1" || value === true;
+                    el.dispatchEvent(new Event("change", { bubbles: true }));
                 } else {
-                    el.value = value;
+                    el.value = value !== undefined && value !== null ? value : "";
+
                     if (id.includes("colorhex")) {
                         const pickrId = id.replace("hex", "");
                         const pickr = this.pickrInstances[pickrId];
-                        if (pickr) {
+                        if (pickr && value) {
                             try {
                                 pickr.setColor(value, true);
                             } catch (error) {
@@ -124,18 +164,17 @@ export class ConfiguratorMode {
         applyValue("borderradius", settings.radius || settings.borderradius);
         applyValue("pressscale", settings.pressscale);
         applyValue("animationspeed", settings.speed || settings.animationspeed);
-        applyValue("scale", settings.scale);
-        applyValue("opacity", settings.opacity);
         applyValue("fontfamily", settings.fontfamily);
         applyValue("hidemouse", settings.hidemouse);
         applyValue("hidescrollcombo", settings.hidescrollcombo);
         applyValue("boldfont", settings.boldfont);
-        applyValue("customLayoutRow1", settings.customLayoutRow1);
-        applyValue("customLayoutRow2", settings.customLayoutRow2);
-        applyValue("customLayoutRow3", settings.customLayoutRow3);
-        applyValue("customLayoutRow4", settings.customLayoutRow4);
-        applyValue("customLayoutRow5", settings.customLayoutRow5);
-        applyValue("customLayoutMouse", settings.customLayoutMouse);
+
+        applyValue("customLayoutRow1", settings.customLayoutRow1 !== undefined ? settings.customLayoutRow1 : "");
+        applyValue("customLayoutRow2", settings.customLayoutRow2 !== undefined ? settings.customLayoutRow2 : "");
+        applyValue("customLayoutRow3", settings.customLayoutRow3 !== undefined ? settings.customLayoutRow3 : "");
+        applyValue("customLayoutRow4", settings.customLayoutRow4 !== undefined ? settings.customLayoutRow4 : "");
+        applyValue("customLayoutRow5", settings.customLayoutRow5 !== undefined ? settings.customLayoutRow5 : "");
+        applyValue("customLayoutMouse", settings.customLayoutMouse !== undefined ? settings.customLayoutMouse : "");
 
         applyValue("gapmodifier", settings.gapmodifier);
     }
@@ -145,8 +184,11 @@ export class ConfiguratorMode {
 
         this.visualizer.applyStyles(settings);
         this.visualizer.rebuildInterface(settings);
-        this.visualizer.applyContainerTransformations(settings);
-        this.updateGeneratedLink(settings);
+
+        clearTimeout(this.urlDebounceTimer);
+        this.urlDebounceTimer = setTimeout(() => {
+            this.updateGeneratedLink(settings);
+        }, 250);
     }
 
     updateGeneratedLink(settings) {
@@ -201,6 +243,14 @@ export class ConfiguratorMode {
             const params = url.searchParams;
             const settings = {};
 
+            let wsAddress = "localhost";
+            let wsPort = "16899";
+            if (params.has("ws")) {
+                const wsConfig = params.get("ws").split(":");
+                wsAddress = wsConfig[0] || "localhost";
+                wsPort = wsConfig[1] || "16899";
+            }
+
             if (params.has("cfg")) {
                 const compressed = params.get("cfg");
                 const decompressed = this.urlManager.decompressSettings(compressed);
@@ -236,6 +286,9 @@ export class ConfiguratorMode {
                     }
                 }
             }
+
+            settings.wsaddress = wsAddress;
+            settings.wsport = wsPort;
 
             if (Object.keys(settings).length > 0) {
                 this.applySettings(settings);
@@ -328,16 +381,31 @@ export class ConfiguratorMode {
         const inputs = document.querySelectorAll(".config-input");
         inputs.forEach(input => {
             input.addEventListener("input", () => {
-                if (input.type === "range") {
+                if (input.type === "range")
                     this.updateSliderLabel(input);
-                } else if (input.classList.contains("color-hex-input")) {
+                else if (input.classList.contains("color-hex-input"))
                     return;
-                }
                 this.updateState();
             });
         });
+
         document.getElementById("copybtn").addEventListener("click", this.copyLink.bind(this));
         document.getElementById("loadbtn").addEventListener("click", this.loadSettingsFromLink.bind(this));
+
+        const layoutPresets = document.getElementById("layoutPresets");
+        if (layoutPresets) {
+            layoutPresets.addEventListener("change", (e) => {
+                const presetUrl = e.target.value;
+                if (presetUrl) {
+                    const linkInput = document.getElementById("generatedlink");
+                    linkInput.value = presetUrl;
+                    this.loadSettingsFromLink(false);
+                    setTimeout(() => {
+                        e.target.selectedIndex = 0;
+                    }, 100);
+                }
+            });
+        }
     }
 
     setupPreviewInputListeners() {
@@ -445,5 +513,189 @@ export class ConfiguratorMode {
             linkInput.select();
             document.execCommand("copy");
         }
+    }
+
+    setupKeyAddButtons() {
+        const popup = document.getElementById("keyAddPopup");
+        const keySelect = document.getElementById("popupKeySelect");
+        const labelInput = document.getElementById("popupKeyLabel");
+        const widthSlider = document.getElementById("popupWidthSlider");
+        const widthValue = document.getElementById("popupWidthValue");
+        const addBtn = document.getElementById("popupAddBtn");
+        const cancelBtn = document.getElementById("popupCancelBtn");
+        const scrollerLabels = document.getElementById("popupScrollerLabels");
+        const mouseSideLabels = document.getElementById("popupMouseSideLabels");
+
+        let currentTargetRow = null;
+        let originalValue = "";
+        let isUpdating = false;
+
+        const updateKeyString = () => {
+            if (isUpdating) return;
+
+            const keyName = keySelect.value;
+            let keyString = "";
+
+            if (keyName === "scroller") {
+                const defaultLabel = document.getElementById("popupScrollerDefault").value || "M3";
+                const upLabel = document.getElementById("popupScrollerUp").value || "🡅";
+                const downLabel = document.getElementById("popupScrollerDown").value || "🡇";
+                const widthClass = this.getWidthClass(parseInt(widthSlider.value));
+                keyString = widthClass ?
+                    `scroller:"${defaultLabel}":"${upLabel}":"${downLabel}":${widthClass}` :
+                    `scroller:"${defaultLabel}":"${upLabel}":"${downLabel}"`;
+            } else if (keyName === "mouse_side") {
+                const m5Label = document.getElementById("popupMouseSideM5").value || "M5";
+                const m4Label = document.getElementById("popupMouseSideM4").value || "M4";
+                const widthClass = this.getWidthClass(parseInt(widthSlider.value));
+                keyString = widthClass ?
+                    `mouse_side:"${m5Label}":"${m4Label}":${widthClass}` :
+                    `mouse_side:"${m5Label}":"${m4Label}"`;
+            } else if (keyName === "invisible") {
+                const widthClass = this.getWidthClass(parseInt(widthSlider.value));
+                keyString = widthClass ? `$none:"invis":${widthClass}` : keyName;
+            } else if (keyName === "dummy") {
+                keyString = "dummy";
+            } else {
+                const label = labelInput.value || keyName.split("_")[1].toUpperCase();
+                const widthClass = this.getWidthClass(parseInt(widthSlider.value));
+                keyString = widthClass ?
+                    `${keyName}:"${label}":${widthClass}` :
+                    `${keyName}:"${label}"`;
+            }
+
+            const targetInput = document.getElementById(`customLayout${currentTargetRow}`);
+            if (targetInput) {
+                targetInput.value = originalValue ? `${originalValue}, ${keyString}` : keyString;
+                targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        };
+
+        widthSlider.addEventListener("input", () => {
+            const val = parseInt(widthSlider.value);
+            const units = (val / 100).toFixed(2);
+            widthValue.textContent = `${units}u`;
+            updateKeyString();
+        });
+
+        keySelect.addEventListener("change", () => {
+            const selectedKey = keySelect.value;
+
+            scrollerLabels.style.display = "none";
+            mouseSideLabels.style.display = "none";
+            labelInput.parentElement.style.display = "block";
+
+            if (selectedKey === "scroller") {
+                labelInput.parentElement.style.display = "none";
+                scrollerLabels.style.display = "block";
+                document.getElementById("popupScrollerDefault").value = "M3";
+                document.getElementById("popupScrollerUp").value = "🡅";
+                document.getElementById("popupScrollerDown").value = "🡇";
+            } else if (selectedKey === "mouse_side") {
+                labelInput.parentElement.style.display = "none";
+                mouseSideLabels.style.display = "block";
+                document.getElementById("popupMouseSideM5").value = "M5";
+                document.getElementById("popupMouseSideM4").value = "M4";
+            } else if (selectedKey === "invisible" || selectedKey === "dummy") {
+                labelInput.value = "invisible";
+            } else {
+                const optionText = keySelect.options[keySelect.selectedIndex].text;
+                labelInput.value = optionText;
+            }
+
+            updateKeyString();
+        });
+
+        labelInput.addEventListener("input", updateKeyString);
+
+        document.getElementById("popupScrollerDefault").addEventListener("input", updateKeyString);
+        document.getElementById("popupScrollerUp").addEventListener("input", updateKeyString);
+        document.getElementById("popupScrollerDown").addEventListener("input", updateKeyString);
+        document.getElementById("popupMouseSideM5").addEventListener("input", updateKeyString);
+        document.getElementById("popupMouseSideM4").addEventListener("input", updateKeyString);
+
+        const buttonMappings = [
+            { buttonId: "addKey1", rowId: "Row1" },
+            { buttonId: "addKey2", rowId: "Row2" },
+            { buttonId: "addKey3", rowId: "Row3" },
+            { buttonId: "addKey4", rowId: "Row4" },
+            { buttonId: "addKey5", rowId: "Row5" },
+            { buttonId: "addKeyMouse", rowId: "Mouse" }
+        ];
+
+        buttonMappings.forEach(({ buttonId, rowId }) => {
+            const btn = document.getElementById(buttonId);
+            if (btn) {
+                btn.addEventListener("click", (e) => {
+                    isUpdating = false;
+                    currentTargetRow = rowId;
+
+                    const targetInput = document.getElementById(`customLayout${rowId}`);
+                    originalValue = targetInput ? targetInput.value.trim() : "";
+
+                    const rect = btn.getBoundingClientRect();
+                    const popupWidth = 340;
+                    const popupHeight = 400;
+
+                    let left = rect.left - popupWidth;
+                    let top = rect.top;
+
+                    if (left < 10) left = rect.right + 10;
+                    if (left + popupWidth > window.innerWidth - 10) left = Math.max(10, (window.innerWidth - popupWidth) / 2);
+                    if (top + popupHeight > window.innerHeight - 10) top = Math.max(10, window.innerHeight - popupHeight - 10);
+                    if (top < 10) top = 10;
+
+                    popup.style.display = "block";
+                    popup.style.left = `${left}px`;
+                    popup.style.top = `${top}px`;
+
+                    keySelect.value = "key_a";
+                    labelInput.value = "A";
+                    widthSlider.value = 100;
+                    widthValue.textContent = "1.00u";
+                    scrollerLabels.style.display = "none";
+                    mouseSideLabels.style.display = "none";
+                    labelInput.parentElement.style.display = "block";
+
+                    updateKeyString();
+                });
+            }
+        });
+
+        addBtn.addEventListener("click", () => {
+            popup.style.display = "none";
+        });
+
+        cancelBtn.addEventListener("click", () => {
+            isUpdating = true;
+            const targetInput = document.getElementById(`customLayout${currentTargetRow}`);
+            if (targetInput) {
+                targetInput.value = originalValue;
+                targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            popup.style.display = "none";
+        });
+
+        popup.addEventListener("click", (e) => {
+            if (e.target === popup) {
+                isUpdating = true;
+                const targetInput = document.getElementById(`customLayout${currentTargetRow}`);
+                if (targetInput) {
+                    targetInput.value = originalValue;
+                    targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+                popup.style.display = "none";
+            }
+        });
+    }
+
+    getWidthClass(value) {
+        if (value === 100) return "";
+        const units = value / 100;
+        const intPart = Math.floor(units);
+        let decStr = Math.round((units - intPart) * 100).toString().padStart(2, "0");
+        if (decStr.endsWith("0")) decStr = decStr.slice(0, -1);
+        if (decStr === "" || decStr === "0") return `u${intPart}`;
+        return `u${intPart}-${decStr}`;
     }
 }
