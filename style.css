@@ -95,11 +95,12 @@ body {
     color: #000080;
     font-weight: bold;
 }
-
-.cs-input,
+.cs-input {
+    width: 100% !important;
+}
 .cs-select {
     width: 100% !important;
-    height: 23px;
+    min-height: 23px;
 }
 
 .color-input-group {
@@ -513,10 +514,27 @@ body {
     margin-top: 3px;
     padding-left: 2px;
     font-size: 64px;
+    border: none;
 }
 
 .fullscreen-details[open] summary.close-btn {
     left: 90%;
+}
+
+.fullscreen-details summary {
+    background-color: var(--bg);
+    color: #fff;
+    padding: 4px 5px 3px;
+    font-size: 1rem;
+    line-height: 0.9375rem;
+    border: 1px solid;
+    border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+    user-select: none;
+    cursor: pointer;
+    display: inline-block;
+    min-width: 100%;
+    text-align: center;
+    margin-bottom: 10px;
 }
 
 .close-btn {

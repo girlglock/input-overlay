@@ -80,6 +80,7 @@ export class ConfiguratorMode {
         return {
             wsaddress: document.getElementById("wsaddress").value || "localhost",
             wsport: document.getElementById("wsport").value || "16899",
+            wsauth: document.getElementById("wsauth").value || "",
             activecolor: document.getElementById("activecolorhex").value,
             inactivecolor: document.getElementById("inactivecolorhex").value,
             backgroundcolor: document.getElementById("backgroundcolorhex").value,

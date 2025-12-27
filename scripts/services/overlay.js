@@ -20,8 +20,9 @@ export class OverlayMode {
             const wsAddress = wsConfig[0] || "localhost";
             const wsPort = wsConfig[1] || "16899";
             const wsUrl = `ws://${wsAddress}:${wsPort}/`;
+            const wsAuth = settings.wsauth || "";
 
-            this.websocketManager = new WebSocketManager(wsUrl, statusEl, this.visualizer);
+            this.websocketManager = new WebSocketManager(wsUrl, statusEl, this.visualizer, wsAuth);
             this.websocketManager.connect();
 
             window.addEventListener("focus", () => {

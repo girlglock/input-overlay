@@ -32,87 +32,57 @@
 
     <div class="centered" id="configurator" style="margin-left: 25%;">
         <div class="cs-dialog">
-            <div class="heading">
-                <div class="wrapper">
-                    <div class="text">input overlay configurator</div>
-                </div>
-            </div>
-
             <div class="content config-layout">
                 <div class="config-column" style="min-width: 400px">
-                    <fieldset class="cs-fieldset preview-fieldset">
-                        <legend>instructions</legend>
-                        <div style="margin-left: 18px; margin-top: -20px;">
-                            <ol>
-                                <li>install <a href="https://github.com/univrsal/input-overlay"
-                                        target="_blank">input-overlay
-                                        plugin</a> in obs</li>
-                                <li>enable websocket server in plugin settings (not obs websocket, the plugin one)</li>
-                                <li>check the port number (usually 16899)</li>
-                                <li>restart obs</li>
-                                <li>copy the overlay url (⎘ copy url)</li>
-                                <li>create a new browser source in obs</li>
-                                <li>paste the url into the browser source</li>
-                                <ul style="margin-top: 10px;">
-                                    <li>tip: you can also load previously saved urls using <b>load url</b> button</li>
-                                </ul>
-                            </ol>
-                        </div>
-                    </fieldset>
-                    <fieldset class="cs-fieldset">
-                        <legend>connection</legend>
-                        <div class="nested-grid-2">
-                            <div class="cs-form-group">
-                                <label class="cs-input__label" for="wsaddress">address</label>
-                                <input class="cs-input config-input" id="wsaddress" type="text" value="localhost">
-                            </div>
-                            <div class="cs-form-group">
-                                <label class="cs-input__label" for="wsport">port</label>
-                                <input class="cs-input config-input" id="wsport" type="number" value="16899">
-                            </div>
-                        </div>
-                        <div class="cs-form-group" style="margin-top: 10px;">
-                            <label class="cs-input__label" for="generatedlink" style="display: block;">obs
-                                browser source
-                                url</label>
-                            <div class="link-container" style="gap: 10px;">
-                                <input class="cs-input" id="generatedlink" type="text">
-                            </div>
-                        </div>
-                        <div class="nested-grid-2" style="margin-top: 10px;">
-                            <button class="cs-btn" id="loadbtn" style="min-width: 88px;">⟳ load url</button>
-                            <button class="cs-btn" id="copybtn" style="min-width: 88px;">⎘ copy url</button>
-                        </div>
-                    </fieldset>
-                    <fieldset class="cs-fieldset">
-                        <legend>custom layout</legend>
-                        <div class="nested-grid-2">
-                            <div class="cs-form-group" style="margin-top: 10px;">
-                                <label class="cs-input__label" for="layoutPresets" style="display: block;">TEMPLATES</label>
-                                <select class="cs-select" id="layoutPresets" style="max-height: 26px;">
-                                    <option value="0" selected>-</option>
-                                    <option
-                                        value="https://overlay.girlglock.com?cfg=eNplj99KwzAUxt_lXORqg6Z_NjnQizo3FDbQOfBS0jTtwrKmNu3GHkB8DPENfQSTZsh0PdB8-ZLvd04Y7-RBcK10mya8nEwLImt2Yd4ErkjO-K5qdV8X3qbMVZ4QfzevvB1P82JCie47JeszIS5dkVLXnTfK4SOV0sc0jEnLCtmbNCBNK4wxnCmRUhoQ0whRpFEQkIo1e13IUgrb2O5zrQqHSynhven0fslOtuVaH2m6E6dXYSGNQJD1QRoYOYsiUK9ChNCrCCHyKkaI4T8rHFgdyxE22S1gT8fJcPsN4cnnjggvXtluc69ahPUVKxpYSpSd2cqyQ3i-f1hsLDMcMgwh82ljj7wqEO68KhEWV8Tkl8i7ViHMNuvlxYzugCnbKFtuLmzTMG5HfX7MZnNrR-Mo-gNe6d6IdO_-AwJhRd2U43g6MrzVSgn7vlUECN-fX-9--YCRT7Sy2rpIeI78AJYqzXQ">
-                                        qwerty</option>
-                                    <option
-                                        value="http://127.0.0.1:3000/index.html?cfg=eNptUMtKxDAU_ZcssqrQTNvpEMhCdKUWRBlcDmkenTBpU5LGUnArfob4h36CTeJCR3Mhj3PP4xLKJvUsmNHGkorJbc2hGugPcJeHgi1lp84aP_AEIxqqrWDitl2Cy7rlWwSNn7Qavh1KGQpKM0wJkHHBTpuZbEpoKVfekRyOVjjnGNWCIJRDNwrBSZHnsKNjb7iSSqzB67s1mgc7guBRcdEb71YJZN5Npr-jyxr_YGZEuO_75RzekMg_aCEnDBoEspNYDjMGTyBLHau6Y2gV4FxbkMClGFwmlcPgMd04Btd_6OX_E1TRhb2EPUzBJqtX-f7qFmCPLqo6c8warYWNFDdSJjC42Tf3AIPP94_XdLwl9u6XfRP_IsZ-AX7Xqww">
-                                        wasd
-                                        + duck + jump + mouse</option>
-                                    <option
-                                        value="https://overlay.girlglock.com?cfg=eNptUEtuwyAUvMtbsHIl27GTColFlKarRGqTSF1GmI-Dgo0LplEOUPUYVW_YI9SYVoqa8BYMA29mHpT16k0wo40lJZPTGUeqpRfkfRoKVZQda2t8yyOd0VBVieLbqo50Mav4NEPG91q1vwqFDIWkaftIyHGhWpsTyQtkKVfekRR1VjjnGNWCZFmKXCcEJ5M0RTXtGsOVVGIwHs6V0TzIkQwdFBeN8W5oQcy73jQreh7sN-aUEe6b5vyfzslRnPevGJ4hCeiE4SUigWEZkcWwgWTU3WshewzrDLC_spiMWhTDPPY5DNuIOIaHiCSGR0gcs0ZrMQivJ4Dh-_PrPW4ft3SL29HL0S4EYr3VGBa7zSq03-Vl8ndD9ZB2vtpd8q6jbBhu-zRfLEd-WvwOZ1V9CNPlVynW46eOMX4A00G_vw">
-                                        qwerty minimal</option>
-                                    <option
-                                        value="https://overlay.girlglock.com?cfg=eNptjUtOwzAURffyBh51EDdJiyx5gNQhncCAYeVvsOrEqT-NsgDEMhA7ZAnEMQNU6ivZfkdH7zIRzVUJZ52nrdC7vURmYH_gQ5WDOBPnzrs0yIIxy-EtKi7vCm72XO4wcilaM_xuaHQO0m6IBej1oM66iW4b5Jk0KdAKjV6FEASzimJcoTAqJWldVahjY--k0UYtxcvMnZV5HcVIpBBd_8TmpfLZTZjK1PfzLd7Ss5pPFwIXIGa4mmC4VZvMJgKvcKvXq84IPMIqBQIv5ScJHP7pzf3S9g4-uhQU7fN9skpHAkcMmyC8s1b5ZaqBwPfn13t5PoAkvCm6N91bXI0fXeqdiQ">
-                                        wasd
-                                        + mouse</option>
-                                    <option
-                                        value="https://overlay.girlglock.com?cfg=eNplkst200AMht9FC7MhYOdecbxIQ9qGpiEkKeVSTs_YHidDbY_jS9Ow4gF4IBa8U18B2XKKSTybb-SZf_RLEm6mHqSrA53YHdfv9jxDRaIW7JvFMhzh3q8SnUcehy1RLKdj8FlnxeF2z_G6lqHzLFBRpdD2i2X4Oso44JefsQr01m62jUR4Kk9t04gTmaapKwJpW5ZppLGUnt0yTWMl4lB7yleSHqa9owOvkLMtY608Geo8pSuGm6eZDidiR8_P9day7-XuTpJgLBFGiyG8LAIWgsXURGgytRBaTG2ENlMHocPURegy9RB6TH2EPtMJwgmTiWAyhSrKU4QG7-QmFwFtbd4WpUxj4VJSp4Ph5WI2GI4At41mo5MfemiWHjLhICwHp3SK7JYiG4QPLLdFuKneIZdMCcKcKaOLTDuEz0w5wjWTQhgzaYT3TDHCjCmQfnbnJJSuJJmvlbRarWvRbzVPgUjXCLe3pZkjK63SCjUjDbR7jzAczBaA8jFLROPZlkAYsCLVa8HkIbxl8hHOmFYI50z04gXTd4R3TKR-WVlAmFR6MlTF-EUIbziyyXVGJXtRFS_KJJVtNF2O5tyN3nE72va-Lm6WkPbiYny23PeulPmB8IUFHxE-MblklukB4WNVMGo-EyU0raYG4aq6ocOQSvH059fT759VW2SiNJXiVWWHi_261pR0rfysllPrKP3OQfrD5XxSm6nix1ZRPjfj6UFYBKQ8mCxr4WqEn8e3l_9LZX_8fF67EMqIJu9qNL2uBcvj_2XTsIrK_wXoqoiM">
-                                        full
-                                        qwerty</option>
-                                </select>
-                            </div>
-                            <details class="fullscreen-details" id="cheatSheetDetails"
-                                style="margin-top: 30px; margin-left: 40px;">
+                    <fieldset class="cs-fieldset preview-fieldset" style="max-height: 285px;">
+                        <legend>input overlay configurator</legend>
+                        <div class="nested-grid-1">
+                            <details class="fullscreen-details" id="instructionSheetDetails">
+                                <summary>instructions [ ! ]</summary>
+                                <div class="close-btn cs-btn" id="instructionPatchSheet"></div>
+
+                                <div class="instructions">
+                                    <br>
+                                    <h1>Option #1 (recommended)</h1>
+                                    <ol style="margin-left: 15px;">
+                                        <li>get the <a href="https://github.com/girlglock/input-overlay/releases"
+                                                target="_blank">input-overlay-ws</a> server</li>
+                                        <li>put it somewhere on your computer and run it</li>
+                                        <li>right click on the tray icon and copy the auth token</li>
+                                        <li>enter the auth token in the connection section (address and port can stay
+                                            default)</li>
+                                        <li>edit the overlay to your desire</li>
+                                        <li>copy the overlay url (⎘ copy url)</li>
+                                        <li>create a new browser source in obs (or any other streaming software)</li>
+                                        <li>paste the url into the browser source</li>
+                                        <ul style="margin-top: 10px;">
+                                            <li>tip: you can also edit the config.json to set a custom address and port
+                                                for the <b>input-overlay-ws</b> to use</li>
+                                            <li>tip: you can also load previously saved urls using <b>load url</b>
+                                                button</li>
+                                        </ul>
+                                    </ol>
+                                    <br>
+                                    <h1>Option #2</h1>
+                                    <ol style="margin-left: 15px;">
+                                        <li>install <a href="https://github.com/univrsal/input-overlay"
+                                                target="_blank">input-overlay
+                                                plugin</a> in obs</li>
+                                        <li>enable websocket server in plugin settings (not obs websocket, the plugin
+                                            one)</li>
+                                        <li>check the address and port (usually its fine when its default, authentication is not possible so leave it empty)</li>
+                                        <li>restart obs</li>
+                                        <li>copy the overlay url (⎘ copy url)</li>
+                                        <li>create a new browser source in obs</li>
+                                        <li>paste the url into the browser source</li>
+                                        <blockquote class="cs-note"
+                                            style="border-left: 5px solid #f65c5c; padding: 10px; margin: 15px -15px;">
+                                            🛈 while this method is easier since you dont have to worry about running the separate ws server, it lacks authentication.<br>
+                                        </blockquote>
+                                    </ol>
+                                </div>
+                            </details>
+                            <details class="fullscreen-details" id="cheatSheetDetails">
                                 <summary>cheat sheet</summary>
                                 <div class="close-btn  cs-btn" id="closeCheatSheet"></div>
 
@@ -500,7 +470,9 @@
                                             <tr>
                                                 <td><code>dummy</code></td>
                                                 <td>empty row placeholder</td>
-                                                <td><code>dummy</code> (used to remove rows, this is done for backwards compatibility reasons with older links that didnt have custom rows yet)</td>
+                                                <td><code>dummy</code> (used to remove rows, this is done for backwards
+                                                    compatibility reasons with older links that didnt have custom rows
+                                                    yet)</td>
                                             </tr>
                                             <tr>
                                                 <td><code>|</code></td>
@@ -511,6 +483,226 @@
                                     </table>
                                 </div>
                             </details>
+                            <details class="fullscreen-details" id="patchSheetDetails">
+                                <summary>patch notes</summary>
+                                <div class="close-btn cs-btn" id="closePatchSheet"></div>
+
+                                <div class="patchnotes">
+                                    <!-- 2025-12-17 -->
+                                    <h1>2025-12-27</h1>
+                                    <br>
+                                    <h3>bug fixes</h3>
+                                    <ul>
+                                        <li>fix keys not activating when having the same key configured multiple times
+                                        </li>
+                                    </ul>
+                                    <br>
+                                    <h3>quality of life</h3>
+                                    <ul>
+                                        <li>added a presets dropdown</li>
+                                        <li>added ability to use img tags in key labels</li>
+                                        <li>added a + button to add new keys. this should be easier to use for most
+                                            people
+                                        </li>
+                                    </ul>
+                                    <br>
+
+                                    <!-- 2025-12-06 -->
+                                    <h1>2025-12-06</h1>
+                                    <br>
+                                    <h3>bug fixes</h3>
+                                    <ul>
+                                        <li>fix mouse_4 and mouse_5 elements</li>
+                                        <li>fix oversight in unpress logic causing wrong held keys to be unpressed</li>
+                                    </ul>
+                                    <br>
+
+                                    <!-- 2025-12-04 -->
+                                    <h1>2025-12-04</h1>
+                                    <br>
+                                    <h3>bug fixes</h3>
+                                    <ul>
+                                        <li>fix mouse element scaling</li>
+                                    </ul>
+                                    <br>
+                                    <h3>new config variables</h3>
+                                    <ul>
+                                        <li>added key gap modifier</li>
+                                        <li>added bold font checkbox</li>
+                                    </ul>
+                                    <br>
+                                    <h3>quality of life</h3>
+                                    <ul>
+                                        <li>invisible keys now support width classes <i>(key_escape:"invis":u2-25)</i>
+                                        </li>
+                                    </ul>
+                                    <br>
+
+                                    <!-- 2025-12-03 -->
+                                    <h1>2025-12-03</h1>
+                                    <br>
+                                    <h3>bug fixes</h3>
+                                    <ul>
+                                        <li>fix scale scaling wrong document element</li>
+                                        <li>fix mouse buttons not working outside the mouse row</li>
+                                        <li>fix fonts</li>
+                                    </ul>
+                                    <br>
+                                    <h3>quality of life</h3>
+                                    <ul>
+                                        <li>added a wider range of width classes (see cheat sheet)</li>
+                                        <li>mouse buttons support width classes including scroller</li>
+                                    </ul>
+                                    <br>
+
+                                    <!-- 2025-12-02 -->
+                                    <h1>2025-12-02</h1>
+                                    <br>
+                                    <h3>bug fixes</h3>
+                                    <ul>
+                                        <li>fix color pickers not updating when loading settings from url</li>
+                                        <li>fix copy button label inconsistency</li>
+                                        <li>fix text not being selectable</li>
+                                    </ul>
+                                    <br>
+                                    <h3>quality of life</h3>
+                                    <ul>
+                                        <li>add url cfg compression to save 50% size, legacy params should continue to
+                                            work
+                                            fine
+                                        </li>
+                                        <li>add "edit this layout" button inside the overlay mode that shows on mouse
+                                            hover
+                                        </li>
+                                        <li>rework how key states are handled to compare against an array of previous
+                                            websocket
+                                            messages to prevent stuck keys on unfocused or busy (lagging) browser src
+                                        </li>
+                                        <li>make sheet flyouts smaller</li>
+                                    </ul>
+                                    <br>
+
+                                    <!-- 2025-12-01 -->
+                                    <h1>2025-12-01</h1>
+                                    <br>
+                                    <h3>bug fixes</h3>
+                                    <ul>
+                                        <li>fix scroll label scale for good (?)</li>
+                                        <li>fix sheet flyouts</li>
+                                        <li>fix cheat sheet not scrolling</li>
+                                        <li>fix speed suffix being x instead of %</li>
+                                    </ul>
+                                    <br>
+                                    <h3>quality of life</h3>
+                                    <ul>
+                                        <li>added settings loading from url to allow sharing and loading of previously
+                                            configured urls</li>
+                                        <li>url bar now updates on settings change, this is useful to share unfinished
+                                            configurations (obs url still needs to be obtained through the copy button)
+                                        </li>
+                                    </ul>
+                                    <br>
+
+                                    <!-- 2025-11-30 -->
+                                    <h1>2025-11-30</h1>
+                                    <br>
+                                    <h3>bug fixes</h3>
+                                    <ul>
+                                        <li>fixed mouse label not scaling correctly inside its element.</li>
+                                        <li>added a dedicated "dummy" string to remove rows without needing
+                                            <code>invisible</code> tags.
+                                        </li>
+                                    </ul>
+                                    <br>
+                                    <h3>quality of life</h3>
+                                    <ul>
+                                        <li>added patch notes viewer.</li>
+                                        <li>added glow highlight indicating when the url has been updated.</li>
+                                        <li>separated scroll-up and scroll-down into distinct combo options.</li>
+                                        <li>mouse preview now works everywhere on the page.</li>
+                                        <li>default scroll arrows updated to a thicker style.</li>
+                                    </ul>
+                                    <br>
+                                    <h3>custom mouse row</h3>
+                                    <ul>
+                                        <li>added fully customizable mouse row.</li>
+                                        <li>implemented wide left mouse button: <code>mouse_left:"m1":mouse-wide</code>.
+                                        </li>
+                                        <li>added improved 3-label scroller: <code>scroller:"-":"↑":"↓"</code>.</li>
+                                        <li>added right mouse button: <code>mouse_right:"m2"</code>.</li>
+                                    </ul>
+                                    <br>
+                                    <h3>cheat sheets</h3>
+                                    <ul>
+                                        <li>added cheat sheet support for custom configuration elements.</li>
+                                    </ul>
+                                    <br>
+                                    <h3>key styling</h3>
+                                    <ul>
+                                        <li>refactored internal key width styling system.</li>
+                                    </ul>
+                                </div>
+                            </details>
+                        </div>
+                    </fieldset>
+                    <fieldset class="cs-fieldset" style="max-height: 230px;">
+                        <legend>connection</legend>
+                        <div class="nested-grid-2">
+                            <div class="cs-form-group">
+                                <label class="cs-input__label" for="wsaddress">address</label>
+                                <input class="cs-input config-input" id="wsaddress" type="text" value="localhost">
+                            </div>
+                            <div class="cs-form-group">
+                                <label class="cs-input__label" for="wsport">port</label>
+                                <input class="cs-input config-input" id="wsport" type="number" value="16899">
+                            </div>
+                        </div>
+                        <div class="cs-form-group">
+                            <label class="cs-input__label" for="wsauth">auth token</label>
+                            <input class="cs-input config-input" id="wsauth" type="text"
+                                placeholder="websocket auth token">
+                        </div>
+                        <div class="cs-form-group" style="margin-top: 10px;">
+                            <label class="cs-input__label" for="generatedlink" style="display: block;">obs
+                                browser source
+                                url</label>
+                            <div class="link-container" style="gap: 10px;">
+                                <input class="cs-input" id="generatedlink" type="text">
+                            </div>
+                        </div>
+                        <div class="nested-grid-2" style="margin-top: 10px;">
+                            <button class="cs-btn" id="loadbtn" style="min-width: 88px;">⟳ load url</button>
+                            <button class="cs-btn" id="copybtn" style="min-width: 88px;">⎘ copy url</button>
+                        </div>
+                    </fieldset>
+                    <fieldset class="cs-fieldset">
+                        <legend>custom layout</legend>
+                        <div class="nested-grid-1">
+                            <div class="cs-form-group">
+                                <label class="cs-input__label" for="layoutPresets"
+                                    style="display: block;">TEMPLATES</label>
+                                <select class="cs-select" id="layoutPresets" style="max-height: 26px;">
+                                    <option value="0" selected>-</option>
+                                    <option
+                                        value="https://overlay.girlglock.com?cfg=eNplj99KwzAUxt_lXORqg6Z_NjnQizo3FDbQOfBS0jTtwrKmNu3GHkB8DPENfQSTZsh0PdB8-ZLvd04Y7-RBcK10mya8nEwLImt2Yd4ErkjO-K5qdV8X3qbMVZ4QfzevvB1P82JCie47JeszIS5dkVLXnTfK4SOV0sc0jEnLCtmbNCBNK4wxnCmRUhoQ0whRpFEQkIo1e13IUgrb2O5zrQqHSynhven0fslOtuVaH2m6E6dXYSGNQJD1QRoYOYsiUK9ChNCrCCHyKkaI4T8rHFgdyxE22S1gT8fJcPsN4cnnjggvXtluc69ahPUVKxpYSpSd2cqyQ3i-f1hsLDMcMgwh82ljj7wqEO68KhEWV8Tkl8i7ViHMNuvlxYzugCnbKFtuLmzTMG5HfX7MZnNrR-Mo-gNe6d6IdO_-AwJhRd2U43g6MrzVSgn7vlUECN-fX-9--YCRT7Sy2rpIeI78AJYqzXQ">
+                                        qwerty</option>
+                                    <option
+                                        value="http://127.0.0.1:3000/index.html?cfg=eNptUMtKxDAU_ZcssqrQdNrpEMhCdKUWRBlcDmkenTBpU_KwFNyKnyH-oZ9g07jQ0VzI49zzuIQyr54FM9pYUjG5rTlUA_0B7vJYsKXs1FkTBp5gRGO1FUzctktwWbd8i6AJXqvh26GUsaA0g0-AXBfstJlIUUJLuQqO5HC0wjnHqBYEoRy6UQhONnkOOzr2hiupxBK8vFujebQjCB4VF70JbpFAFpw3_R2dl_gHMyHCQ9_P53BBVv5BC-kxaBDITmI-TBg8gSx1rOqOsVWAc-2GRC7F4DKpHAaP6cYxuP5DL_-foFpd2Evc4xTMW73I91e3AAd0UdWZY9ZoLexKcSNlAoObfXMPMPh8_3hNx1ti737ZN-tfrLFffhirCw">
+                                        wasd
+                                        + duck + jump + mouse</option>
+                                    <option
+                                        value="https://overlay.girlglock.com?cfg=eNptUEtuwyAUvMtbsHIl27GTColFlKarRGqTSF1GmI-Dgo0LplEOUPUYVW_YI9SYVoqa8BYMA29mHpT16k0wo40lJZPTGUeqpRfkfRoKVZQda2t8yyOd0VBVieLbqo50Mav4NEPG91q1vwqFDIWkaftIyHGhWpsTyQtkKVfekRR1VjjnGNWCZFmKXCcEJ5M0RTXtGsOVVGIwHs6V0TzIkQwdFBeN8W5oQcy73jQreh7sN-aUEe6b5vyfzslRnPevGJ4hCeiE4SUigWEZkcWwgWTU3WshewzrDLC_spiMWhTDPPY5DNuIOIaHiCSGR0gcs0ZrMQivJ4Dh-_PrPW4ft3SL29HL0S4EYr3VGBa7zSq03-Vl8ndD9ZB2vtpd8q6jbBhu-zRfLEd-WvwOZ1V9CNPlVynW46eOMX4A00G_vw">
+                                        qwerty minimal</option>
+                                    <option
+                                        value="https://overlay.girlglock.com?cfg=eNptjUtOwzAURffyBh51EDdJiyx5gNQhncCAYeVvsOrEqT-NsgDEMhA7ZAnEMQNU6ivZfkdH7zIRzVUJZ52nrdC7vURmYH_gQ5WDOBPnzrs0yIIxy-EtKi7vCm72XO4wcilaM_xuaHQO0m6IBej1oM66iW4b5Jk0KdAKjV6FEASzimJcoTAqJWldVahjY--k0UYtxcvMnZV5HcVIpBBd_8TmpfLZTZjK1PfzLd7Ss5pPFwIXIGa4mmC4VZvMJgKvcKvXq84IPMIqBQIv5ScJHP7pzf3S9g4-uhQU7fN9skpHAkcMmyC8s1b5ZaqBwPfn13t5PoAkvCm6N91bXI0fXeqdiQ">
+                                        wasd
+                                        + mouse</option>
+                                    <option
+                                        value="https://overlay.girlglock.com?cfg=eNplkst200AMht9FC7MhYOdecbxIQ9qGpiEkKeVSTs_YHidDbY_jS9Ow4gF4IBa8U18B2XKKSTybb-SZf_RLEm6mHqSrA53YHdfv9jxDRaIW7JvFMhzh3q8SnUcehy1RLKdj8FlnxeF2z_G6lqHzLFBRpdD2i2X4Oso44JefsQr01m62jUR4Kk9t04gTmaapKwJpW5ZppLGUnt0yTWMl4lB7yleSHqa9owOvkLMtY608Geo8pSuGm6eZDidiR8_P9day7-XuTpJgLBFGiyG8LAIWgsXURGgytRBaTG2ENlMHocPURegy9RB6TH2EPtMJwgmTiWAyhSrKU4QG7-QmFwFtbd4WpUxj4VJSp4Ph5WI2GI4At41mo5MfemiWHjLhICwHp3SK7JYiG4QPLLdFuKneIZdMCcKcKaOLTDuEz0w5wjWTQhgzaYT3TDHCjCmQfnbnJJSuJJmvlbRarWvRbzVPgUjXCLe3pZkjK63SCjUjDbR7jzAczBaA8jFLROPZlkAYsCLVa8HkIbxl8hHOmFYI50z04gXTd4R3TKR-WVlAmFR6MlTF-EUIbziyyXVGJXtRFS_KJJVtNF2O5tyN3nE72va-Lm6WkPbiYny23PeulPmB8IUFHxE-MblklukB4WNVMGo-EyU0raYG4aq6ocOQSvH059fT759VW2SiNJXiVWWHi_261pR0rfysllPrKP3OQfrD5XxSm6nix1ZRPjfj6UFYBKQ8mCxr4WqEn8e3l_9LZX_8fF67EMqIJu9qNL2uBcvj_2XTsIrK_wXoqoiM">
+                                        full
+                                        qwerty</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow1">top row</label>
@@ -760,156 +952,6 @@
                             <div class="cs-form-group"></div>
                         </div>
                     </fieldset>
-                </div>
-                <div class="full-width">
-                    <details class="fullscreen-details" id="patchSheetDetails" style="margin-top: 10px;">
-                        <summary style="color: #394533;">patch notes</summary>
-                        <div class="close-btn cs-btn" id="closePatchSheet"></div>
-
-                        <div class="patchnotes">
-                            <!-- 2025-12-17 -->
-                            <h1>2025-12-27</h1>
-                            <br>
-                            <h3>bug fixes</h3>
-                            <ul>
-                                <li>fix keys not activating when having the same key configured multiple times</li>
-                            </ul>
-                            <br>
-                            <h3>quality of life</h3>
-                            <ul>
-                                <li>added a presets dropdown</li>
-                                <li>added ability to use img tags in key labels</li>
-                                <li>added a + button to add new keys. this should be easier to use for most people</li>
-                            </ul>
-                            <br>
-
-                            <!-- 2025-12-06 -->
-                            <h1>2025-12-06</h1>
-                            <br>
-                            <h3>bug fixes</h3>
-                            <ul>
-                                <li>fix mouse_4 and mouse_5 elements</li>
-                                <li>fix oversight in unpress logic causing wrong held keys to be unpressed</li>
-                            </ul>
-                            <br>
-
-                            <!-- 2025-12-04 -->
-                            <h1>2025-12-04</h1>
-                            <br>
-                            <h3>bug fixes</h3>
-                            <ul>
-                                <li>fix mouse element scaling</li>
-                            </ul>
-                            <br>
-                            <h3>new config variables</h3>
-                            <ul>
-                                <li>added key gap modifier</li>
-                                <li>added bold font checkbox</li>
-                            </ul>
-                            <br>
-                            <h3>quality of life</h3>
-                            <ul>
-                                <li>invisible keys now support width classes <i>(key_escape:"invis":u2-25)</i></li>
-                            </ul>
-                            <br>
-
-                            <!-- 2025-12-03 -->
-                            <h1>2025-12-03</h1>
-                            <br>
-                            <h3>bug fixes</h3>
-                            <ul>
-                                <li>fix scale scaling wrong document element</li>
-                                <li>fix mouse buttons not working outside the mouse row</li>
-                                <li>fix fonts</li>
-                            </ul>
-                            <br>
-                            <h3>quality of life</h3>
-                            <ul>
-                                <li>added a wider range of width classes (see cheat sheet)</li>
-                                <li>mouse buttons support width classes including scroller</li>
-                            </ul>
-                            <br>
-
-                            <!-- 2025-12-02 -->
-                            <h1>2025-12-02</h1>
-                            <br>
-                            <h3>bug fixes</h3>
-                            <ul>
-                                <li>fix color pickers not updating when loading settings from url</li>
-                                <li>fix copy button label inconsistency</li>
-                                <li>fix text not being selectable</li>
-                            </ul>
-                            <br>
-                            <h3>quality of life</h3>
-                            <ul>
-                                <li>add url cfg compression to save 50% size, legacy params should continue to work fine
-                                </li>
-                                <li>add "edit this layout" button inside the overlay mode that shows on mouse hover</li>
-                                <li>rework how key states are handled to compare against an array of previous websocket
-                                    messages to prevent stuck keys on unfocused or busy (lagging) browser src</li>
-                                <li>make sheet flyouts smaller</li>
-                            </ul>
-                            <br>
-
-                            <!-- 2025-12-01 -->
-                            <h1>2025-12-01</h1>
-                            <br>
-                            <h3>bug fixes</h3>
-                            <ul>
-                                <li>fix scroll label scale for good (?)</li>
-                                <li>fix sheet flyouts</li>
-                                <li>fix cheat sheet not scrolling</li>
-                                <li>fix speed suffix being x instead of %</li>
-                            </ul>
-                            <br>
-                            <h3>quality of life</h3>
-                            <ul>
-                                <li>added settings loading from url to allow sharing and loading of previously
-                                    configured urls</li>
-                                <li>url bar now updates on settings change, this is useful to share unfinished
-                                    configurations (obs url still needs to be obtained through the copy button)</li>
-                            </ul>
-                            <br>
-
-                            <!-- 2025-11-30 -->
-                            <h1>2025-11-30</h1>
-                            <br>
-                            <h3>bug fixes</h3>
-                            <ul>
-                                <li>fixed mouse label not scaling correctly inside its element.</li>
-                                <li>added a dedicated "dummy" string to remove rows without needing
-                                    <code>invisible</code> tags.
-                                </li>
-                            </ul>
-                            <br>
-                            <h3>quality of life</h3>
-                            <ul>
-                                <li>added patch notes viewer.</li>
-                                <li>added glow highlight indicating when the url has been updated.</li>
-                                <li>separated scroll-up and scroll-down into distinct combo options.</li>
-                                <li>mouse preview now works everywhere on the page.</li>
-                                <li>default scroll arrows updated to a thicker style.</li>
-                            </ul>
-                            <br>
-                            <h3>custom mouse row</h3>
-                            <ul>
-                                <li>added fully customizable mouse row.</li>
-                                <li>implemented wide left mouse button: <code>mouse_left:"m1":mouse-wide</code>.</li>
-                                <li>added improved 3-label scroller: <code>scroller:"-":"↑":"↓"</code>.</li>
-                                <li>added right mouse button: <code>mouse_right:"m2"</code>.</li>
-                            </ul>
-                            <br>
-                            <h3>cheat sheets</h3>
-                            <ul>
-                                <li>added cheat sheet support for custom configuration elements.</li>
-                            </ul>
-                            <br>
-                            <h3>key styling</h3>
-                            <ul>
-                                <li>refactored internal key width styling system.</li>
-                            </ul>
-                        </div>
-                    </details>
                 </div>
             </div>
         </div>

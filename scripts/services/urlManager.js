@@ -44,6 +44,10 @@ export class UrlManager {
             }
         };
 
+        if (settings.wsauth) {
+            addParam("wsauth", encodeURIComponent(settings.wsauth));
+        }
+
         const colorSettings = {
             activecolor: settings.activecolor,
             inactivecolor: settings.inactivecolor,
@@ -137,6 +141,8 @@ export class UrlManager {
                     customLayoutMouse: decompressedParams.has("customLayoutMouse") ? decompressedParams.get("customLayoutMouse") : DEFAULT_LAYOUT_STRINGS.mouse,
 
                     gapmodifier: decompressedParams.get("gapmodifier") || "100",
+
+                    wsauth: decompressedParams.get("wsauth") || "",
                 };
             }
         }
@@ -166,6 +172,8 @@ export class UrlManager {
             customLayoutMouse: params.has("customLayoutMouse") ? params.get("customLayoutMouse") : DEFAULT_LAYOUT_STRINGS.mouse,
 
             gapmodifier: params.get("gapmodifier") || "100",
+
+            wsauth: params.get("wsauth") || "",
         };
     }
 }
