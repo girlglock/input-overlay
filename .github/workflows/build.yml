@@ -27,10 +27,12 @@ jobs:
         run: python -m pip install --upgrade pip && pip install pyinstaller websockets pynput pystray Pillow pyperclip PyQt6 hidapi winotify
 
       - name: build ws-server exe
+        working-directory: ws-server
         run: python -m PyInstaller --onefile --windowed --add-data "assets;assets" --add-data "services;services" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.consts --hidden-import=services.settings --hidden-import=winotify input-overlay-ws.py
 
       - name: create windows zip
-        run: mkdir windows-release && copy dist\input-overlay-ws.exe windows-release\ && powershell Compress-Archive -Path windows-release\* -DestinationPath input-overlay-ws-windows.zip
+        working-directory: ws-server
+        run: mkdir windows-release && copy dist\input-overlay-ws.exe windows-release\ && powershell Compress-Archive -Path windows-release\* -DestinationPath ..\input-overlay-ws-windows.zip
 
       - name: attest windows build provenance
         uses: actions/attest-build-provenance@v1
