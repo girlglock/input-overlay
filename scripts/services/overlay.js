@@ -32,7 +32,7 @@ export class OverlayMode {
             });
 
             this.visualizer.adjustScrollDisplays();
-            this.visualizer.adjustKeyFontSizes();
+            this.visualizer.adjustKeyFontSizes(parseFloat(visualizer.outlineScaleUnpressed) || 0);
         });
     }
 }

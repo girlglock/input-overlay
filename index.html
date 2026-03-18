@@ -67,8 +67,7 @@
                                         <blockquote class="cs-note"
                                             style="border-left: 5px solid #5cf669; padding: 10px; margin: 15px -15px;">
                                             🛈 This method supports hall effect keyboards. To enable support for them
-                                            check the corresponding checkbox in the configurator and additionally enable
-                                            it in your <b>input-overlay-ws</b> server settings<br>
+                                            enable it in your <b>input-overlay-ws</b> server settings<br>
                                         </blockquote>
                                     </ol>
                                     <br>
@@ -499,14 +498,28 @@
                                 <div class="close-btn cs-btn" id="closePatchSheet"></div>
 
                                 <div class="patchnotes">
+                                    <!-- 2026-03-18 -->
+                                    <h1>2026-03-18</h1>
+                                    <h3>quality of life</h3>
+                                    <ul>
+                                        <li>removed analog mode checkbox, the overlay will now auto-enable it when the
+                                            server sends analog_depth events</li>
+                                        <li>added outline scale modifier for pressed and unpressed keys</li>
+                                        <li>key legends will now fade with analog_depth rather than listen to digital
+                                            states (50% is max pressed color)</li>
+                                    </ul>
+                                    <br>
+
                                     <!-- 2026-03-15 -->
                                     <h1>2026-03-15</h1>
                                     <h3>new new server</h3>
-                                    <li>added a slightly more complex ws server which has now a propper settings window and support for analog keyboards (analogsense sdk)</li>
+                                    <li>added a slightly more complex ws server which has now a propper settings window
+                                        and support for analog keyboards (analogsense sdk)</li>
                                     <br>
                                     <h3>bug fixes</h3>
                                     <ul>
-                                        <li>i low key forgot what i was doing since it has been months. sorgi if something is still brokey,,.
+                                        <li>i low key forgot what i was doing since it has been months. sorgi if
+                                            something is still brokey,,.
                                         </li>
                                     </ul>
                                     <br>
@@ -987,7 +1000,23 @@
                                         type="text" maxlength="9" value="#808080">
                                 </div>
                             </div>
-                            <div class="cs-form-group"></div>
+                            <div style="display: flex; gap: 8px;">
+                                <div class="cs-slider" style="flex: 1; min-width: 0;">
+                                    <div id="outlinescaleunpressedvalue" class="value">2px</div>
+                                    <div class="cs-ruler"></div>
+                                    <input id="outlinescaleunpressed" class="config-input" max="10" min="0" step="0.25"
+                                        type="range" value="2">
+                                    <label for="outlinescaleunpressed">outline unpressed</label>
+                                </div>
+                                <div class="cs-slider" style="flex: 1; min-width: 0;">
+                                    <div id="outlinescalepressedvalue" class="value">2px</div>
+                                    <div class="cs-ruler"></div>
+                                    <input id="outlinescalepressed" class="config-input" max="10" min="0" step="0.25"
+                                        type="range" value="2">
+                                    <label for="outlinescalepressed">outline pressed</label>
+                                </div>
+                            </div>
+
                             <div class="cs-form-group"></div>
                         </div>
                     </fieldset>

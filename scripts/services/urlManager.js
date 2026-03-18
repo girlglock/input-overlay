@@ -72,6 +72,9 @@ export class UrlManager {
 
         addParam("gapmodifier", settings.gapmodifier);
 
+        addParam("outlinescalepressed", settings.outlinescalepressed);
+        addParam("outlinescaleunpressed", settings.outlinescaleunpressed);
+
         if (settings.fontfamily && settings.fontfamily.trim() !== "") {
             addParam("fontfamily", settings.fontfamily.replace(/ /g, "+"));
         }
@@ -141,6 +144,8 @@ export class UrlManager {
                     customLayoutMouse: decompressedParams.has("customLayoutMouse") ? decompressedParams.get("customLayoutMouse") : DEFAULT_LAYOUT_STRINGS.mouse,
 
                     gapmodifier: decompressedParams.get("gapmodifier") || "100",
+                    outlinescalepressed: decompressedParams.get("outlinescalepressed") || "2",
+                    outlinescaleunpressed: decompressedParams.get("outlinescaleunpressed") || "2",
 
                     wsauth: decompressedParams.get("wsauth") || "",
                 };
@@ -172,6 +177,9 @@ export class UrlManager {
             customLayoutMouse: params.has("customLayoutMouse") ? params.get("customLayoutMouse") : DEFAULT_LAYOUT_STRINGS.mouse,
 
             gapmodifier: params.get("gapmodifier") || "100",
+
+            outlinescalepressed: params.get("outlinescalepressed") || "2",
+            outlinescaleunpressed: params.get("outlinescaleunpressed") || "2",
 
             wsauth: params.get("wsauth") || "",
         };

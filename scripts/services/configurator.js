@@ -57,6 +57,8 @@ export class ConfiguratorMode {
             boldfont: true,
             analogmode: false,
             gapmodifier: "100",
+            outlinescalepressed: "2",
+            outlinescaleunpressed: "2",
             customLayoutRow1: DEFAULT_LAYOUT_STRINGS.row1,
             customLayoutRow2: DEFAULT_LAYOUT_STRINGS.row2,
             customLayoutRow3: DEFAULT_LAYOUT_STRINGS.row3,
@@ -99,6 +101,8 @@ export class ConfiguratorMode {
             analogmode: document.getElementById("analogmode") ? document.getElementById("analogmode").checked : false,
 
             gapmodifier: document.getElementById("gapmodifier") ? document.getElementById("gapmodifier").value : "100",
+            outlinescalepressed: document.getElementById("outlinescalepressed") ? document.getElementById("outlinescalepressed").value : "2",
+            outlinescaleunpressed: document.getElementById("outlinescaleunpressed") ? document.getElementById("outlinescaleunpressed").value : "2",
 
             customLayoutRow1: document.getElementById("customLayoutRow1") ? document.getElementById("customLayoutRow1").value : "",
             customLayoutRow2: document.getElementById("customLayoutRow2") ? document.getElementById("customLayoutRow2").value : "",
@@ -113,6 +117,10 @@ export class ConfiguratorMode {
         const label = document.getElementById(input.id + "value");
         if (label) {
             let suffix = "";
+            if (input.id === "outlinescalepressed" || input.id === "outlinescaleunpressed") {
+                label.textContent = input.value + "px";
+                return;
+            }
             if (input.id.includes("radius")) suffix = "px";
             else if (input.id.includes("scale")) suffix = "x";
             else if (input.id === "opacity" || input.id.includes("speed") || input.id.includes("modifier")) suffix = "%";
@@ -171,7 +179,8 @@ export class ConfiguratorMode {
         applyValue("hidemouse", settings.hidemouse);
         applyValue("hidescrollcombo", settings.hidescrollcombo);
         applyValue("boldfont", settings.boldfont);
-        applyValue("analogmode", settings.analogmode);
+        applyValue("outlinescalepressed", settings.outlinescalepressed ?? "2");
+        applyValue("outlinescaleunpressed", settings.outlinescaleunpressed ?? "2");
 
         applyValue("customLayoutRow1", settings.customLayoutRow1 !== undefined ? settings.customLayoutRow1 : "");
         applyValue("customLayoutRow2", settings.customLayoutRow2 !== undefined ? settings.customLayoutRow2 : "");
@@ -187,7 +196,11 @@ export class ConfiguratorMode {
         if (!settings) settings = this.getCurrentSettings();
 
         this.visualizer.applyStyles(settings, true);
-        this.visualizer.rebuildInterface(settings);
+
+        clearTimeout(this.rebuildDebounceTimer);
+        this.rebuildDebounceTimer = setTimeout(() => {
+            this.visualizer.rebuildInterface(settings);
+        }, 100);
 
         clearTimeout(this.urlDebounceTimer);
         this.urlDebounceTimer = setTimeout(() => {

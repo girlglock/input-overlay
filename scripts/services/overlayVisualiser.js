@@ -81,6 +81,8 @@ export class OverlayVisualiser {
         this.glowRadius = opts.glowradius;
         this.inactiveColor = opts.inactivecolor;
         this.fontColor = opts.fontcolor;
+        this.outlineScalePressed = parseFloat(opts.outlinescalepressed ?? opts.outlineScalePressed ?? 1);
+        this.outlineScaleUnpressed = parseFloat(opts.outlinescaleunpressed ?? opts.outlineScaleUnpressed ?? 1);
 
         this.utils.applyFontStyles(opts.fontfamily);
 
@@ -140,15 +142,18 @@ export class OverlayVisualiser {
                 z-index: 2;
             }
             .key-label-primary {
-                position: relative;
-                z-index: 2;
-                pointer-events: none;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
             }
             .key.active, .mouse-btn.active, .scroll-display.active {
                 color: ${opts.fontcolor} !important;
                 transform: ${activeTransform} !important;
                 border-color: ${opts.activecolor} !important;
                 box-shadow: 0 2px ${opts.glowradius}px ${opts.activecolor} !important;
+                border-width: ${opts.outlinescalepressed ?? 1}px !important;
             }
             .key.active:not(.analog-key), .mouse-btn.active:not(.analog-key), .scroll-display.active:not(.analog-key) {
                 background: ${opts.activebgcolor} !important;
@@ -174,6 +179,8 @@ export class OverlayVisualiser {
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
+                border-color: ${opts.outlinecolor} !important;
+                border-width: ${opts.outlinescaleunpressed ?? 1}px !important;
             }
             
             .scroll-arrow img {
@@ -417,7 +424,7 @@ export class OverlayVisualiser {
 
         this.restoreActiveStates();
         this.adjustScrollDisplays();
-        this.adjustKeyFontSizes();
+        this.adjustKeyFontSizes(parseFloat(this.outlineScaleUnpressed) || 0);
     }
 
     restoreActiveStates() {
@@ -467,12 +474,14 @@ export class OverlayVisualiser {
         });
     }
 
-    adjustKeyFontSizes() {
+    adjustKeyFontSizes(unpressedBorderWidth = 0) {
         document.querySelectorAll(".key").forEach(key => {
             key.style.fontSize = "";
             const labelEl = key.querySelector('.key-label-primary') || key;
             const textWidth = this.utils.measureTextWidth(labelEl);
-            const containerWidth = key.clientWidth - 24;
+            const styles = window.getComputedStyle(key);
+            const keyWidth = parseFloat(styles.getPropertyValue('--key-width')) || 50;
+            const containerWidth = keyWidth - (unpressedBorderWidth * 2);
 
             if (textWidth > containerWidth) {
                 this.utils.scaleKeyFontSize(key, containerWidth, textWidth);

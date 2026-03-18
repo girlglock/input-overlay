@@ -180,8 +180,13 @@ export class WebSocketManager {
                         this.visualizer.updateElementState(el, keyName, isActive, activeSet);
 
                         if (this.visualizer.analogMode && type === "key" && keyName.startsWith("key_")) {
-                            if (this.keyDepths[keyId] !== undefined) {
-                                const depth = this.keyDepths[keyId];
+                            const depth = this.keyDepths[keyId];
+                            if (depth !== undefined && depth > 0) {
+                                const unpressedWidth = this.visualizer.outlineScaleUnpressed ?? 2;
+                                const pressedWidth = this.visualizer.outlineScalePressed ?? 2;
+                                const borderWidth = unpressedWidth + (pressedWidth - unpressedWidth) * Math.min(1, depth * 3);
+                                el.style.setProperty('border-width', `${borderWidth}px`, 'important');
+
                                 const depthThreshold = 0.02;
                                 const effectiveDepth = depth < depthThreshold ? 0 : depth;
                                 const fillHeight = effectiveDepth * 100;
@@ -192,7 +197,6 @@ export class WebSocketManager {
 
                                 const primaryLabel = el.querySelector('.key-label-primary');
                                 if (primaryLabel) {
-                                    const depth = this.keyDepths[keyId] || 0;
                                     const colorT = Math.min(1, depth * 2);
                                     const interpolated = this.lerpColor(
                                         this.visualizer.inactiveColor,
@@ -215,15 +219,15 @@ export class WebSocketManager {
 
                                 const dataKeyValue = el.dataset.key || keyName;
                                 styleEl.textContent = `
-                                [data-key="${dataKeyValue}"]::after {
-                                    height: ${fillHeight}% !important;
-                                    transition: height 0.1s cubic-bezier(0.4,0,0.2,1) !important;
-                                }
-                                [data-key="${dataKeyValue}"].analog-key {
-                                    border-color: ${this.visualizer.activeColor} !important;
-                                    box-shadow: ${boxShadow} !important;
-                                }
-                            `;
+                                    [data-key="${dataKeyValue}"]::after {
+                                        height: ${fillHeight}% !important;
+                                        transition: height 0.1s cubic-bezier(0.4,0,0.2,1) !important;
+                                    }
+                                    [data-key="${dataKeyValue}"].analog-key {
+                                        border-color: ${this.visualizer.activeColor} !important;
+                                        box-shadow: ${boxShadow} !important;
+                                    }
+                                `;
                             }
                         } else if (type === "mouse") {
                             if (isActive) {
@@ -343,6 +347,10 @@ export class WebSocketManager {
                 );
                 primaryLabel.style.color = interpolated;
             }
+            const unpressedWidth = this.visualizer.outlineScaleUnpressed ?? 2;
+            const pressedWidth = this.visualizer.outlineScalePressed ?? 2;
+            const borderWidth = unpressedWidth + (pressedWidth - unpressedWidth) * Math.min(1, depth * 3);
+            el.style.setProperty('border-width', `${borderWidth}px`, 'important');
 
             const dataKeyValue = el.dataset.key || keyInfo.name;
             styleEl.textContent = `
