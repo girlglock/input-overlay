@@ -315,6 +315,13 @@ export class ConfiguratorMode {
             settings.wsaddress = wsAddress;
             settings.wsport = wsPort;
 
+            if (!settings.keylegendmode) {
+                settings.keylegendmode = "fading";
+            }
+            if (settings.forcedisableanalog === undefined || settings.forcedisableanalog === null) {
+                settings.forcedisableanalog = false;
+            }
+
             if (Object.keys(settings).length > 0) {
                 this.applySettings(settings);
                 this.updateState();
