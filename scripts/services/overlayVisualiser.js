@@ -239,7 +239,7 @@ export class OverlayVisualiser {
                 color: ${opts.fontcolor} !important;
                 display: ${opts.hidescrollcombo ? "none" : "flex"} !important;
                 font-weight: ${fontWeight} !important;
-                text-shadow: ${(c=>'1px 0 2px '+c+', -1px 0 2px '+c+', 0 1px 2px '+c+', 0 -1px 2px '+c)(opts.activecolor+'ff')} !important;
+                text-shadow: ${(c=>'1px 0 1px '+c+', -1px 0 1px '+c+', 0 1px 2px '+c+', 0 -1px 1px '+c)((parseInt(opts.fontcolor.replace('#',''),16)>0xFFFFFF/2?'#000000':'#ffffff')+'ff')} !important;
             }
             .mouse-section {
                 display: ${opts.hidemouse ? "none" : "flex"} !important;
