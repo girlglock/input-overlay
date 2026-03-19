@@ -679,6 +679,12 @@ export class OverlayVisualiser {
                 document.head.appendChild(styleEl);
             }
 
+            if (effectiveDepth > 0) {
+                el.classList.add("analog-key");
+            } else if (!el.classList.contains("active")) {
+                el.classList.remove("analog-key");
+            }
+
             el.style.setProperty('transform', `scale(${scale})`, 'important');
 
             const fillHeight = effectiveDepth * 100;

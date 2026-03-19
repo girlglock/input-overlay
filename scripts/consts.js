@@ -105,6 +105,38 @@ export const RAW_CODE_TO_KEY_NAME = {
     110: "key_numpad_decimal"
 };
 
+export const HID_TO_KEY_NAME = {
+    0x04: "key_a", 0x05: "key_b", 0x06: "key_c", 0x07: "key_d", 0x08: "key_e",
+    0x09: "key_f", 0x0a: "key_g", 0x0b: "key_h", 0x0c: "key_i", 0x0d: "key_j",
+    0x0e: "key_k", 0x0f: "key_l", 0x10: "key_m", 0x11: "key_n", 0x12: "key_o",
+    0x13: "key_p", 0x14: "key_q", 0x15: "key_r", 0x16: "key_s", 0x17: "key_t",
+    0x18: "key_u", 0x19: "key_v", 0x1a: "key_w", 0x1b: "key_x", 0x1c: "key_y",
+    0x1d: "key_z", 0x1e: "key_1", 0x1f: "key_2", 0x20: "key_3", 0x21: "key_4",
+    0x22: "key_5", 0x23: "key_6", 0x24: "key_7", 0x25: "key_8", 0x26: "key_9",
+    0x27: "key_0", 0x28: "key_enter", 0x29: "key_escape", 0x2a: "key_backspace",
+    0x2b: "key_tab", 0x2c: "key_space", 0x2d: "key_minus", 0x2e: "key_equals",
+    0x2f: "key_openbracket", 0x30: "key_closebracket", 0x31: "key_backslash",
+    0x33: "key_semicolon", 0x34: "key_apostrophe", 0x36: "key_comma",
+    0x37: "key_period", 0x38: "key_slash", 0x39: "key_capslock",
+    0x3a: "key_f1", 0x3b: "key_f2", 0x3c: "key_f3", 0x3d: "key_f4",
+    0x3e: "key_f5", 0x3f: "key_f6", 0x40: "key_f7", 0x41: "key_f8",
+    0x42: "key_f9", 0x43: "key_f10", 0x44: "key_f11", 0x45: "key_f12",
+    0x46: "key_printscreen", 0x47: "key_scrolllock", 0x48: "key_pause",
+    0x49: "key_insert", 0x4a: "key_home", 0x4b: "key_pageup",
+    0x4c: "key_delete", 0x4d: "key_end", 0x4e: "key_pagedown",
+    0x4f: "key_rightarrow", 0x50: "key_leftarrow", 0x51: "key_downarrow",
+    0x52: "key_uparrow", 0x53: "key_numlock", 0x54: "key_numpad_divide",
+    0x55: "key_numpad_multiply", 0x56: "key_numpad_subtract",
+    0x57: "key_numpad_add", 0x58: "key_numpad_enter",
+    0x59: "key_numpad_1", 0x5a: "key_numpad_2", 0x5b: "key_numpad_3",
+    0x5c: "key_numpad_4", 0x5d: "key_numpad_5", 0x5e: "key_numpad_6",
+    0x5f: "key_numpad_7", 0x60: "key_numpad_8", 0x61: "key_numpad_9",
+    0x62: "key_numpad_0", 0x63: "key_numpad_decimal",
+    0xe0: "key_leftctrl", 0xe1: "key_leftshift", 0xe2: "key_leftalt",
+    0xe3: "key_leftwin", 0xe4: "key_rightctrl", 0xe5: "key_rightshift",
+    0xe6: "key_rightalt", 0xe7: "key_rightwin",
+};
+
 export const BROWSER_CODE_TO_KEY_NAME = {
     "escape": "key_escape",
     "digit1": "key_1",
@@ -237,12 +269,12 @@ export const DEFAULT_LAYOUT_STRINGS = {
 };
 
 export const COLOR_PICKERS = [
-    {id: "activecolor", defaultColor: "#8b5cf6"},
-    {id: "backgroundcolor", defaultColor: "#1a1a1ad1"},
-    {id: "activebgcolor", defaultColor: "#202020"},
-    {id: "outlinecolor", defaultColor: "#4f4f4f"},
-    {id: "fontcolor", defaultColor: "#ffffff"},
-    {id: "inactivecolor", defaultColor: "#808080"}
+    { id: "activecolor", defaultColor: "#8b5cf6" },
+    { id: "backgroundcolor", defaultColor: "#1a1a1ad1" },
+    { id: "activebgcolor", defaultColor: "#202020" },
+    { id: "outlinecolor", defaultColor: "#4f4f4f" },
+    { id: "fontcolor", defaultColor: "#ffffff" },
+    { id: "inactivecolor", defaultColor: "#808080" }
 ];
 
 export const FONT_FAMILY_LINKS = {

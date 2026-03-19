@@ -514,7 +514,7 @@
                                         <li>interpolated analog_depth to account for no css transition times</li>
                                     </ul>
                                     <br>
-
+                                    
                                     <!-- 2026-03-18 -->
                                     <h1>2026-03-18</h1>
                                     <h3>quality of life</h3>
@@ -1058,13 +1058,25 @@
                                                 style="max-height: 22px; font-size: 12px;">
                                                 <option value="fading">fading</option>
                                                 <option value="inverting">inverting</option>
-                                                <option value="digital">digital</option>
+                                                <option value="inverting">digital</option>
+                                            </select>
+                                        </div>
+                                        <div class="cs-form-group">
+                                            <label class="cs-input__label" for="fillmode">fill mode</label>
+                                            <select class="cs-select config-input" id="fillmode"
+                                                style="max-height: 22px; font-size: 12px;">
+                                                <option value="background">background</option>
+                                                <option value="outline">outline</option>
                                             </select>
                                         </div>
                                         <div class="cs-checkbox" style="margin-top: 7px;">
                                             <input type="checkbox" class="config-input" id="forcedisableanalog">
-                                            <label for="forcedisableanalog" class="cs-checkbox__label">force
-                                                disable</label>
+                                            <label for="forcedisableanalog" class="cs-checkbox__label">force disable</label>
+                                        </div>
+                                        <div class="cs-form-group" style="margin-top: 8px;">
+                                            <label class="cs-input__label" for="fillmode">keyboard used for live preview</label>
+                                            <button class="cs-btn" id="analogconnectbtn" style="width: 100%;">⊕ connect</button>
+                                            <div id="analogstatus" style="font-size: 10px; margin-top: 4px; color: #808080;"></div>
                                         </div>
                                     </div>
                                 </fieldset>
@@ -1246,6 +1258,7 @@
             </div>
         </div>
     </div>
+    <script src="scripts/libs/AnalogSense.js"></script>
     <script src="scripts/libs/pickr.min.js"></script>
     <script src="scripts/libs/pako.min.js"></script>
     <script type="module" src="scripts/main.js"></script>

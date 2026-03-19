@@ -1,5 +1,5 @@
 //guh
-import { BROWSER_BUTTON_TO_KEY_NAME, BROWSER_CODE_TO_KEY_NAME, COLOR_PICKERS, DEFAULT_LAYOUT_STRINGS } from "../consts.js";
+import { BROWSER_BUTTON_TO_KEY_NAME, BROWSER_CODE_TO_KEY_NAME, COLOR_PICKERS, DEFAULT_LAYOUT_STRINGS, HID_TO_KEY_NAME } from "../consts.js";
 
 export class ConfiguratorMode {
     constructor(utils, urlManager, layoutParser, visualizer) {
@@ -34,6 +34,7 @@ export class ConfiguratorMode {
         this.setupConfigInputs();
         this.setupKeyAddButtons();
         this.setupPreviewInputListeners();
+        this.setupAnalogSense();
         this.updateState();
     }
 
@@ -538,6 +539,172 @@ export class ConfiguratorMode {
             linkInput.select();
             document.execCommand("copy");
         }
+    }
+
+    setupAnalogSense() {
+        if (typeof window.analogsense === "undefined") return;
+
+        const btn = document.getElementById("analogconnectbtn");
+        const statusEl = document.getElementById("analogstatus");
+        if (!btn || !statusEl) return;
+
+        this.analogSenseActiveKeys = new Set();
+        this.analogSensePrevDepths = {};
+
+        const DIGITAL_THRESHOLD = 0.5;
+
+        const handleAnalogReport = (activeKeys) => {
+            if (!this.visualizer.previewElements) return;
+            if (document.getElementById("forcedisableanalog")?.checked) return;
+
+            const forcedisable = document.getElementById("forcedisableanalog")?.checked;
+            if (forcedisable) return;
+
+            const currentScancodes = new Set(activeKeys.map(k => String(k.scancode)));
+
+            activeKeys.forEach(({ scancode, value }) => {
+                const keyName = HID_TO_KEY_NAME[scancode];
+                if (!keyName) return;
+
+                if (!this.visualizer.forceDisableAnalog) {
+                    if (!this.visualizer.analogMode) {
+                        this.visualizer.analogMode = true;
+                        this.visualizer.applyStyles(this.getCurrentSettings(), true);
+                    }
+                    this.visualizer.setAnalogDepthTarget(keyName, value);
+                }
+
+                const wasAbove = (this.analogSensePrevDepths[scancode] ?? 0) >= DIGITAL_THRESHOLD;
+                const isAbove = value >= DIGITAL_THRESHOLD;
+
+                if (isAbove && !wasAbove) {
+                    const elements = this.visualizer.previewElements.keyElements.get(keyName);
+                    if (elements) {
+                        elements.forEach(el => {
+                            this.visualizer.updateElementState(el, keyName, true, this.visualizer.activeKeys);
+                        });
+                    }
+                    this.analogSenseActiveKeys.add(scancode);
+                } else if (!isAbove && wasAbove) {
+                    const elements = this.visualizer.previewElements.keyElements.get(keyName);
+                    if (elements) {
+                        elements.forEach(el => {
+                            this.visualizer.updateElementState(el, keyName, false, this.visualizer.activeKeys);
+                        });
+                    }
+                    this.analogSenseActiveKeys.delete(scancode);
+                }
+
+                this.analogSensePrevDepths[scancode] = value;
+            });
+
+            this.analogSenseActiveKeys.forEach(scancode => {
+                if (!currentScancodes.has(String(scancode))) {
+                    const keyName = HID_TO_KEY_NAME[scancode];
+                    if (keyName) {
+                        if ((this.analogSensePrevDepths[scancode] ?? 0) >= DIGITAL_THRESHOLD) {
+                            const elements = this.visualizer.previewElements.keyElements.get(keyName);
+                            if (elements) {
+                                elements.forEach(el => {
+                                    this.visualizer.updateElementState(el, keyName, false, this.visualizer.activeKeys);
+                                });
+                            }
+                        }
+                        this.visualizer.setAnalogDepthTarget(keyName, 0);
+                    }
+                    delete this.analogSensePrevDepths[scancode];
+                    this.analogSenseActiveKeys.delete(scancode);
+                }
+            });
+        };
+
+        const setConnectedState = (name) => {
+            statusEl.textContent = `connected: ${name}`;
+            statusEl.style.color = "#5cf67d";
+            btn.textContent = "disconnect";
+            btn.classList.add("connected");
+        };
+
+        const disconnectDevice = () => {
+            if (this.analogSenseProvider) {
+                this.analogSenseProvider.stopListening();
+                this.analogSenseProvider = null;
+            }
+
+            this.analogSenseActiveKeys.clear();
+            this.analogSensePrevDepths = {};
+
+            if (this.visualizer.analogMode) {
+                this.visualizer.analogMode = false;
+                if (this.visualizer.analogRafId) {
+                    cancelAnimationFrame(this.visualizer.analogRafId);
+                    this.visualizer.analogRafId = null;
+                }
+                this.visualizer.analogTargetDepths = {};
+                this.visualizer.analogCurrentDepths = {};
+
+                if (this.visualizer.previewElements) {
+                    this.visualizer.previewElements.keyElements.forEach((elements, keyName) => {
+                        elements.forEach(el => {
+                            if (el.classList.contains("active") || el.classList.contains("analog-key")) {
+                                this.visualizer.updateElementState(el, keyName, false, this.visualizer.activeKeys);
+                                el.classList.remove("analog-key");
+                                el.style.removeProperty("--analog-depth");
+                                const primaryLabel = el.querySelector(".key-label-primary");
+                                if (primaryLabel) primaryLabel.style.removeProperty("color");
+                                const invertedLabel = el.querySelector(".key-label-inverted");
+                                if (invertedLabel) invertedLabel.style.clipPath = "inset(100% 0 0 0)";
+                            }
+                        });
+                    });
+                }
+
+                this.visualizer.applyStyles(this.getCurrentSettings(), true);
+            }
+
+            statusEl.textContent = "disconnected";
+            statusEl.style.color = "#808080";
+            btn.textContent = "connect analog";
+            btn.classList.remove("connected");
+        };
+
+        const connectDevice = async (provider) => {
+            if (this.analogSenseProvider) {
+                this.analogSenseProvider.stopListening();
+            }
+            this.analogSenseProvider = provider;
+            provider.startListening(handleAnalogReport);
+            const name = provider.getProductName();
+            setConnectedState(name);
+        };
+
+        analogsense.getDevices().then(devices => {
+            if (devices.length > 0) {
+                connectDevice(devices[0]);
+            }
+        });
+
+        btn.addEventListener("click", async () => {
+            if (this.analogSenseProvider) {
+                disconnectDevice();
+                return;
+            }
+
+            try {
+                const device = await analogsense.requestDevice();
+                if (device) {
+                    await connectDevice(device);
+                } else {
+                    statusEl.textContent = "no compatible keyboard found";
+                    statusEl.style.color = "#f65c5c";
+                }
+            } catch (e) {
+                if (e.name !== "SecurityError") {
+                    statusEl.textContent = `error: ${e.message}`;
+                    statusEl.style.color = "#f65c5c";
+                }
+            }
+        });
     }
 
     setupKeyAddButtons() {
