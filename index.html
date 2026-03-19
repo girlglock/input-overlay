@@ -22,7 +22,8 @@
                 id="return-button">edit this overlay</button>
         </div>
         <div class="status" id="status">connecting...</div>
-        <div class="container" id="inner-overlay-container" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
+        <div class="container" id="inner-overlay-container"
+            style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
             <div class="top-section">
                 <div class="keyboard-section" id="keyboard-target"></div>
             </div>
@@ -1064,12 +1065,16 @@
                                         </div>
                                         <div class="cs-checkbox" style="margin-top: 7px;">
                                             <input type="checkbox" class="config-input" id="forcedisableanalog">
-                                            <label for="forcedisableanalog" class="cs-checkbox__label">force disable</label>
+                                            <label for="forcedisableanalog" class="cs-checkbox__label">force
+                                                disable</label>
                                         </div>
                                         <div class="cs-form-group" style="margin-top: 8px;">
-                                            <label class="cs-input__label" for="fillmode">keyboard used for live preview</label>
-                                            <button class="cs-btn" id="analogconnectbtn" style="width: 100%;">⊕ connect</button>
-                                            <div id="analogstatus" style="font-size: 10px; margin-top: 4px; color: #808080;"></div>
+                                            <label class="cs-input__label" for="fillmode">keyboard used for live
+                                                preview</label>
+                                            <button class="cs-btn" id="analogconnectbtn" style="width: 100%;">⊕
+                                                connect</button>
+                                            <div id="analogstatus"
+                                                style="font-size: 10px; margin-top: 4px; color: #808080;"></div>
                                         </div>
                                     </div>
                                 </fieldset>
@@ -1280,23 +1285,26 @@
             const container = document.getElementById('inner-overlay-container');
             if (!container) return;
 
-            const naturalWidth = container.offsetWidth;
-            const naturalHeight = container.offsetHeight;
+            container.style.transform = 'translate(-50%, -50%)';
 
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
+            requestAnimationFrame(() => {
+                const naturalWidth = container.offsetWidth;
+                const naturalHeight = container.offsetHeight;
 
-            const scaleX = viewportWidth / naturalWidth;
-            const scaleY = viewportHeight / naturalHeight;
-            const scale = Math.min(scaleX, scaleY) * 0.5;
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
 
-            container.style.transform = `translate(50%, 50%) scale(${scale})`;
-            container.style.transformOrigin = "top left";
+                const scaleX = viewportWidth / naturalWidth;
+                const scaleY = viewportHeight / naturalHeight;
+                const scale = Math.min(scaleX, scaleY) * 0.75;
+
+                container.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            });
         }
 
-        //window.addEventListener('resize', setDynamicScale);
-        //window.addEventListener('load', setDynamicScale);
-        //setDynamicScale();
+        window.addEventListener('resize', setDynamicScale);
+        window.addEventListener('load', setDynamicScale);
+        setDynamicScale();
     </script>
 </body>
 
