@@ -1,6 +1,6 @@
 from pynput import keyboard, mouse
 
-WS_SERVER_VERSION = "1.2.0"
+WS_SERVER_VERSION = "1.2.1"
 
 KEY_CODE_MAP = {
     keyboard.Key.esc: 27,
