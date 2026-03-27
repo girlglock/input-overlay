@@ -8,7 +8,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QScrollArea, QFrame,
                              QLineEdit, QCheckBox, QComboBox, QGroupBox, QDialog,
-                             QDialogButtonBox)
+                             QDialogButtonBox, QTextEdit)
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QThread
 from PyQt6.QtGui import QIcon, QMovie, QDesktopServices
 from PyQt6.QtCore import QUrl
@@ -251,7 +251,7 @@ def set_autostart(enabled: bool):
         logger.error(f"set_autostart error: {e}")
 
 class UpdateChecker(QObject):
-    update_available = pyqtSignal(str)                                
+    update_available = pyqtSignal(str, str)               # version, release_body
     check_done      = pyqtSignal()
 
     def check(self, dismissed: list):
@@ -266,8 +266,9 @@ class UpdateChecker(QObject):
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     data = json.loads(resp.read().decode())
                 latest = data.get("tag_name", "").lstrip("v")
+                body   = data.get("body", "").strip()
                 if latest and latest != WS_SERVER_VERSION and latest not in dismissed:
-                    self.update_available.emit(latest)
+                    self.update_available.emit(latest, body)
             except Exception as e:
                 logger.debug(f"update check failed: {e}")
             finally:
@@ -275,12 +276,13 @@ class UpdateChecker(QObject):
         threading.Thread(target=_run, daemon=True).start()
 
 class UpdateDialog(QDialog):
-    def __init__(self, latest_version: str, parent=None):
+    def __init__(self, latest_version: str, release_body: str = "", parent=None):
         super().__init__(parent)
         self.latest_version = latest_version
+        self.release_body   = release_body
         self.dismissed = False
         self.setWindowTitle("UPDATE AVAILABLE")
-        self.setFixedWidth(420)
+        self.setFixedWidth(480)
         icon_path = get_resource_path("assets/icon.ico")
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
@@ -326,6 +328,17 @@ class UpdateDialog(QDialog):
         content_row.addWidget(gif_label)
 
         layout.addLayout(content_row)
+
+        if self.release_body:
+            notes_label = QLabel("PATCH NOTES")
+            notes_label.setStyleSheet("color: #c4b550; font-weight: bold; font-size: 12px;")
+            layout.addWidget(notes_label)
+
+            notes_box = QTextEdit()
+            notes_box.setReadOnly(True)
+            notes_box.setPlainText(self.release_body)
+            notes_box.setFixedHeight(160)
+            layout.addWidget(notes_box)
 
         btn_row = QHBoxLayout()
         download_btn = QPushButton("DOWNLOAD")
@@ -652,7 +665,7 @@ class SettingsEditor(QMainWindow):
 
         self.refresh_list()
 
-    def _on_update_available(self, latest_version: str):
+    def _on_update_available(self, latest_version: str, release_body: str):
         self._latest_version = latest_version
         self.version_label.setText(
             f'Input-Overlay WebSocket Server | Version: {WS_SERVER_VERSION} '
@@ -813,13 +826,14 @@ def check_for_updates_on_startup(config_path: str = "config.json", child_process
             with urllib.request.urlopen(req, timeout=5) as resp:
                 data = json.loads(resp.read().decode())
             latest = data.get("tag_name", "").lstrip("v")
+            body   = data.get("body", "").strip()
             if latest and latest != WS_SERVER_VERSION and latest not in dismissed:
                 import subprocess
                 if getattr(sys, 'frozen', False):
-                    proc = subprocess.Popen([sys.executable, "--update-popup", latest, config_path])
+                    proc = subprocess.Popen([sys.executable, "--update-popup", latest, config_path, body])
                 else:
                     script_path = Path(__file__).resolve()
-                    proc = subprocess.Popen([sys.executable, str(script_path), "--update-popup", latest, config_path])
+                    proc = subprocess.Popen([sys.executable, str(script_path), "--update-popup", latest, config_path, body])
                 if child_processes is not None:
                     child_processes.append(proc)
         except Exception as e:
@@ -828,9 +842,9 @@ def check_for_updates_on_startup(config_path: str = "config.json", child_process
     threading.Thread(target=_run, daemon=True).start()
 
 
-def _run_update_popup_process(latest_version: str, config_path: str):
+def _run_update_popup_process(latest_version: str, config_path: str, release_body: str = ""):
     app = QApplication(sys.argv)
-    dlg = UpdateDialog(latest_version)
+    dlg = UpdateDialog(latest_version, release_body)
     dlg.setStyleSheet(CS16)
     dlg.exec()
     if dlg.dismissed:
@@ -857,6 +871,7 @@ if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] == "--update-popup":
         latest = sys.argv[2] if len(sys.argv) >= 3 else ""
         config_path = sys.argv[3] if len(sys.argv) >= 4 else "config.json"
-        _run_update_popup_process(latest, config_path)
+        release_body = sys.argv[4] if len(sys.argv) >= 5 else ""
+        _run_update_popup_process(latest, config_path, release_body)
     else:
         run_settings_editor()
