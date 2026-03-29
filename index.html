@@ -82,36 +82,36 @@
                     <label class="cfg-accordion-label" for="acc-instructions">instructions</label>
                     <div class="cfg-accordion-content">
                         <div class="cfg-accordion-inner instructions">
-                            <h1>Option #1 (recommended)</h1>
-                            <blockquote class="note note--green">🛈 Supports hall effect keyboards via the server
-                                settings.</blockquote>
+                            <h1>Single PC Setup</h1>
                             <ol>
                                 <li>get the <a href="https://github.com/girlglock/input-overlay/releases"
                                         target="_blank">input-overlay-ws</a> server</li>
                                 <li>run it and right click the tray icon to open the settings</li>
-                                <li>copy your auth token (you can change it to whatever you like)</li>
+                                <li>copy your auth token</li>
+                                <blockquote class="note note--purple">(you can change it to whatever you like)
+                                </blockquote>
                                 <li>paste the token in the auth token field above</li>
                                 <li>configure your overlay to your liking, then copy the URL and paste it as an OBS
                                     browser source</li>
-                                <ul style="margin-top:8px;">
-                                    <li>tip: edit <code>config.json</code> to change the address/port if you want to
-                                        stream your inputs from another pc</li>
-                                    <li>tip: you can configure the key whitelist in the server settings to ensure you
-                                        are only sending keys over your network that are configured in the overlay</li>
-                                </ul>
                             </ol>
-                            <h1>Option #2</h1>
-                            <blockquote class="note note--red">⚠︎ No auth token support so anyone on your network could
-                                potentially listen to your keys,<br>
-                                no key whitelist,<br>
-                                prone to stuck keys,
-                                <br>uses mouse pointer position for mouse_moved events which wont work in games
+                            <blockquote class="note note--purple">tip: you can configure the key whitelist in the
+                                server settings to ensure you
+                                are only sending keys over your network that are configured in the overlay
                             </blockquote>
+                            <br>
+                            <h1>Sending keys to another pc</h1>
+                            <blockquote class="note note--purple">(eg. from gaming to streaming pc)</blockquote>
                             <ol>
-                                <li>install the <a href="https://github.com/univrsal/input-overlay"
-                                        target="_blank">input-overlay OBS plugin</a></li>
-                                <li>enable the websocket server in plugin settings</li>
-                                <li>restart OBS, copy the overlay URL, add it as a browser source</li>
+                                <li>edit <code>config.json</code> to set the address/port of your gaming pc
+                                    <br><small>run <code>ipconfig</code> in cmd and copy the local IPv4
+                                        address (usually 192.168.0.1 or 192.168.X.X with X being 0-255)</small>
+                                </li>
+                                <li>enter the gaming pc's address in both the <strong>input-overlay-ws</strong> and
+                                    <strong>configurator</strong>
+                                </li>
+                                <li><a href="#" id="download-local-tip-btn">download the overlay as a local HTML
+                                        file</a> and add it as a browser source in OBS on your streaming pc instead of
+                                    copying the url</li>
                             </ol>
                         </div>
                     </div>
@@ -285,6 +285,11 @@
                     <label class="cfg-accordion-label" for="acc-patchnotes">patch notes</label>
                     <div class="cfg-accordion-content">
                         <div class="cfg-accordion-inner patchnotes">
+                            <h1>2026-03-30</h1>
+                            <h3>overlay</h3>
+                            <ul>
+                                <li>add bundled overlay html file download for pc to pc ws</li>
+                            </ul>
                             <h1>2026-03-29</h1>
                             <h3>ws server</h3>
                             <ul>
