@@ -5,6 +5,7 @@ export class OverlayVisualiser {
         this.previewElements = null;
         this.activeKeys = new Set();
         this.activeMouseButtons = new Set();
+        this.activeGamepadButtons = new Set();
         this.activeElements = new Set();
         this.scrollerAliases = new Map();
         this.currentScrollCount = 0;
@@ -31,6 +32,9 @@ export class OverlayVisualiser {
         this._mousePadRafLoop = this._mousePadRafLoop.bind(this);
 
         this._activeColorRGB = null;
+
+        this._joystickCanvases = {};
+        this._joystickRafLoops = {};
     }
 
     updateElementState(el, keyName, isActive, activeSet) {
@@ -41,12 +45,14 @@ export class OverlayVisualiser {
             this.activeElements.add(el);
             el.style.zIndex = (++this.Z_INDEX_COUNTER).toString();
 
-            if (this.analogMode && keyName.startsWith("key_")) {
+            if (this.analogMode && (keyName.startsWith("key_") || keyName === "gp_lt" || keyName === "gp_rt")) {
                 el.classList.add("analog-key");
                 if (this.keyLegendMode === "inverting") {
                     const primary = el.querySelector(".key-label-primary");
                     if (primary) primary.style.setProperty("color", this.inactiveColor, "important");
                 }
+            } else if (keyName === "gp_lt" || keyName === "gp_rt") {
+                el.classList.add("analog-key");
             } else {
                 const t = `all ${this.animDuration || "0.15s"} cubic-bezier(0.4,0,0.2,1)`;
                 el.style.setProperty("transition", t, "important");
@@ -57,7 +63,13 @@ export class OverlayVisualiser {
             el.classList.remove("active", "analog-key");
             this.activeElements.delete(el);
 
-            if (this.analogMode && keyName.startsWith("key_")) {
+            if (this.analogMode && (keyName.startsWith("key_") || keyName === "gp_lt" || keyName === "gp_rt")) {
+                document.getElementById(`analog-depth-${el.dataset.key}`)?.remove();
+                el.style.setProperty("transform", "scale(1)", "important");
+                el.querySelector(".key-label-primary")?.style.removeProperty("color");
+                const inv = el.querySelector(".key-label-inverted");
+                if (inv) inv.style.clipPath = "inset(100% 0 0 0)";
+            } else if (keyName === "gp_lt" || keyName === "gp_rt") {
                 document.getElementById(`analog-depth-${el.dataset.key}`)?.remove();
                 el.style.setProperty("transform", "scale(1)", "important");
                 el.querySelector(".key-label-primary")?.style.removeProperty("color");
@@ -69,7 +81,7 @@ export class OverlayVisualiser {
                 el.style.setProperty("transform", "scale(1)", "important");
             }
 
-            const map = this.previewElements?.keyElements.get(keyName) || this.previewElements?.mouseElements.get(keyName);
+            const map = this.previewElements?.keyElements.get(keyName) || this.previewElements?.mouseElements.get(keyName) || this.previewElements?.gamepadElements?.get(keyName);
             if (map && !map.some(e => this.activeElements.has(e))) activeSet.delete(keyName);
         }
     }
@@ -86,8 +98,10 @@ export class OverlayVisualiser {
         this.animDuration = animDuration;
         this.activeColor = opts.activecolor;
         this.activeBgColor = opts.activebgcolor;
+        this.backgroundcolor = opts.backgroundcolor;
         this.glowRadius = opts.glowradius;
         this.inactiveColor = opts.inactivecolor;
+        this.outlineColor = opts.outlinecolor;
         this.fontColor = opts.fontcolor;
         this.outlineScalePressed = parseFloat(opts.outlinescalepressed ?? opts.outlineScalePressed ?? 1);
         this.outlineScaleUnpressed = parseFloat(opts.outlinescaleunpressed ?? opts.outlineScaleUnpressed ?? 1);
@@ -214,6 +228,7 @@ export class OverlayVisualiser {
                 text-shadow: ${textShadow} !important;
             }
             .mouse-section { display: ${opts.hidemouse ? "none" : "flex"} !important; }
+            .mouse-section { display: flex !important; }
         `;
     }
 
@@ -280,6 +295,7 @@ export class OverlayVisualiser {
 
         const keyElements = new Map();
         const mouseElements = new Map();
+        const gamepadElements = new Map();
         const scrollDisplays = [], scrollArrows = [], scrollCounts = [];
 
         this.scrollerAliases.clear();
@@ -305,7 +321,9 @@ export class OverlayVisualiser {
 
             for (let itemIdx = 0; itemIdx < row.items.length; itemIdx++) {
                 const item = row.items[itemIdx];
-                if (item.type === "mouse_pad") {
+                if (item.type === "gp_joystick") {
+                    rowEl.appendChild(this._buildJoystickElement(item));
+                } else if (item.type === "mouse_pad") {
                     rowEl.appendChild(this._buildMousePadElement(item));
                 } else if (item.type === "scroller") {
                     const disp = this.createScrollDisplay(item.labels, item.class);
@@ -334,13 +352,16 @@ export class OverlayVisualiser {
                     rowEl.appendChild(el);
 
                     if (!item.class || (item.class !== "invisible" && item.class !== "dummy")) {
-                        const map = item.type === "mouse" ? mouseElements : keyElements;
+                        let map;
+                        if (item.type === "mouse") map = mouseElements;
+                        else if ((item.keys || [item.key]).some(k => k.startsWith("gp_"))) map = gamepadElements;
+                        else map = keyElements;
                         for (const keyName of (item.keys || [item.key])) register(map, keyName, el);
                     }
                 }
             }
 
-            const isPadOnly = row.items.every(i => i.type === "mouse_pad");
+            const isPadOnly = row.items.every(i => i.type === "mouse_pad" || i.type === "gp_joystick");
             if (row.isMouse && !isPadOnly) {
                 const section = document.createElement("div");
                 section.className = "mouse-section";
@@ -355,7 +376,7 @@ export class OverlayVisualiser {
         mouseContainer.appendChild(msFrag);
 
         return {
-            keyElements, mouseElements,
+            keyElements, mouseElements, gamepadElements,
             scrollDisplay: scrollDisplays[0] || null,
             scrollDisplays,
             scrollArrow: scrollArrows[0] || null,
@@ -385,6 +406,8 @@ export class OverlayVisualiser {
         if (!this.previewElements) return;
         this._restoreMap(new Set(this.activeKeys), this.previewElements.keyElements, this.activeKeys);
         this._restoreMap(new Set(this.activeMouseButtons), this.previewElements.mouseElements, this.activeMouseButtons);
+        if (this.previewElements.gamepadElements)
+            this._restoreMap(new Set(this.activeGamepadButtons), this.previewElements.gamepadElements, this.activeGamepadButtons);
     }
 
     _restoreMap(oldActive, elementMap, currentActive) {
@@ -480,7 +503,7 @@ export class OverlayVisualiser {
         }
     }
 
-    setAnalogDepthTarget(keyName, depth) {
+    setAnalogDepthTarget(keyName, depth, source) {
         this.analogTargetDepths[keyName] = depth;
         if (this.analogCurrentDepths[keyName] === undefined) this.analogCurrentDepths[keyName] = 0;
         if (!this.analogRafId) this.analogRafId = requestAnimationFrame(this._analogRafLoop);
@@ -519,7 +542,7 @@ export class OverlayVisualiser {
 
     _renderAnalogDepth(keyName, depth) {
         if (!this.previewElements) return;
-        const elements = this.previewElements.keyElements.get(keyName);
+        const elements = this.previewElements.keyElements.get(keyName) || this.previewElements.gamepadElements?.get(keyName);
         if (!elements?.length) return;
 
         const depthThreshold = 0.15;
@@ -530,7 +553,7 @@ export class OverlayVisualiser {
         const unpressedWidth = this.outlineScaleUnpressed ?? 2;
         const pressedWidth = this.outlineScalePressed ?? 2;
         const glowRadius = this.glowRadius || "24px";
-        const keyLegendMode = this.keyLegendMode || "fading";
+        const keyLegendMode = this.keyLegendMode || "inverting";
 
         for (const el of elements) {
             const uniqueId = `${keyName}-${el.dataset.key || ""}`;
@@ -546,7 +569,7 @@ export class OverlayVisualiser {
 
             el.style.setProperty("transform", `scale(${scale})`, "important");
 
-            const isDigitallyPressed = this.activeKeys.has(keyName);
+            const isDigitallyPressed = this.activeKeys.has(keyName) || this.activeGamepadButtons?.has(keyName);
             const fillHeight = effectiveDepth * 100;
             const borderWidth = isDigitallyPressed
                 ? unpressedWidth + (pressedWidth - unpressedWidth) * Math.min(1, depth * 3)
@@ -803,4 +826,192 @@ export class OverlayVisualiser {
         const b = parseInt(hex.slice(4, 6), 16);
         return `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
     }
+
+    _buildJoystickElement(item) {
+        const widthPx = this._parseUClass(item.widthClass, 50);
+        const heightPx = this._parseUClass(item.heightClass || item.widthClass, 50);
+        const heightMod = (heightPx / 50).toFixed(4);
+        const anchor = item.anchor || "a-tl";
+        const anchorV = anchor[2];
+        const anchorH = anchor[3];
+        const stickId = item.stickId || item.key;
+
+        const container = document.createElement("div");
+        container.className = "joystick-container";
+        container.style.cssText = [
+            "position:relative", "width:0", "min-width:0", "max-width:0",
+            "height:0", "min-height:0", "flex-shrink:0",
+            "overflow:visible", "pointer-events:none", "align-self:flex-start",
+        ].join(";");
+
+        const wrap = document.createElement("div");
+        wrap.className = "joystick-wrap";
+        wrap.style.setProperty("--key-width", `${widthPx}px`);
+        wrap.style.setProperty("--key-height-modifier", heightMod);
+        wrap.style.position = "absolute";
+        wrap.style.zIndex = "50";
+        wrap.style.width = `${widthPx}px`;
+        wrap.style.height = `calc(50px * ${heightMod})`;
+        wrap.style.overflow = "visible";
+        wrap.style.pointerEvents = "none";
+        if (anchorV === "t") wrap.style.top = "0";
+
+        const canvas = document.createElement("canvas");
+        canvas.className = "joystick-canvas";
+        canvas.dataset.stickId = stickId;
+        canvas.style.cssText = "display:block;position:absolute;pointer-events:none;";
+        wrap.appendChild(canvas);
+
+        const state = {
+            canvas, ctx: canvas.getContext("2d"),
+            posX: 0.5, posY: 0.5,
+            W: widthPx, H: heightPx,
+            rafId: null,
+        };
+        this._joystickCanvases[stickId] = state;
+        const loopFn = this._joystickRafLoop.bind(this, stickId);
+        this._joystickRafLoops[stickId] = loopFn;
+
+        const ro = new ResizeObserver(() => this._resizeJoystick(stickId));
+        ro.observe(wrap);
+
+        const findRow = el => {
+            let cur = el?.parentElement;
+            while (cur) {
+                if (cur.classList.contains("key-row") || cur.classList.contains("gamepad-row") || cur.classList.contains("mouse-row")) return cur;
+                cur = cur.parentElement;
+            }
+            return null;
+        };
+
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            const row = findRow(container);
+            const gap = row ? parseFloat(getComputedStyle(row).gap) || 0 : 0;
+            const innerH = row ? row.clientHeight : heightPx;
+
+            let left;
+            if (anchorH === "l") { left = 0; container.style.marginRight = `-${gap}px`; }
+            else if (anchorH === "r") { left = -widthPx; container.style.marginLeft = `-${gap}px`; }
+            else { left = -widthPx / 2; container.style.marginLeft = `-${gap / 2}px`; container.style.marginRight = `-${gap / 2}px`; }
+            wrap.style.left = `${left}px`;
+
+            if (anchorV === "c") wrap.style.top = `${(innerH - heightPx) / 2}px`;
+            else if (anchorV === "b") wrap.style.top = `${innerH - heightPx}px`;
+
+            this._resizeJoystick(stickId);
+            if (typeof window.setDynamicScale === "function") window.setDynamicScale();
+        }));
+
+        container.appendChild(wrap);
+        return container;
+    }
+
+    _resizeJoystick(stickId) {
+        const state = this._joystickCanvases[stickId];
+        if (!state) return;
+        const wrap = state.canvas.parentElement;
+        if (!wrap) return;
+        const logW = parseFloat(wrap.style.width) || wrap.offsetWidth;
+        const logH = parseFloat(wrap.style.height) || wrap.offsetHeight;
+        if (!logW || !logH) return;
+
+        const GLOW_PAD = Math.round(Math.min(logW, logH) * 0.35);
+        const totalLogW = logW + GLOW_PAD * 2;
+        const totalLogH = logH + GLOW_PAD * 2;
+
+        const dpr = window.devicePixelRatio || 1;
+        state.canvas.width = Math.round(totalLogW * dpr);
+        state.canvas.height = Math.round(totalLogH * dpr);
+        state.canvas.style.width = `${totalLogW}px`;
+        state.canvas.style.height = `${totalLogH}px`;
+        state.canvas.style.left = `-${GLOW_PAD}px`;
+        state.canvas.style.top = `-${GLOW_PAD}px`;
+
+        state.ctx.setTransform(dpr, 0, 0, dpr, GLOW_PAD * dpr, GLOW_PAD * dpr);
+
+        state.W = logW;
+        state.H = logH;
+        state.glowPad = GLOW_PAD;
+        state.posX = 0.5;
+        state.posY = 0.5;
+        this._drawJoystick(stickId);
+    }
+
+    handleJoystickMove(stickId, axisX, axisY) {
+        const state = this._joystickCanvases[stickId];
+        if (!state) return;
+        state.posX = (axisX + 1) / 2;
+        state.posY = (axisY + 1) / 2;
+        if (!state.rafId) state.rafId = requestAnimationFrame(this._joystickRafLoops[stickId]);
+    }
+
+    _joystickRafLoop(stickId) {
+        const state = this._joystickCanvases[stickId];
+        if (!state) return;
+        state.rafId = null;
+        this._drawJoystick(stickId);
+    }
+
+    _drawJoystick(stickId) {
+        const state = this._joystickCanvases[stickId];
+        if (!state?.ctx) return;
+        const { ctx, W, H, posX, posY, glowPad = 0 } = state;
+
+        ctx.clearRect(-glowPad, -glowPad, W + glowPad * 2, H + glowPad * 2);
+
+        const dotR = Math.min(W, H) * 0.15;
+
+        const deflection = Math.min(1, Math.sqrt((posX - 0.5) ** 2 + (posY - 0.5) ** 2) * 8);
+
+        const inactiveHex = this.inactiveColor || "#808080";
+        const activeHex = this.activeColor || "#8b5cf6";
+        const bgHex = this.backgroundcolor || "#1a1a1ad1";
+        const outlineHex = this.outlineColor || "#4f4f4f";
+
+        //joy bg
+        ctx.beginPath();
+        ctx.ellipse(W / 2, H / 2, W / 2, H / 2, 0, 0, Math.PI * 2);
+        ctx.fillStyle = bgHex;
+        ctx.fill();
+
+        //joy ring
+        const unpressedW = this.outlineScaleUnpressed ?? 2;
+        const pressedW = this.outlineScalePressed ?? 2;
+        const ringBorderW = unpressedW + (pressedW - unpressedW) * deflection * 0.8;
+        const ringColor = deflection > 0.05
+            ? this.utils.lerpColor(outlineHex, activeHex, deflection * 0.8)
+            : outlineHex;
+        ctx.beginPath();
+        ctx.ellipse(W / 2, H / 2, W / 2 - ringBorderW / 2, H / 2 - ringBorderW / 2, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = ringColor;
+        ctx.lineWidth = ringBorderW;
+        ctx.stroke();
+
+        //dot pos
+        const margin = dotR;
+        const dotX = margin + posX * (W - margin * 2);
+        const dotY = margin + posY * (H - margin * 2);
+
+        //dot color
+        const dotHex = this.utils.lerpColor(inactiveHex, activeHex, deflection);
+        const dotMatch = dotHex.match(/\d+/g);
+        const [r, g, b] = dotMatch ? dotMatch.map(Number) : [139, 92, 246];
+
+        //dot glow
+        if (deflection > 0.02) {
+            const glowR = Math.min(W, H) * 0.45;
+            const grd = ctx.createRadialGradient(dotX, dotY, 0, dotX, dotY, glowR);
+            grd.addColorStop(0, `rgba(${r},${g},${b},${0.55 * deflection})`);
+            grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
+            ctx.fillStyle = grd;
+            ctx.fillRect(-glowPad, -glowPad, W + glowPad * 2, H + glowPad * 2);
+        }
+
+        //dot
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r},${g},${b},0.95)`;
+        ctx.fill();
+    }
+
 }

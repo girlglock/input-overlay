@@ -1,5 +1,6 @@
 //guh
 import {WebSocketManager} from "./webSocketManager.js";
+import {GamepadManager} from "./gamepadManager.js";
 
 export class OverlayMode {
     constructor(utils, urlManager, layoutParser, visualizer) {
@@ -16,18 +17,29 @@ export class OverlayMode {
             this.visualizer.applyStyles(settings);
             this.visualizer.rebuildInterface(settings);
 
-            const wsConfig = (this.urlManager.urlParams.get("ws") || "").split(":");
-            const wsAddress = wsConfig[0] || "localhost";
-            const wsPort = wsConfig[1] || "16899";
-            const wsUrl = `ws://${wsAddress}:${wsPort}/`;
-            const wsAuth = settings.wsauth || "";
+            const wsOnlyGamepad = !layoutParser.needsWebSocket(settings);
 
-            this.websocketManager = new WebSocketManager(wsUrl, statusEl, this.visualizer, wsAuth);
-            this.websocketManager.connect();
+            if (!wsOnlyGamepad) {
+                const wsConfig = (this.urlManager.urlParams.get("ws") || "").split(":");
+                const wsAddress = wsConfig[0] || "localhost";
+                const wsPort = wsConfig[1] || "16899";
+                const wsUrl = `ws://${wsAddress}:${wsPort}/`;
+                const wsAuth = settings.wsauth || "";
+
+                this.websocketManager = new WebSocketManager(wsUrl, statusEl, this.visualizer, wsAuth);
+                this.websocketManager.connect();
+            } else {
+                statusEl.style.display = "none";
+            }
+
+            this.gamepadManager = new GamepadManager(this.visualizer);
 
             window.addEventListener("focus", () => {
                 if (this.websocketManager) {
                     this.websocketManager.clearStuckKeys();
+                }
+                if (this.gamepadManager) {
+                    this.gamepadManager.clearAll();
                 }
             });
 

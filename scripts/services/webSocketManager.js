@@ -223,9 +223,11 @@ export class WebSocketManager {
 
         clearMap(viz.previewElements.keyElements);
         clearMap(viz.previewElements.mouseElements);
+        if (viz.previewElements.gamepadElements) clearMap(viz.previewElements.gamepadElements);
 
         viz.activeKeys.clear();
         viz.activeMouseButtons.clear();
+        viz.activeGamepadButtons?.clear();
 
         const { scrollDisplays, scrollArrows, scrollCounts } = viz.previewElements;
         if (scrollDisplays?.length) {

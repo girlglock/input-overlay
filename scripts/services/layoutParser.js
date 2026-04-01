@@ -1,10 +1,11 @@
 //guh
 import { DEFAULT_LAYOUT_STRINGS } from "../consts.js";
 
-const REGEX_MOUSE_PAD = /^mouse_pad:(u[\d-]+):(u[\d-]+)(?::(a-[tbc][lrc]))?$/;
-const REGEX_SCROLLER = /^([\w|]+):"([^"]+)":"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/;
+const REGEX_MOUSE_PAD  = /^mouse_pad:(u[\d-]+):(u[\d-]+)(?::(a-[tbc][lrc]))?$/;
+const REGEX_GP_JOYSTICK = /^gp_joystick:(gp_ls|gp_rs):(u[\d-]+)(?::(u[\d-]+))?(?::(a-[tbc][lrc]))?$/;
+const REGEX_SCROLLER   = /^([\w|]+):"([^"]+)":"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/;
 const REGEX_MOUSE_SIDE = /^(mouse_side):"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/;
-const REGEX_STANDARD = /^([\w|]+):"([^"]+)"(?::([-\w.]+))?$/;
+const REGEX_STANDARD   = /^([\w|]+):"([^"]+)"(?::([-\w.]+))?$/;
 
 export class LayoutParser {
     constructor() {
@@ -23,6 +24,16 @@ export class LayoutParser {
 
         if ((m = REGEX_MOUSE_PAD.exec(elementString)))
             return { key: "mouse_pad", type: "mouse_pad", widthClass: m[1], heightClass: m[2], anchor: m[3] || "a-tl" };
+
+        if ((m = REGEX_GP_JOYSTICK.exec(elementString)))
+            return {
+                key: m[1],          // gp_ls or gp_rs
+                type: "gp_joystick",
+                stickId: m[1],
+                widthClass: m[2],
+                heightClass: m[3] || m[2],
+                anchor: m[4] || "a-tl",
+            };
 
         if ((m = REGEX_SCROLLER.exec(elementString)) && m[1].includes("scroller")) {
             const keys = m[1].split("|");
@@ -91,5 +102,28 @@ export class LayoutParser {
         const parsed = this.parseCustomLayoutInput(settings.customLayoutMouse);
         if (parsed.length) return this.splitByBr(parsed);
         return this.splitByBr(this.parseCustomLayoutInput(this.DEFAULT_LAYOUT_STRINGS.mouse));
+    }
+
+    needsWebSocket(settings) {
+        const rowKeys = ["customLayoutRow1", "customLayoutRow2", "customLayoutRow3", "customLayoutRow4", "customLayoutRow5"];
+        const mouseDef = this.parseCustomLayoutInput(settings.customLayoutMouse || "");
+
+        const hasMouseEl = mouseDef.some(item =>
+            item.type === "mouse" || item.type === "scroller" || item.type === "mouse_side" || item.type === "mouse_pad"
+        );
+        if (hasMouseEl) return true;
+
+        for (const rowKey of rowKeys) {
+            const row = this.parseCustomLayoutInput(settings[rowKey] || "");
+            const hasKey = row.some(item =>
+                item.type === "key" && !(item.keys || [item.key]).every(k => k.startsWith("gp_") || k.startsWith("none"))
+            );
+            if (hasKey){
+                console.log("has key using ws");
+                return true;
+            }
+        }
+        console.log("no key not using ws");
+        return false;
     }
 }

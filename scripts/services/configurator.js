@@ -1,5 +1,6 @@
 //guh
 import { BROWSER_BUTTON_TO_KEY_NAME, BROWSER_CODE_TO_KEY_NAME, COLOR_PICKERS, DEFAULT_LAYOUT_STRINGS, HID_TO_KEY_NAME } from "../consts.js";
+import { GamepadManager } from "./gamepadManager.js";
 
 function flashBtn(btn, label, original, ms = 2000) {
     btn.textContent = label;
@@ -38,6 +39,11 @@ export class ConfiguratorMode {
         this.setupPreviewInputListeners();
         this.setupAnalogSense();
         this.updateState();
+
+        //tiny delay for gamepads because im lazy
+        setTimeout(() => {
+            this.gamepadManager = new GamepadManager(this.visualizer);
+        }, 100);
     }
 
     applyDefaultSettings() {
@@ -595,6 +601,10 @@ export class ConfiguratorMode {
                 const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
                 const anchor = anchorSelect.value;
                 keyString = `mouse_pad:${widthClass || "u1"}:${hClass}:${anchor}`;
+            } else if (keyName === "gp_ls" || keyName === "gp_rs") {
+                const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
+                const anchor = anchorSelect.value;
+                keyString = `gp_joystick:${keyName}:${widthClass || "u3"}:${hClass}:${anchor}`;
             } else if (keyName === "br") {
                 keyString = "br";
             } else if (keyName === "invisible" || keyName === "dummy") {
@@ -643,6 +653,12 @@ export class ConfiguratorMode {
                 anchorField.style.display = "block";
                 widthSlider.value = 500; widthValue.textContent = "5.00u";
                 heightSlider.value = 300; heightValue.textContent = "3.00u";
+            } else if (key === "gp_ls" || key === "gp_rs") {
+                labelInput.parentElement.style.display = "none";
+                heightField.style.display = "block";
+                anchorField.style.display = "block";
+                widthSlider.value = 300; widthValue.textContent = "3.00u";
+                heightSlider.value = 300; heightValue.textContent = "3.00u";
             } else if (key === "br") {
                 labelInput.parentElement.style.display = "none";
             } else if (key === "invisible" || key === "dummy") {
@@ -660,7 +676,7 @@ export class ConfiguratorMode {
 
         const rowMappings = [
             ["addKey1", "Row1"], ["addKey2", "Row2"], ["addKey3", "Row3"],
-            ["addKey4", "Row4"], ["addKey5", "Row5"], ["addKeyMouse", "Mouse"]
+            ["addKey4", "Row4"], ["addKey5", "Row5"], ["addKeyMouse", "Mouse"],
         ];
 
         for (const [buttonId, rowId] of rowMappings) {
