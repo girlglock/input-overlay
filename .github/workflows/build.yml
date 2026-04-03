@@ -26,20 +26,16 @@ jobs:
           python-version: '3.11'
 
       - name: install deps
-        run: python -m pip install --upgrade pip && pip install pyinstaller websockets pynput pystray Pillow pyperclip PyQt6 hidapi winotify
+        run: python -m pip install --upgrade pip && pip install pyinstaller websockets pynput pystray Pillow pyperclip PyQt6 hidapi winotify certifi
 
       - name: build ws-server exe
         working-directory: ws-server
-        run: python -m PyInstaller --onefile --windowed --add-data "assets;assets" --add-data "services;services" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.consts --hidden-import=services.settings --hidden-import=winotify input-overlay-ws.py
-
-      - name: create windows zip
-        working-directory: ws-server
-        run: mkdir windows-release && copy dist\input-overlay-ws.exe windows-release\ && powershell Compress-Archive -Path windows-release\* -DestinationPath ..\input-overlay-ws-windows.zip
+        run: python -m PyInstaller --onefile --windowed --add-data "assets;assets" --add-data "services;services" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.consts --hidden-import=services.settings --hidden-import=winotify --hidden-import=certifi input-overlay-ws.py
 
       - name: attest windows build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: input-overlay-ws-windows.zip
+          subject-path: ws-server/dist/input-overlay-ws.exe
 
       - name: get previous tag
         id: prev_tag
@@ -53,15 +49,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            input-overlay-ws-windows.zip
+            ws-server/dist/input-overlay-ws.exe
           body: |
             ## input-overlay websocket server ${{ github.ref_name }}
             **patchnotes:**
             -
 
             **setup:**
-            - download `input-overlay-ws-windows.zip`
-            - unzip and run `input-overlay-ws.exe`
+            - download `input-overlay-ws.exe`
+            - run `input-overlay-ws.exe`
             - Right-click the tray icon for settings
 
             ---

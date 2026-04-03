@@ -26,6 +26,13 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+try:
+    import certifi
+    import ssl as _ssl
+    _SSL_CTX = _ssl.create_default_context(cafile=certifi.where())
+except Exception:
+    _SSL_CTX = None
+
 GITHUB_RELEASES_URL = "https://github.com/girlglock/input-overlay/releases"
 GITHUB_API_URL = "https://api.github.com/repos/girlglock/input-overlay/releases/latest"
 
@@ -404,7 +411,7 @@ class UpdateChecker(QObject):
                     GITHUB_API_URL,
                     headers={"User-Agent": "input-overlay-ws"}
                 )
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5, context=_SSL_CTX) as resp:
                     data = json.loads(resp.read().decode())
                 latest = data.get("tag_name", "").lstrip("v")
                 body   = data.get("body", "").strip()
@@ -1021,7 +1028,7 @@ def check_for_updates_on_startup(config_path: str = "config.json", child_process
                 GITHUB_API_URL,
                 headers={"User-Agent": "input-overlay-ws"}
             )
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=5, context=_SSL_CTX) as resp:
                 data = json.loads(resp.read().decode())
             latest = data.get("tag_name", "").lstrip("v")
             body   = data.get("body", "").strip()

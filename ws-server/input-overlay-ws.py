@@ -101,7 +101,8 @@ _root.setLevel(logging.DEBUG)
 _root.addHandler(_file_handler)
 _root.addHandler(_console_handler)
 
-logging.getLogger('websockets').setLevel(logging.DEBUG)
+logging.getLogger('websockets').setLevel(logging.WARNING)
+logging.getLogger('PIL').setLevel(logging.WARNING)
 
 def _flush_log():
     try:
@@ -1088,7 +1089,7 @@ class InputOverlayServer:
         async with websockets.serve(self.handle_client, self.host, self.port):
             logger.info(f"server started on ws://{self.host}:{self.port}")
             if self.auth_token:
-                logger.info("auth token: %s", self.auth_token)
+                logger.info("auth token: %s****", self.auth_token[:4] if len(self.auth_token) >= 4 else self.auth_token)
             else:
                 logger.warning("auth disabled")
             
