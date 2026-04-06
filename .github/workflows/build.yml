@@ -32,7 +32,7 @@ jobs:
       - name: build ws-server exe
         working-directory: ws-server
         run: >
-          python -m PyInstaller --onefile --windowed --add-data "assets;assets" --add-data "services;services" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=services.rawinput --hidden-import=winotify --hidden-import=certifi --hidden-import=markdown input-overlay-ws.py
+          python -m PyInstaller --onefile --windowed --add-data "assets;assets" --add-data "services;services" --add-data "../index.html;web" --add-data "../style.css;web" --add-data "../scripts;web/scripts" --add-data "../media;web/media" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=services.rawinput --hidden-import=winotify --hidden-import=certifi --hidden-import=markdown input-overlay-ws.py
 
       - name: create windows zip
         working-directory: ws-server
@@ -77,7 +77,7 @@ jobs:
       - name: build ws-server binary
         working-directory: ws-server
         run: >
-          python -m PyInstaller --onefile --windowed --add-data "assets:assets" --add-data "services:services" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=certifi --hidden-import=markdown input-overlay-ws.py
+          python -m PyInstaller --onefile --windowed --add-data "assets:assets" --add-data "services:services" --add-data "../index.html:web" --add-data "../style.css:web" --add-data "../scripts:web/scripts" --add-data "../media:web/media" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=certifi --hidden-import=markdown input-overlay-ws.py
 
       - name: create linux zip
         working-directory: ws-server
