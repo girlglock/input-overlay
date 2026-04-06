@@ -91,33 +91,35 @@ class SettingsEditor(QMainWindow):
         try:
             with open(self.config_path, "r") as f:
                 config = json.load(f)
-            self.temp_whitelist          = list(config.get("key_whitelist", []))
-            self.host                    = config.get("host", "0.0.0.0")
-            self.port                    = config.get("port", 8080)
-            self._original_host          = self.host
-            self._original_port          = self.port
-            self.auth_token              = config.get("auth_token", "")
-            self.analog_enabled          = config.get("analog_enabled", False)
-            self.analog_device           = config.get("analog_device", None)
-            self.balloon_enabled         = config.get("balloon_notifications", True)
-            self.raw_mouse_enabled       = config.get("raw_mouse_enabled", False)
-            self.linux_raw_mouse_device  = config.get("linux_raw_mouse_device", "")
-            self.autostart_enabled       = is_autostart_enabled()
-            self.dismissed_versions      = config.get("dismissed_versions", [])
+            self.temp_whitelist             = list(config.get("key_whitelist", []))
+            self.host                       = config.get("host", "0.0.0.0")
+            self.port                       = config.get("port", 8080)
+            self._original_host             = self.host
+            self._original_port             = self.port
+            self.auth_token                 = config.get("auth_token", "")
+            self.analog_enabled             = config.get("analog_enabled", False)
+            self.analog_device              = config.get("analog_device", None)
+            self.balloon_enabled            = config.get("balloon_notifications", True)
+            self.raw_mouse_enabled          = config.get("raw_mouse_enabled", False)
+            self.raw_mouse_absolute_enabled = config.get("raw_mouse_absolute_enabled", False)
+            self.linux_raw_mouse_device     = config.get("linux_raw_mouse_device", "")
+            self.autostart_enabled          = is_autostart_enabled()
+            self.dismissed_versions         = config.get("dismissed_versions", [])
         except Exception:
-            self.temp_whitelist          = []
-            self.host                    = "0.0.0.0"
-            self.port                    = 8080
-            self._original_host          = self.host
-            self._original_port          = self.port
-            self.auth_token              = ""
-            self.analog_enabled          = False
-            self.analog_device           = None
-            self.balloon_enabled         = True
-            self.raw_mouse_enabled       = False
-            self.linux_raw_mouse_device  = ""
-            self.autostart_enabled       = is_autostart_enabled()
-            self.dismissed_versions      = []
+            self.temp_whitelist             = []
+            self.host                       = "0.0.0.0"
+            self.port                       = 8080
+            self._original_host             = self.host
+            self._original_port             = self.port
+            self.auth_token                 = ""
+            self.analog_enabled             = False
+            self.analog_device              = None
+            self.balloon_enabled            = True
+            self.raw_mouse_enabled          = False
+            self.raw_mouse_absolute_enabled = False
+            self.linux_raw_mouse_device     = ""
+            self.autostart_enabled          = is_autostart_enabled()
+            self.dismissed_versions         = []
 
     def save_config(self) -> None:
         try:
@@ -136,7 +138,8 @@ class SettingsEditor(QMainWindow):
             config["balloon_notifications"] = self.balloon_checkbox.isChecked()
             config["dismissed_versions"]    = self.dismissed_versions
             if sys.platform == "win32":
-                config["raw_mouse_enabled"] = self.raw_mouse_checkbox.isChecked()
+                config["raw_mouse_enabled"]             = self.raw_mouse_checkbox.isChecked()
+                config["raw_mouse_absolute_enabled"]    = self.raw_mouse_absolute_checkbox.isChecked()
             else:
                 config["linux_raw_mouse_device"] = self.linux_mouse_combo.currentData() or ""
             if self.device_combo.currentData():
@@ -282,6 +285,11 @@ class SettingsEditor(QMainWindow):
             self.raw_mouse_checkbox.setToolTip("Sometimes requires the ws server to run with admin privileges depending on foreground window privileges")
             self.raw_mouse_checkbox.setChecked(self.raw_mouse_enabled)
             app_layout.addWidget(self.raw_mouse_checkbox)
+
+            self.raw_mouse_absolute_checkbox = InstantTooltipCheckBox("Enable absolute mouse (tablet support for mouse_pad element)")
+            self.raw_mouse_absolute_checkbox.setToolTip("Read absolute mouse coordinates from tablet devices via RawInput.")
+            self.raw_mouse_absolute_checkbox.setChecked(self.raw_mouse_absolute_enabled)
+            app_layout.addWidget(self.raw_mouse_absolute_checkbox)
         else:
             raw_mouse_lbl = QLabel("Raw Mouse Device\n(mouse movement for mouse_pad element):")
             raw_mouse_lbl.setStyleSheet("color: #a0aa95; font-weight: normal; margin-top: 4px;")

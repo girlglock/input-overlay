@@ -16,14 +16,19 @@ from services.consts import RAW_MOUSE_FLUSH_HZ
 
 logger = logging.getLogger(__name__)
 
-WM_INPUT        = 0x00FF
-WM_QUIT         = 0x0012
-RIM_TYPEMOUSE   = 0
-RIDEV_INPUTSINK = 0x00000100
-RIDEV_REMOVE    = 0x00000001
-RID_INPUT       = 0x10000003
-WS_EX_TOOLWINDOW = 0x00000080
-WS_EX_NOACTIVATE = 0x08000000
+WM_INPUT            = 0x00FF
+WM_QUIT             = 0x0012
+RIM_TYPEMOUSE       = 0
+RIDEV_INPUTSINK     = 0x00000100
+RIDEV_REMOVE        = 0x00000001
+RID_INPUT           = 0x10000003
+WS_EX_TOOLWINDOW    = 0x00000080
+WS_EX_NOACTIVATE    = 0x08000000
+
+SM_CXSCREEN = 0
+SM_CYSCREEN = 1
+
+MOUSEEVENTF_ABSOLUTE = 0x0001
 
 
 class RAWINPUTDEVICE(ctypes.Structure):
@@ -107,6 +112,7 @@ def _get_raw_input(lParam: int) -> RAWINPUT | None:
     ret = _user32.GetRawInputData(lParam, RID_INPUT, None, ctypes.byref(buf_size), ctypes.sizeof(RAWINPUTHEADER))
     if ret != 0:
         logger.debug("raw_mouse: GetRawInputData (size query) returned %d, expected 0", ret)
+        return None
     if buf_size.value == 0:
         logger.warning("raw_mouse: GetRawInputData reported 0 buffer size")
         return None
@@ -121,9 +127,10 @@ def _get_raw_input(lParam: int) -> RAWINPUT | None:
 class RawMouseThread(threading.Thread):
     FLUSH_HZ = RAW_MOUSE_FLUSH_HZ
 
-    def __init__(self, callback: Callable[[int, int], None], min_delta: int = 0, daemon: bool = True):
+    def __init__(self, callback: Callable[[int, int], None] | None = None, absolute_callback: Callable[[int, int, bool], None] | None = None, min_delta: int = 0, daemon: bool = True):
         super().__init__(daemon=daemon, name="RawMouseThread")
         self._callback = callback
+        self._absolute_callback = absolute_callback
         self._min_delta = min_delta
         self._hwnd: int | None = None
         self._lock = threading.Lock()
@@ -131,13 +138,29 @@ class RawMouseThread(threading.Thread):
         self._accum_dy = 0
         self._filtered_count = 0
 
+        self._last_abs_x: int | None = None
+        self._last_abs_y: int | None = None
+        self._is_pen_down = False
+        self._abs_timeout_thread: threading.Thread | None = None
+        self._abs_timeout_running = threading.Event()
+        self._abs_timeout_lock = threading.Lock()
+        self._last_abs_event_time: float = 0
+
     def stop(self):
         if self._hwnd:
             _user32.PostMessageW(self._hwnd, WM_QUIT, 0, 0)
+        self._abs_timeout_running.clear()
+        if self._abs_timeout_thread:
+            self._abs_timeout_thread.join(timeout=0.5)
+            self._abs_timeout_thread = None
         self.join(timeout=2.0)
 
     def run(self):
         try:
+            self._abs_timeout_running.set()
+            self._abs_timeout_thread = threading.Thread(target=self._abs_timeout_loop, daemon=True, name="AbsTimeout")
+            self._abs_timeout_thread.start()
+
             logger.debug("raw_mouse: thread starting, registering window class")
             self._hwnd = self._create_window()
             if not self._hwnd:
@@ -160,11 +183,28 @@ class RawMouseThread(threading.Thread):
             logger.exception("raw_mouse: unhandled error in run()")
         finally:
             logger.debug("raw_mouse: cleaning up")
+            self._abs_timeout_running.clear()
             self._unregister()
             if self._hwnd:
                 _user32.DestroyWindow(self._hwnd)
                 self._hwnd = None
             logger.info("raw_mouse: listener stopped")
+
+    def _abs_timeout_loop(self):
+        while self._abs_timeout_running.is_set():
+            time.sleep(0.1)
+            with self._abs_timeout_lock:
+                if self._is_pen_down:
+                    now = time.monotonic()
+                    if now - self._last_abs_event_time >= 0.2:
+                        self._is_pen_down = False
+                        if (self._absolute_callback and self._last_abs_x is not None and self._last_abs_y is not None):
+                            try:
+                                self._absolute_callback(self._last_abs_x, self._last_abs_y, False)
+                            except Exception:
+                                logger.exception("raw_mouse: exception in absolute_callback (pen up)")
+                            self._last_abs_x = None
+                            self._last_abs_y = None
 
     def _flush_loop(self):
         interval = 1.0 / self.FLUSH_HZ
@@ -178,7 +218,8 @@ class RawMouseThread(threading.Thread):
             if dx == 0 and dy == 0:
                 continue
             try:
-                self._callback(dx, dy)
+                if self._callback:
+                    self._callback(dx, dy)
             except Exception:
                 logger.exception("raw_mouse: exception in flush callback")
 
@@ -226,12 +267,16 @@ class RawMouseThread(threading.Thread):
         return hwnd or None
 
     def _register(self) -> bool:
-        rid = RAWINPUTDEVICE()
-        rid.usUsagePage = 0x01
-        rid.usUsage     = 0x02
-        rid.dwFlags     = RIDEV_INPUTSINK
-        rid.hwndTarget  = self._hwnd
-        result = bool(_user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE)))
+        devices = (RAWINPUTDEVICE * 2)()
+        devices[0].usUsagePage  = 0x01
+        devices[0].usUsage      = 0x02
+        devices[0].dwFlags      = RIDEV_INPUTSINK
+        devices[0].hwndTarget   = self._hwnd
+        devices[1].usUsagePage  = 0x01
+        devices[1].usUsage      = 0x01
+        devices[1].dwFlags      = RIDEV_INPUTSINK
+        devices[1].hwndTarget   = self._hwnd
+        result = bool(_user32.RegisterRawInputDevices(devices, 2, ctypes.sizeof(RAWINPUTDEVICE)))
         if result:
             logger.debug("raw_mouse: RegisterRawInputDevices succeeded (INPUTSINK on hwnd=0x%x)", self._hwnd)
         else:
@@ -239,12 +284,16 @@ class RawMouseThread(threading.Thread):
         return result
 
     def _unregister(self):
-        rid = RAWINPUTDEVICE()
-        rid.usUsagePage = 0x01
-        rid.usUsage     = 0x02
-        rid.dwFlags     = RIDEV_REMOVE
-        rid.hwndTarget  = None
-        result = bool(_user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE)))
+        devices = (RAWINPUTDEVICE * 2)()
+        devices[0].usUsagePage  = 0x01
+        devices[0].usUsage      = 0x02
+        devices[0].dwFlags      = RIDEV_REMOVE
+        devices[0].hwndTarget   = None
+        devices[1].usUsagePage  = 0x01
+        devices[1].usUsage      = 0x01
+        devices[1].dwFlags      = RIDEV_REMOVE
+        devices[1].hwndTarget   = None
+        result = bool(_user32.RegisterRawInputDevices(devices, 2, ctypes.sizeof(RAWINPUTDEVICE)))
         if result:
             logger.debug("raw_mouse: unregistered raw input device")
         else:
@@ -278,9 +327,49 @@ class RawMouseThread(threading.Thread):
             logger.debug("raw_mouse: ignoring non-mouse rawinput (dwType=%d)", ri.header.dwType)
             return
         m = ri.data.mouse
-        if m.usFlags & 0x0001:
-            logger.debug("raw_mouse: ignoring absolute mouse event (usFlags=0x%x)", m.usFlags)
-            return
+        is_absolute = bool(m.usFlags & MOUSEEVENTF_ABSOLUTE)
+        if is_absolute:
+            if not self._absolute_callback:
+                return
+            self._handle_absolute_event(m)
+        else:
+            if not self._callback:
+                return
+            self._handle_relative_event(m)
+
+    def _handle_absolute_event(self, m: RAWMOUSE):
+        abs_x = m.lLastX
+        abs_y = m.lLastY
+        screen_w = _user32.GetSystemMetrics(SM_CXSCREEN)
+        screen_h = _user32.GetSystemMetrics(SM_CYSCREEN)
+        if screen_w > 0 and screen_h > 0:
+            norm_x = abs_x / 65535.0
+            norm_y = abs_y / 65535.0
+        else:
+            norm_x = abs_x / 65535.0
+            norm_y = abs_y / 65535.0
+
+        with self._abs_timeout_lock:
+            self._last_abs_x = norm_x
+            self._last_abs_y = norm_y
+            was_down = self._is_pen_down
+            self._is_pen_down = True
+            self._last_abs_event_time = time.monotonic()
+
+        if not was_down:
+            if self._absolute_callback:
+                try:
+                    self._absolute_callback(norm_x, norm_y, True)
+                except Exception:
+                    logger.exception("raw_mouse: exception in absolute_callback (pen down)")
+        else:
+            if self._absolute_callback:
+                try:
+                    self._absolute_callback(norm_x, norm_y, True)
+                except Exception:
+                    logger.exception("raw_mouse: exception in absolute_callback")
+
+    def _handle_relative_event(self, m: RAWMOUSE):
         dx, dy = m.lLastX, m.lLastY
         if dx == 0 and dy == 0:
             return

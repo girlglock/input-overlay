@@ -46,6 +46,10 @@ export class OverlayVisualiser {
 
         this._activeColorRGB = null;
 
+        this._absPrevX = null;
+        this._absPrevY = null;
+        this._absFirstPoint = true;
+
         this._joystickCanvases = {};
         this._joystickRafLoops = {};
     }
@@ -826,6 +830,80 @@ export class OverlayVisualiser {
             }
             if (this.mousePadTrail.length > HARD_CAP) this.mousePadTrail.shift();
         }
+
+        if (!this.mousePadRafId) this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
+    }
+
+    handleAbsPosition(x, y, penButtons, isNear) {
+        if (!this.mousePadCanvas || !this.mousePadCtx) return;
+        const W = parseFloat(this.mousePadCanvas.dataset.logicalW) || 0;
+        const H = parseFloat(this.mousePadCanvas.dataset.logicalH) || 0;
+        if (!W || !H) return;
+
+        const normX = Math.max(0, Math.min(1, x));
+        const normY = Math.max(0, Math.min(1, y));
+        const canvasX = normX * W;
+        const canvasY = normY * H;
+
+        const now = performance.now();
+        const m1Active = this.MOUSEPAD_M1_HIGHLIGHT && (penButtons & 1);
+
+        if (isNear === false) {
+            this.mousePadTrail.push(null);
+            this._absFirstPoint = true;
+            if (this.MOUSEPAD_SHOW_DISTANCE) {
+                this._mousePadTotalDistancePx = 0;
+            }
+            if (!this.mousePadRafId) this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
+            return;
+        }
+
+        if (this.mousePadCursorX === null) {
+            this.mousePadCursorX = canvasX;
+            this.mousePadCursorY = canvasY;
+            return;
+        }
+
+        this._absPrevX = canvasX;
+        this._absPrevY = canvasY;
+
+        if (this._absFirstPoint) {
+            this._absFirstPoint = false;
+            return;
+        }
+
+        const prevCursorX = this.mousePadCursorX;
+        const prevCursorY = this.mousePadCursorY;
+        this.mousePadCursorX = canvasX;
+        this.mousePadCursorY = canvasY;
+
+        const wrapped = Math.abs(canvasX - prevCursorX) > W / 2 || Math.abs(canvasY - prevCursorY) > H / 2;
+        if (wrapped) this.mousePadTrail.push(null);
+
+        const segLen = wrapped ? 0 : Math.sqrt((canvasX - prevCursorX) ** 2 + (canvasY - prevCursorY) ** 2);
+        if (segLen < 0.05) {
+            if (!this.mousePadRafId) this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
+            return;
+        }
+        if (this.MOUSEPAD_SHOW_DISTANCE) this._mousePadTotalDistancePx += segLen;
+
+        let prevDist = 0;
+        for (let i = this.mousePadTrail.length - 1; i >= 0; i--) {
+            if (this.mousePadTrail[i] !== null) { prevDist = this.mousePadTrail[i].d || 0; break; }
+        }
+        this.mousePadTrail.push({ x: canvasX, y: canvasY, t: now, m1: m1Active, d: prevDist + segLen });
+
+        const maxDist = this.MOUSEPAD_TRAIL_LENGTH || 150;
+        const tip = this.mousePadTrail[this.mousePadTrail.length - 1];
+        const tipD = tip ? tip.d : 0;
+        while (this.mousePadTrail.length > 1) {
+            const first = this.mousePadTrail[0];
+            const firstD = first === null ? (this.mousePadTrail[1]?.d ?? tipD) : first.d;
+            if (tipD - firstD > maxDist) this.mousePadTrail.shift();
+            else break;
+        }
+        const HARD_CAP = 5000;
+        if (this.mousePadTrail.length > HARD_CAP) this.mousePadTrail.shift();
 
         if (!this.mousePadRafId) this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
     }

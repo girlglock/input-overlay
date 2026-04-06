@@ -174,6 +174,18 @@ export class WebSocketManager {
             return;
         }
 
+        if (event_type === "abs_mouse_moved") {
+            if (this.visualizer.mousePadCanvas) {
+                this.visualizer.handleAbsPosition(
+                    event.x ?? 0,
+                    event.y ?? 0,
+                    event.pen_buttons ?? 0,
+                    event.is_near
+                );
+            }
+            return;
+        }
+
         if (event_type === "analog_depth") {
             if (!this.visualizer.forceDisableAnalog) this._handleAnalogDepth(event);
             return;
