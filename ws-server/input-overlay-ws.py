@@ -100,6 +100,7 @@ class InputOverlayServer:
 
         self.raw_mouse_enabled   = False
         self.raw_mouse_min_delta = 0
+        self.raw_mouse_absolute_enabled = False
         self.linux_raw_mouse_device: str = ""
         self._raw_mouse_thread   = None
 
@@ -163,6 +164,7 @@ class InputOverlayServer:
                 "dismissed_versions":    [],
                 "raw_mouse_enabled":     sys.platform == "win32",
                 "raw_mouse_min_delta":   0,
+                "raw_mouse_absolute_enabled": False,
                 "linux_raw_mouse_device": "",
                 "cpu_affinity":          [0, 1],
             }
@@ -218,6 +220,7 @@ class InputOverlayServer:
                     old_analog_enabled = self.analog_enabled
                     old_analog_device  = self.analog_device
                     old_raw_mouse      = self.raw_mouse_enabled
+                    old_raw_mouse_absolute = self.raw_mouse_absolute_enabled
                     old_linux_device   = self.linux_raw_mouse_device
                     old_auth_token     = self.auth_token
 
@@ -228,6 +231,7 @@ class InputOverlayServer:
                     self.balloon_notifications   = config.get("balloon_notifications", True)
                     self.raw_mouse_enabled       = config.get("raw_mouse_enabled", False)
                     self.raw_mouse_min_delta     = config.get("raw_mouse_min_delta", 0)
+                    self.raw_mouse_absolute_enabled = config.get("raw_mouse_absolute_enabled", False)
                     self.linux_raw_mouse_device  = config.get("linux_raw_mouse_device", "")
 
                     logger.info("settings updated - analog: %s, device: %s", self.analog_enabled, self.analog_device)
@@ -245,6 +249,9 @@ class InputOverlayServer:
                                 self.stop_raw_mouse()
                             if self.raw_mouse_enabled:
                                 self.start_raw_mouse()
+                        elif (old_raw_mouse_absolute != self.raw_mouse_absolute_enabled and self.raw_mouse_enabled):
+                            self.stop_raw_mouse()
+                            self.start_raw_mouse()
                     else:
                         if old_linux_device != self.linux_raw_mouse_device:
                             self.stop_raw_mouse()
@@ -421,6 +428,9 @@ class InputOverlayServer:
             return
         self.queue_message({"event_type": "mouse_moved", "dx": dx, "dy": dy})
 
+    def _on_absolute_mouse_move(self, x: int, y: int, is_down: bool) -> None:
+        self.queue_message({"event_type": "abs_mouse_moved", "x": x, "y": y, "is_near": is_down})
+
     def start_input_listeners(self) -> None:
         if sys.platform == "win32":
             self._input_listener = PynputInputListener(
@@ -457,6 +467,9 @@ class InputOverlayServer:
         if sys.platform == "win32":
             self._raw_mouse_thread = RawMouseThread(
                 callback=self._on_raw_mouse_move,
+                absolute_callback=self._on_absolute_mouse_move
+                if self.raw_mouse_absolute_enabled
+                else None,
                 min_delta=self.raw_mouse_min_delta,
             )
         else:
