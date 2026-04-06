@@ -1,6 +1,7 @@
 name: release ws-server exe
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
