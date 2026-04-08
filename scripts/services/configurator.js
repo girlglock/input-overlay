@@ -857,7 +857,7 @@ export class ConfiguratorMode {
                 fetchText(`${scriptsBase}services/overlayVisualiser.js`),
                 fetchText(`${scriptsBase}services/webSocketManager.js`),
                 fetchText(`${scriptsBase}services/overlay.js`),
-                fetch("https://cdn.jsdelivr.net/npm/pako/dist/pako.min.js").then(r => r.text()).catch(() => "/* pako unavailable */"),
+                fetch("https://cdn.jsdelivr.net/npm/pako/dist/pako.min.js").then(r => r.ok ? r.text() : fetchText(`${scriptsBase}libs/pako.min.js`)).catch(() => fetchText(`${scriptsBase}libs/pako.min.js`)),
             ]);
 
             const strip = (src) => src

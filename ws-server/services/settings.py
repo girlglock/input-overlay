@@ -96,6 +96,8 @@ class SettingsEditor(QMainWindow):
             self.port                    = config.get("port", 8080)
             self._original_host          = self.host
             self._original_port          = self.port
+            self.http_enabled            = config.get("http_enabled", False)
+            self.http_port               = config.get("http_port", 4456)
             self.auth_token              = config.get("auth_token", "")
             self.analog_enabled          = config.get("analog_enabled", False)
             self.analog_device           = config.get("analog_device", None)
@@ -110,6 +112,8 @@ class SettingsEditor(QMainWindow):
             self.port                    = 8080
             self._original_host          = self.host
             self._original_port          = self.port
+            self.http_enabled            = False
+            self.http_port               = 4456
             self.auth_token              = ""
             self.analog_enabled          = False
             self.analog_device           = None
@@ -131,6 +135,8 @@ class SettingsEditor(QMainWindow):
             config["key_whitelist"]         = self.temp_whitelist
             config["host"]                  = new_host
             config["port"]                  = new_port
+            config["http_enabled"]          = self.http_checkbox.isChecked()
+            config["http_port"]             = int(self.http_port_input.text() or 4456)
             config["auth_token"]            = self.auth_input.text()
             config["analog_enabled"]        = self.analog_checkbox.isChecked()
             config["balloon_notifications"] = self.balloon_checkbox.isChecked()
@@ -160,7 +166,7 @@ class SettingsEditor(QMainWindow):
 
     def setup_ui(self) -> None:
         self.setWindowTitle("SETTINGS")
-        self.setFixedSize(1000, 786)
+        self.setFixedSize(1000, 960)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -185,6 +191,11 @@ class SettingsEditor(QMainWindow):
 
         server_group  = QGroupBox("SERVER")
         server_layout = QVBoxLayout()
+
+        ws_lbl = QLabel("WebSocket Server:")
+        ws_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
+        server_layout.addWidget(ws_lbl)
+
         server_grid   = QHBoxLayout()
         server_grid.setSpacing(10)
 
@@ -205,6 +216,37 @@ class SettingsEditor(QMainWindow):
         server_grid.addLayout(port_col)
 
         server_layout.addLayout(server_grid)
+
+        self.http_lbl = QLabel("Local HTTP Server:")
+        self.http_lbl.setStyleSheet("color: #a0aa95; font-weight: normal; margin-top: 8px;")
+        server_layout.addWidget(self.http_lbl)
+
+        http_grid = QHBoxLayout()
+        http_grid.setSpacing(10)
+
+        http_host_col = QVBoxLayout()
+        self.http_host_lbl = QLabel("Host:")
+        self.http_host_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
+        http_host_col.addWidget(self.http_host_lbl)
+        self.http_host_display = QLineEdit(self.host)
+        self.http_host_display.setReadOnly(True)
+        self.http_host_display.setToolTip("Uses the same host as the WebSocket server")
+        http_host_col.addWidget(self.http_host_display)
+        http_grid.addLayout(http_host_col)
+
+        http_port_col = QVBoxLayout()
+        self.http_port_lbl = QLabel("Port:")
+        self.http_port_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
+        http_port_col.addWidget(self.http_port_lbl)
+        self.http_port_input = QLineEdit(str(self.http_port))
+        http_port_col.addWidget(self.http_port_input)
+        http_grid.addLayout(http_port_col)
+
+        server_layout.addLayout(http_grid)
+
+        self.host_input.textChanged.connect(self.http_host_display.setText)
+        self._apply_http_enabled_state(self.http_enabled)
+
         server_group.setLayout(server_layout)
         left_column.addWidget(server_group)
 
@@ -276,6 +318,12 @@ class SettingsEditor(QMainWindow):
         self.autostart_checkbox = QCheckBox(autostart_label)
         self.autostart_checkbox.setChecked(self.autostart_enabled)
         app_layout.addWidget(self.autostart_checkbox)
+
+        self.http_checkbox = QCheckBox("Enable local HTTP server\n(serve overlay without internet)")
+        self.http_checkbox.setToolTip("Hosts the overlay configurator locally to enable usage without a network connection")
+        self.http_checkbox.setChecked(self.http_enabled)
+        self.http_checkbox.stateChanged.connect(self._on_http_toggled)
+        app_layout.addWidget(self.http_checkbox)
 
         if sys.platform == "win32":
             self.raw_mouse_checkbox = InstantTooltipCheckBox("Enable RawInputBuffer reads from the Windows API\n(mouse movement for mouse_pad element)")
@@ -460,6 +508,24 @@ class SettingsEditor(QMainWindow):
     def regenerate_token(self) -> None:
         import secrets
         self.auth_input.setText(secrets.token_urlsafe(32))
+
+    def _on_http_toggled(self, state: int) -> None:
+        self._apply_http_enabled_state(state == Qt.CheckState.Checked.value)
+
+    def _apply_http_enabled_state(self, enabled: bool) -> None:
+        label_style = "color: #a0aa95; font-weight: normal;"
+        self.http_lbl.setStyleSheet(label_style + " margin-top: 8px;")
+        self.http_host_lbl.setStyleSheet(label_style)
+        self.http_port_lbl.setStyleSheet(label_style)
+        if enabled:
+            self.http_host_display.setStyleSheet("")
+            self.http_port_input.setStyleSheet("")
+        else:
+            greyed = "background-color: #3a3a3a; color: #606060;"
+            self.http_host_display.setStyleSheet(greyed)
+            self.http_port_input.setStyleSheet(greyed)
+        self.http_host_display.setEnabled(enabled)
+        self.http_port_input.setEnabled(enabled)
 
     def on_analog_toggled(self, state: int) -> None:
         self.device_combo.setEnabled(state == Qt.CheckState.Checked.value)

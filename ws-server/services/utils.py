@@ -16,6 +16,20 @@ def get_resource_path(relative_path: str) -> Path:
     return base / relative_path
 
 
+def get_web_root() -> Path:
+    try:
+        bundled = Path(sys._MEIPASS) / "web"
+        if bundled.is_dir():
+            return bundled
+    except AttributeError:
+        pass
+    # development: repo root is parent of ws-server/
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    if (repo_root / "index.html").exists():
+        return repo_root
+    return Path.cwd()
+
+
 def get_exe_path() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable)
