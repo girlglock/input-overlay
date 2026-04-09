@@ -208,8 +208,6 @@ class InputOverlayServer:
                 new_port = config.get("port", self.port)
                 if new_host != self.host or new_port != self.port:
                     logger.info("rebind requested: %s:%d -> %s:%d", self.host, self.port, new_host, new_port)
-                    self._prev_host = self.host
-                    self._prev_port = self.port
                     self.host = new_host
                     self.port = new_port
                     if self.loop and hasattr(self, "_rebind_event"):
@@ -621,20 +619,28 @@ class InputOverlayServer:
                 self._prev_host = self.host
                 self._prev_port = self.port
             except OSError as e:
-                kind = "inuse" if e.errno in (10048, 98) else "denied" if e.errno == 13 else None
-                if kind is None:
-                    raise
+                import socket as _socket
+                if e.errno in (10048, 98):
+                    kind = "inuse"
+                elif e.errno == 13:
+                    kind = "denied"
+                elif isinstance(e, _socket.gaierror):
+                    kind = "badhost"
+                else:
+                    kind = "oserror"
                 prev_host = getattr(self, "_prev_host", None)
                 prev_port = getattr(self, "_prev_port", None)
                 if prev_host and prev_port:
-                    logger.error("port %d %s - reverting to %s:%d", attempt_port, kind, prev_host, prev_port)
+                    logger.error("rebind to %s:%d failed (%s) - reverting to %s:%d",
+                                 attempt_host, attempt_port, kind, prev_host, prev_port)
                     self.host = prev_host
                     self.port = prev_port
                     self._revert_config(prev_host, prev_port)
                     self._spawn_rebind_failed(attempt_host, attempt_port, kind, prev_host, prev_port)
                     continue
                 else:
-                    logger.error("port %d %s on initial bind - waiting for port change...", attempt_port, kind)
+                    logger.error("initial bind to %s:%d failed (%s) - waiting for port change...",
+                                 attempt_host, attempt_port, kind)
                     self._spawn_port_error(kind)
                     while self.running and not self._rebind_event.is_set():
                         try:
@@ -697,7 +703,7 @@ class InputOverlayServer:
 
     def stop(self) -> None:
         self.running = False
-        if self.loop and hasattr(self, "_stop_event"):
+        if self.loop and hasattr(self, "_stop_event") and not self.loop.is_closed():
             self.loop.call_soon_threadsafe(self._stop_event.set)
 
 if __name__ == "__main__":

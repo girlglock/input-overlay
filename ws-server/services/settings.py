@@ -91,6 +91,13 @@ class SettingsEditor(QMainWindow):
 
     def load_config(self) -> None:
         try:
+            stale_flag = Path(self.config_path).parent / "restart.flag"
+            if stale_flag.exists():
+                stale_flag.unlink()
+                logger.debug("settings: removed old restart.flag on open")
+        except Exception:
+            pass
+        try:
             with open(self.config_path, "r") as f:
                 config = json.load(f)
             self.temp_whitelist          = list(config.get("key_whitelist", []))

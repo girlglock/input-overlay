@@ -21,8 +21,10 @@ except ImportError:
 
 
 def _run_server(server, shutdown_callback=None) -> None:
+    started_ok = False
     try:
         asyncio.run(server.start())
+        started_ok = True
     except OSError as e:
         if e.errno in (10048, 98):  # WSAEADDRINUSE, EADDRINUSE
             logger.error("port %d already in use", server.port)
@@ -42,8 +44,9 @@ def _run_server(server, shutdown_callback=None) -> None:
             _track_child(server, proc)
     except Exception:
         logger.exception("server error")
+        started_ok = True
 
-    if shutdown_callback:
+    if started_ok and shutdown_callback:
         logger.info("server stopped, triggering shutdown")
         shutdown_callback()
 
