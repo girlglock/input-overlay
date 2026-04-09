@@ -57,7 +57,7 @@ export class WebSocketManager {
         this.statusCurrentEl.textContent = text;
         this.statusEl.className = `status ${state}`;
     }
-    
+
     _log(text, level = "") {
         if (!this.statusLogEl) return;
         const MAX_ENTRIES = 8;
@@ -128,14 +128,14 @@ export class WebSocketManager {
         console.log(`[ws] closed - code: ${event.code}, reason: "${event.reason || "none"}", clean: ${event.wasClean}`);
 
         const CLOSE_REASONS = {
-            1000: ["closed normally", "error", false],
-            1001: ["server going away", "error", false],
-            1006: ["server unreachable?", "error", true],
-            1008: ["authentication required", "error", false],
-            1011: ["server error", "error", true],
+            1000: ["closed normally", "error", false, 0],
+            1001: ["server going away", "error", true, 5000],
+            1006: ["server unreachable?", "error", true, 5000],
+            1008: ["authentication required", "error", true, 5000],
+            1011: ["server error", "error", true, 5000],
         };
 
-        const [msg, state, reconnect] = CLOSE_REASONS[event.code] ?? [`disconnected (code ${event.code})`, "connecting", true];
+        const [msg, state, reconnect, delay] = CLOSE_REASONS[event.code] ?? [`disconnected (code ${event.code})`, "connecting", true, 5000];
 
         if (event.code === 1008) {
             this._setStatus(`connection closed: ${msg}`, state);
@@ -150,10 +150,27 @@ export class WebSocketManager {
             return;
         }
 
-        this._setStatus(`${msg} - reconnecting...`, "connecting");
-        this._log(`${msg} - reconnecting in 2s`, "warn");
+        this._log(`${msg} - reconnecting in ${delay / 1000}s`, "warn");
         this.clearStuckKeys();
-        setTimeout(() => this.connect(), 2000);
+
+        if (this._countdownInterval) clearInterval(this._countdownInterval);
+        let remaining = delay;
+        const tick = () => {
+            const secs = Math.ceil(remaining / 1000);
+            this._setStatus(`${msg} - retrying in ${secs}s`, "connecting");
+            remaining -= 1000;
+        };
+        tick();
+        this._countdownInterval = setInterval(() => {
+            if (remaining <= 0) {
+                clearInterval(this._countdownInterval);
+                this._countdownInterval = null;
+            } else {
+                tick();
+            }
+        }, 1000);
+
+        setTimeout(() => this.connect(), delay);
     }
 
     _getMappedKeyInfo(event) {
