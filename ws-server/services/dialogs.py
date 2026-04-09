@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QTextBrowser,
     QToolTip,
@@ -472,9 +473,8 @@ def _load_pixel_font() -> None:
         logger.warning("arialpixel.ttf not found at %s", font_path)
 
 
-class InstantTooltipCheckBox(QCheckBox):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class _InstantTooltipMixin:
+    def _init_instant_tooltip(self):
         self.setMouseTracking(True)
         self._tooltip_shown = False
 
@@ -490,6 +490,70 @@ class InstantTooltipCheckBox(QCheckBox):
         if e.type() == QEvent.Type.ToolTip:
             return True
         return super().event(e)
+
+
+class InstantTooltipCheckBox(_InstantTooltipMixin, QCheckBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._init_instant_tooltip()
+
+
+class InstantTooltipLabel(_InstantTooltipMixin, QLabel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._init_instant_tooltip()
+
+
+class InstantTooltipLineEdit(_InstantTooltipMixin, QLineEdit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._init_instant_tooltip()
+
+
+class InstantTooltipPushButton(_InstantTooltipMixin, QPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._init_instant_tooltip()
+
+
+class CS16DisabledButton(QPushButton):
+    _SHADOW_COLOR   = QColor("#75806f")
+    _DISABLED_COLOR = QColor("#292c21")
+
+    def paintEvent(self, event) -> None:
+        if not self.isEnabled():
+            from PyQt6.QtGui import QPainter, QColor
+            from PyQt6.QtCore import Qt
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+
+            opt = self._get_style_option()
+            self.style().drawControl(
+                self.style().ControlElement.CE_PushButtonBevel, opt, painter, self
+            )
+
+            rect = self.rect()
+            font = self.font()
+            painter.setFont(font)
+
+            #shadow
+            shadow_rect = rect.translated(1, 1)
+            painter.setPen(self._SHADOW_COLOR)
+            painter.drawText(shadow_rect, Qt.AlignmentFlag.AlignCenter, self.text())
+
+            #text
+            painter.setPen(self._DISABLED_COLOR)
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self.text())
+
+            painter.end()
+        else:
+            super().paintEvent(event)
+
+    def _get_style_option(self):
+        from PyQt6.QtWidgets import QStyleOptionButton
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+        return opt
 
 class TitleBar(QWidget):
     def __init__(self, title: str, parent_window, minimizable: bool = True) -> None:

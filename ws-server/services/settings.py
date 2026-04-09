@@ -44,8 +44,10 @@ else:
         _EVDEV_AVAILABLE = False
 from services.dialogs import (
     CS16,
+    CS16DisabledButton,
     GITHUB_RELEASES_URL,
     InstantTooltipCheckBox,
+    InstantTooltipLineEdit,
     TitleBar,
     UpdateChecker,
     _load_pixel_font,
@@ -166,7 +168,7 @@ class SettingsEditor(QMainWindow):
 
     def setup_ui(self) -> None:
         self.setWindowTitle("SETTINGS")
-        self.setFixedSize(1000, 960)
+        self.setFixedSize(1000, 840)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -189,12 +191,8 @@ class SettingsEditor(QMainWindow):
         left_column = QVBoxLayout()
         left_column.setSpacing(10)
 
-        server_group  = QGroupBox("SERVER")
+        server_group  = QGroupBox("WS SERVER")
         server_layout = QVBoxLayout()
-
-        ws_lbl = QLabel("WebSocket Server:")
-        ws_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
-        server_layout.addWidget(ws_lbl)
 
         server_grid   = QHBoxLayout()
         server_grid.setSpacing(10)
@@ -216,36 +214,6 @@ class SettingsEditor(QMainWindow):
         server_grid.addLayout(port_col)
 
         server_layout.addLayout(server_grid)
-
-        self.http_lbl = QLabel("Local HTTP Server:")
-        self.http_lbl.setStyleSheet("color: #a0aa95; font-weight: normal; margin-top: 8px;")
-        server_layout.addWidget(self.http_lbl)
-
-        http_grid = QHBoxLayout()
-        http_grid.setSpacing(10)
-
-        http_host_col = QVBoxLayout()
-        self.http_host_lbl = QLabel("Host:")
-        self.http_host_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
-        http_host_col.addWidget(self.http_host_lbl)
-        self.http_host_display = QLineEdit(self.host)
-        self.http_host_display.setReadOnly(True)
-        self.http_host_display.setToolTip("Uses the same host as the WebSocket server")
-        http_host_col.addWidget(self.http_host_display)
-        http_grid.addLayout(http_host_col)
-
-        http_port_col = QVBoxLayout()
-        self.http_port_lbl = QLabel("Port:")
-        self.http_port_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
-        http_port_col.addWidget(self.http_port_lbl)
-        self.http_port_input = QLineEdit(str(self.http_port))
-        http_port_col.addWidget(self.http_port_input)
-        http_grid.addLayout(http_port_col)
-
-        server_layout.addLayout(http_grid)
-
-        self.host_input.textChanged.connect(self.http_host_display.setText)
-        self._apply_http_enabled_state(self.http_enabled)
 
         server_group.setLayout(server_layout)
         left_column.addWidget(server_group)
@@ -319,12 +287,6 @@ class SettingsEditor(QMainWindow):
         self.autostart_checkbox.setChecked(self.autostart_enabled)
         app_layout.addWidget(self.autostart_checkbox)
 
-        self.http_checkbox = QCheckBox("Enable local HTTP server\n(serve overlay without internet)")
-        self.http_checkbox.setToolTip("Hosts the overlay configurator locally to enable usage without a network connection")
-        self.http_checkbox.setChecked(self.http_enabled)
-        self.http_checkbox.stateChanged.connect(self._on_http_toggled)
-        app_layout.addWidget(self.http_checkbox)
-
         if sys.platform == "win32":
             self.raw_mouse_checkbox = InstantTooltipCheckBox("Enable RawInputBuffer reads from the Windows API\n(mouse movement for mouse_pad element)")
             self.raw_mouse_checkbox.setToolTip("Sometimes requires the ws server to run with admin privileges depending on foreground window privileges")
@@ -364,7 +326,6 @@ class SettingsEditor(QMainWindow):
         self.version_label = QLabel(f"Input-Overlay WebSocket Server | Version: {WS_SERVER_VERSION}<br>(latest)")
         self.version_label.setStyleSheet("color: #a0aa95; font-weight: normal;")
         self.version_label.setOpenExternalLinks(True)
-        self.version_label.setMinimumHeight(32)
         links_container.addSpacing(-8)
         links_container.addWidget(self.version_label)
 
@@ -395,10 +356,8 @@ class SettingsEditor(QMainWindow):
         about_h_layout.addWidget(image_label)
 
         info_group.setLayout(about_h_layout)
-        info_group.setFixedHeight(206)
-        left_column.addWidget(info_group)
-
-        left_column.addStretch()
+        info_group.setMinimumHeight(206)
+        left_column.addWidget(info_group, stretch=1)
 
         #right side
         right_column = QVBoxLayout()
@@ -430,6 +389,50 @@ class SettingsEditor(QMainWindow):
 
         whitelist_group.setLayout(whitelist_layout)
         right_column.addWidget(whitelist_group)
+
+        http_group  = QGroupBox("LOCAL HTTP SERVER (only for offline use)")
+        http_layout = QVBoxLayout()
+
+        http_top_row = QHBoxLayout()
+        http_top_row.setSpacing(8)
+        self.http_checkbox = InstantTooltipCheckBox("Enable HTTP SERVER")
+        self.http_checkbox.setToolTip("Hosts the overlay configurator locally (this may lack the latest updates of the live hosted one)")
+        self.http_checkbox.setChecked(self.http_enabled)
+        self.http_checkbox.stateChanged.connect(self._on_http_toggled)
+        http_top_row.addWidget(self.http_checkbox)
+        self.open_http_btn = CS16DisabledButton("OPEN IN BROWSER")
+        self.open_http_btn.clicked.connect(self._open_http_in_browser)
+        http_top_row.addWidget(self.open_http_btn)
+        http_layout.addLayout(http_top_row)
+
+        http_addr_grid = QHBoxLayout()
+        http_addr_grid.setSpacing(10)
+
+        http_host_col = QVBoxLayout()
+        self.http_host_lbl = QLabel("Host:")
+        self.http_host_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
+        http_host_col.addWidget(self.http_host_lbl)
+        self.http_host_display = InstantTooltipLineEdit(self.host)
+        self.http_host_display.setReadOnly(True)
+        self.http_host_display.setToolTip("Will use the same host as the WebSocket server")
+        http_host_col.addWidget(self.http_host_display)
+        http_addr_grid.addLayout(http_host_col)
+
+        http_port_col = QVBoxLayout()
+        self.http_port_lbl = QLabel("Port:")
+        self.http_port_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
+        http_port_col.addWidget(self.http_port_lbl)
+        self.http_port_input = QLineEdit(str(self.http_port))
+        http_port_col.addWidget(self.http_port_input)
+        http_addr_grid.addLayout(http_port_col)
+
+        http_layout.addLayout(http_addr_grid)
+
+        self.host_input.textChanged.connect(self.http_host_display.setText)
+
+        http_group.setLayout(http_layout)
+        right_column.addWidget(http_group)
+        self._apply_http_enabled_state(self.http_enabled)
 
         clients_group  = QGroupBox("CONNECTED CLIENTS")
         clients_layout = QVBoxLayout()
@@ -512,9 +515,19 @@ class SettingsEditor(QMainWindow):
     def _on_http_toggled(self, state: int) -> None:
         self._apply_http_enabled_state(state == Qt.CheckState.Checked.value)
 
+    def _open_http_in_browser(self) -> None:
+        import webbrowser
+        host = self.http_host_display.text() or "localhost"
+        if host in ("0.0.0.0", ""):
+            host = "localhost"
+        port = self.http_port_input.text() or str(self.http_port)
+        url = f"http://{host}:{port}"
+        webbrowser.open(url)
+        self.save_config()
+        logger.info("opening HTTP server URL in browser: %s", url)
+
     def _apply_http_enabled_state(self, enabled: bool) -> None:
         label_style = "color: #a0aa95; font-weight: normal;"
-        self.http_lbl.setStyleSheet(label_style + " margin-top: 8px;")
         self.http_host_lbl.setStyleSheet(label_style)
         self.http_port_lbl.setStyleSheet(label_style)
         if enabled:
@@ -526,6 +539,7 @@ class SettingsEditor(QMainWindow):
             self.http_port_input.setStyleSheet(greyed)
         self.http_host_display.setEnabled(enabled)
         self.http_port_input.setEnabled(enabled)
+        self.open_http_btn.setEnabled(enabled)
 
     def on_analog_toggled(self, state: int) -> None:
         self.device_combo.setEnabled(state == Qt.CheckState.Checked.value)
