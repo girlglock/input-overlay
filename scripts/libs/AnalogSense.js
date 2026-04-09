@@ -340,8 +340,9 @@ class AsProvider
     }
 }
 
-class AsProviderWooting extends AsProvider
+class AsProviderWootingLegacy extends AsProvider
 {
+    //wooting boards with Analog Interface v1 firmware (v5.2.4)
     static populateFilters(filters)
     {
         filters.push({ usagePage: 0xFF54, vendorId: 0x31E3 });
@@ -357,12 +358,45 @@ class AsProviderWooting extends AsProvider
             for (let i = 0; i < event.data.byteLength; )
             {
                 const scancode = (event.data.getUint8(i++) << 8) | event.data.getUint8(i++);
-                if (scancode === 0)
+                if (scancode == 0)
                 {
                     break;
                 }
                 const value = event.data.getUint8(i++);
                 active_keys.push({ scancode, value: value / 255 });
+            }
+            handler(active_keys);
+        };
+    }
+
+    stopListening()
+    {
+        this.dev.oninputreport = undefined;
+    }
+}
+
+class AsProviderWooting extends AsProvider
+{
+    //wooting boards with Analog Interface v2 firmware (v5.3.0+)
+    static populateFilters(filters)
+    {
+        filters.push({ usagePage: 0xFF53, vendorId: 0x31E3 });
+    }
+
+    startListening(handler)
+    {
+        this.dev.oninputreport = function(event)
+        {
+            const active_keys = [];
+            for (let i = 0; i + 3 < event.data.byteLength; i += 4)
+            {
+                const scancode = event.data.getUint8(i + 1);
+                if (scancode == 0)
+                {
+                    break;
+                }
+                const value = (event.data.getUint8(i + 3) << 8) | event.data.getUint8(i + 2);
+                active_keys.push({ scancode, value: value / 65535 });
             }
             handler(active_keys);
         };
@@ -386,13 +420,13 @@ class AsProviderRazerHuntsman extends AsProvider
     {
         this.dev.oninputreport = function(event)
         {
-            if (event.reportId === 7)
+            if (event.reportId == 7)
             {
                 const active_keys = [];
                 for (let i = 0; i < event.data.byteLength; )
                 {
                     const scancode = event.data.getUint8(i++);
-                    if (scancode === 0)
+                    if (scancode == 0)
                     {
                         break;
                     }
@@ -426,13 +460,13 @@ class AsProviderRazerHuntsmanV3 extends AsProvider
     {
         this.dev.oninputreport = function(event)
         {
-            if (event.reportId === 11)
+            if (event.reportId == 11)
             {
                 const active_keys = [];
                 for (let i = 0; i < event.data.byteLength; )
                 {
                     const scancode = event.data.getUint8(i++);
-                    if (scancode === 0)
+                    if (scancode == 0)
                     {
                         break;
                     }
@@ -467,12 +501,12 @@ class AsProviderNuphy extends AsProvider
         this.buffer = {};
         this.dev.oninputreport = function(event)
         {
-            if (event.data.getUint8(0) === 0xA0)
+            if (event.data.getUint8(0) == 0xA0)
             {
                 const scancode = analogsense.nuphyScancodeToHidScancode(event.data.getUint16(2));
-                if (scancode !== 0)
+                if (scancode != 0)
                 {
-                    if (event.data.getUint8(7) === 0)
+                    if (event.data.getUint8(7) == 0)
                     {
                         delete _this.buffer[scancode];
                     }
@@ -521,14 +555,14 @@ class AsProviderDrunkdeer extends AsProvider
         this.dev.oninputreport = function(event)
         {
             const n = event.data.getUint8(3);
-            if (n === 0)
+            if (n == 0)
             {
                 this.active_keys = [];
             }
-            for (let i = 4; i !== event.data.byteLength; ++i)
+            for (let i = 4; i != event.data.byteLength; ++i)
             {
                 const value = event.data.getUint8(i);
-                if (value !== 0)
+                if (value != 0)
                 {
                     this.active_keys.push({
                         scancode: analogsense.drunkdeerIndexToHidScancode((n * (64 - 5)) + (i - 4)),
@@ -536,7 +570,7 @@ class AsProviderDrunkdeer extends AsProvider
                     });
                 }
             }
-            if (n === 2)
+            if (n == 2)
             {
                 handler(this.active_keys);
             }
@@ -580,22 +614,22 @@ class AsProviderKeychron extends AsProvider
         ]);
         this.dev.sendReport(0, buf);
 
-        if (this.dev.productId === 0x0B10 // ANSI
-            || this.dev.productId === 0x0B11 // ISO
-            || this.dev.productId === 0x0B12 // JIS
+        if (this.dev.productId == 0x0B10 // ANSI
+            || this.dev.productId == 0x0B11 // ISO
+            || this.dev.productId == 0x0B12 // JIS
             )
         {
             this.layout = layout_keychron_q1_he;
         }
-        else if (this.dev.productId === 0x0B30)
+        else if (this.dev.productId == 0x0B30)
         {
             this.layout = layout_keychron_q3_he;
         }
-        else if (this.dev.productId === 0x0B50)
+        else if (this.dev.productId == 0x0B50)
         {
             this.layout = layout_keychron_q5_he;
         }
-        else if (this.dev.productId === 0x0610)
+        else if (this.dev.productId == 0x0610)
         {
             this.layout = layout_lemokey_p1_he;
         }
@@ -608,7 +642,7 @@ class AsProviderKeychron extends AsProvider
         this.dev.oninputreport = function(event)
         {
             const am_version = event.data.getUint8(2);
-            const has_full_analogue_report = (event.data.getUint8(31) === 0x45);
+            const has_full_analogue_report = (event.data.getUint8(31) == 0x45);
 
             _this.index = 0;
             _this.buffer = {};
@@ -618,13 +652,13 @@ class AsProviderKeychron extends AsProvider
                 _this._requestAllKeys();
                 _this.dev.oninputreport = function(event)
                 {
-                    for (let i = 0; i !== 30; ++i)
+                    for (let i = 0; i != 30; ++i)
                     {
                         const li = _this.index * 30 + i;
                         if (li < layout_get_size(_this.layout))
                         {
                             const key = layout_get_item(_this.layout, li);
-                            if (key !== KEY_NONE)
+                            if (key != KEY_NONE)
                             {
                                 const travel = event.data.getUint8(2 + i);
                                 if (travel >= 5)
@@ -638,7 +672,7 @@ class AsProviderKeychron extends AsProvider
                             }
                         }
                     }
-                    if (++_this.index === 4)
+                    if (++_this.index == 4)
                     {
                         handler(_this._bufferToActiveKeys());
                         _this.index = 0;
@@ -665,7 +699,7 @@ class AsProviderKeychron extends AsProvider
                     handler(_this._bufferToActiveKeys());
 
                     do {
-                        if (++_this.index === layout_get_size(_this.layout))
+                        if (++_this.index == layout_get_size(_this.layout))
                         {
                             _this.index = 0;
                         }
@@ -678,7 +712,7 @@ class AsProviderKeychron extends AsProvider
     _requestSingleKey()
     {
         const key = layout_get_item(this.layout, this.index);
-        if (key !== KEY_NONE)
+        if (key != KEY_NONE)
         {
             const row = layout_index_to_row(this.layout, this.index);
             const col = layout_index_to_col(this.layout, this.index);
@@ -733,7 +767,7 @@ class AsProviderMadlions extends AsProvider
 
     startListening(handler)
     {
-        if (this.dev.productId === 0x1055 || this.dev.productId === 0x1056 || this.dev.productId === 0x105D)
+        if (this.dev.productId == 0x1053 || this.dev.productId == 0x1055 || this.dev.productId == 0x1056 || this.dev.productId == 0x105D)
         {
             this.layout = [
                 KEY_ESCAPE,    KEY_1,     KEY_2,    KEY_3,    KEY_4,    KEY_5,    KEY_6,     KEY_7,    KEY_8,    KEY_9,     KEY_0,         KEY_MINUS,        KEY_EQUALS,        KEY_BACKSPACE,
@@ -769,13 +803,13 @@ class AsProviderMadlions extends AsProvider
         const _this = this;
         this.dev.oninputreport = function(event)
         {
-            for (let i = 0; i !== 4; ++i)
+            for (let i = 0; i != 4; ++i)
             {
                 if (_this.offset + i < _this.layout.length)
                 {
                     const key = _this.layout[_this.offset + i];
                     const travel = event.data.getUint16(7 + (i * 5) + 3);
-                    if (travel === 0)
+                    if (travel == 0)
                     {
                         delete _this.buffer[key];
                     }
@@ -871,6 +905,7 @@ class AsProviderBytech extends AsProvider
 window.analogsense = {
     providers: [
         AsProviderWooting,
+        AsProviderWootingLegacy,
         AsProviderRazerHuntsman,
         AsProviderRazerHuntsmanV3,
         AsProviderNuphy,
@@ -887,11 +922,11 @@ window.analogsense = {
             provider.populateFilters(filters);
             for (const filter of filters)
             {
-                if ("vendorId" in filter && dev.vendorId !== filter.vendorId)
+                if ("vendorId" in filter && dev.vendorId != filter.vendorId)
                 {
                     continue;
                 }
-                if ("productId" in filter && dev.productId !== filter.productId)
+                if ("productId" in filter && dev.productId != filter.productId)
                 {
                     continue;
                 }
@@ -900,7 +935,7 @@ window.analogsense = {
                     let found = false;
                     for (const collection of dev.collections)
                     {
-                        if (collection.usagePage === filter.usagePage)
+                        if (collection.usagePage == filter.usagePage)
                         {
                             found = true;
                             break;
@@ -918,7 +953,7 @@ window.analogsense = {
                     {
                         for (const inputReport of collection.inputReports)
                         {
-                            if (inputReport.reportId === filter.reportId)
+                            if (inputReport.reportId == filter.reportId)
                             {
                                 found = true;
                                 break loop1;
@@ -1023,38 +1058,38 @@ window.analogsense = {
     {
         switch (i)
         {
-        case (0): return 0x29;   // KEY_ESCAPE
-        case (0) + 2: return 0x3A;   // KEY_F1
-        case (0) + 3: return 0x3B;   // KEY_F2
-        case (0) + 4: return 0x3C;   // KEY_F3
-        case (0) + 5: return 0x3D;   // KEY_F4
-        case (0) + 6: return 0x3E;   // KEY_F5
-        case (0) + 7: return 0x3F;   // KEY_F6
-        case (0) + 8: return 0x40;   // KEY_F7
-        case (0) + 9: return 0x41;   // KEY_F8
-        case (0) + 10: return 0x42;  // KEY_F9
-        case (0) + 11: return 0x43;  // KEY_F10
-        case (0) + 12: return 0x44;  // KEY_F11
-        case (0) + 13: return 0x45;  // KEY_F12
-        case (0) + 14: return 0x4C;  // KEY_DEL
+        case (0 * 21) + 0: return 0x29;   // KEY_ESCAPE
+        case (0 * 21) + 2: return 0x3A;   // KEY_F1
+        case (0 * 21) + 3: return 0x3B;   // KEY_F2
+        case (0 * 21) + 4: return 0x3C;   // KEY_F3
+        case (0 * 21) + 5: return 0x3D;   // KEY_F4
+        case (0 * 21) + 6: return 0x3E;   // KEY_F5
+        case (0 * 21) + 7: return 0x3F;   // KEY_F6
+        case (0 * 21) + 8: return 0x40;   // KEY_F7
+        case (0 * 21) + 9: return 0x41;   // KEY_F8
+        case (0 * 21) + 10: return 0x42;  // KEY_F9
+        case (0 * 21) + 11: return 0x43;  // KEY_F10
+        case (0 * 21) + 12: return 0x44;  // KEY_F11
+        case (0 * 21) + 13: return 0x45;  // KEY_F12
+        case (0 * 21) + 14: return 0x4C;  // KEY_DEL
 
-        case (21): return 0x35;   // KEY_BACKQUOTE
-        case (21) + 1: return 0x1E;   // KEY_1
-        case (21) + 2: return 0x1F;   // KEY_2
-        case (21) + 3: return 0x20;   // KEY_3
-        case (21) + 4: return 0x21;   // KEY_4
-        case (21) + 5: return 0x22;   // KEY_5
-        case (21) + 6: return 0x23;   // KEY_6
-        case (21) + 7: return 0x24;   // KEY_7
-        case (21) + 8: return 0x25;   // KEY_8
-        case (21) + 9: return 0x26;   // KEY_9
-        case (21) + 10: return 0x27;  // KEY_0
-        case (21) + 11: return 0x2D;  // KEY_MINUS
-        case (21) + 12: return 0x2E;  // KEY_EQUALS
-        case (21) + 13: return 0x2A;  // KEY_BACKSPACE
-        case (21) + 15: return 0x4A;  // KEY_HOME
+        case (1 * 21) + 0: return 0x35;   // KEY_BACKQUOTE
+        case (1 * 21) + 1: return 0x1E;   // KEY_1
+        case (1 * 21) + 2: return 0x1F;   // KEY_2
+        case (1 * 21) + 3: return 0x20;   // KEY_3
+        case (1 * 21) + 4: return 0x21;   // KEY_4
+        case (1 * 21) + 5: return 0x22;   // KEY_5
+        case (1 * 21) + 6: return 0x23;   // KEY_6
+        case (1 * 21) + 7: return 0x24;   // KEY_7
+        case (1 * 21) + 8: return 0x25;   // KEY_8
+        case (1 * 21) + 9: return 0x26;   // KEY_9
+        case (1 * 21) + 10: return 0x27;  // KEY_0
+        case (1 * 21) + 11: return 0x2D;  // KEY_MINUS
+        case (1 * 21) + 12: return 0x2E;  // KEY_EQUALS
+        case (1 * 21) + 13: return 0x2A;  // KEY_BACKSPACE
+        case (1 * 21) + 15: return 0x4A;  // KEY_HOME
 
-        case (2 * 21): return 0x2B;   // KEY_TAB
+        case (2 * 21) + 0: return 0x2B;   // KEY_TAB
         case (2 * 21) + 1: return 0x14;   // KEY_Q
         case (2 * 21) + 2: return 0x1A;   // KEY_W
         case (2 * 21) + 3: return 0x08;   // KEY_E
@@ -1070,7 +1105,7 @@ window.analogsense = {
         case (2 * 21) + 13: return 0x31;  // KEY_BACKSLASH
         case (2 * 21) + 15: return 0x4B;  // KEY_PAGE_UP
 
-        case (3 * 21): return 0x39;   // KEY_CAPS_LOCK
+        case (3 * 21) + 0: return 0x39;   // KEY_CAPS_LOCK
         case (3 * 21) + 1: return 0x04;   // KEY_A
         case (3 * 21) + 2: return 0x16;   // KEY_S
         case (3 * 21) + 3: return 0x07;   // KEY_D
@@ -1085,7 +1120,7 @@ window.analogsense = {
         case (3 * 21) + 13: return 0x28;  // KEY_ENTER
         case (3 * 21) + 15: return 0x4E;  // KEY_PAGE_DOWN
 
-        case (4 * 21): return 0xE1;   // KEY_LSHIFT
+        case (4 * 21) + 0: return 0xE1;   // KEY_LSHIFT
         case (4 * 21) + 2: return 0x1D;   // KEY_Z
         case (4 * 21) + 3: return 0x1B;   // KEY_X
         case (4 * 21) + 4: return 0x06;   // KEY_C
@@ -1100,7 +1135,7 @@ window.analogsense = {
         case (4 * 21) + 14: return 0x52;  // KEY_ARROW_UP
         case (4 * 21) + 15: return 0x4D;  // KEY_END
 
-        case (5 * 21): return 0xE0;   // KEY_LCTRL
+        case (5 * 21) + 0: return 0xE0;   // KEY_LCTRL
         case (5 * 21) + 1: return 0xE3;   // KEY_LMETA
         case (5 * 21) + 2: return 0xE2;   // KEY_LALT
         case (5 * 21) + 6: return 0x2C;   // KEY_SPACE
