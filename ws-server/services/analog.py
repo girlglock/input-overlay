@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 ANALOG_KEYBOARDS: list[tuple] = [
     # (vendor, product, name, usage_page)
     (0x31E3, None,   "Wooting",                    0xFF54),
+    (0x31E3, None,   "Wooting",                    0xFF53),  #analog interface v2 firmware (v5.3.0+)
     (0x03EB, 0xFF01, "Wooting One",                0xFF54),
     (0x03EB, 0xFF02, "Wooting Two",                0xFF54),
     (0x1532, 0x0266, "Razer Huntsman V2 Analog",   None),
@@ -156,7 +157,20 @@ class AnalogHandler:
             logger.info("product: %s", device.get_product_string())
 
             if vid == 0x31E3 or (vid == 0x03EB and pid in [0xFF01, 0xFF02]):
-                self._loop_wooting(device)
+                #see if its anawuhg interface v2 or v1
+                usage_page = 0
+                for d in hid.enumerate(vid, pid):
+                    if len(parts) > 2:
+                        if d.get("interface_number", -1) == int(parts[2]):
+                            usage_page = d.get("usage_page", 0)
+                            break
+                    else:
+                        usage_page = d.get("usage_page", 0)
+                        break
+                if usage_page == 0xFF53:
+                    self._loop_wooting_v2(device)
+                else:
+                    self._loop_wooting(device)
             elif vid == 0x1532:
                 logger.info("detected Razer keyboard - PID %04x", pid)
                 if pid in [0x0266, 0x0282]:
@@ -188,7 +202,7 @@ class AnalogHandler:
             self._running = False
 
     def _loop_wooting(self, device) -> None:
-        logger.info("detected Wooting keyboard")
+        logger.info("detected Wooting keyboard (analog interface v1)")
         consecutive_empty = 0
         first_data_logged = False
         while self._running:
@@ -211,6 +225,17 @@ class AnalogHandler:
                     consecutive_empty += 1
             except Exception as e:
                 logger.error("error reading Wooting: %s", e)
+                break
+
+    def _loop_wooting_v2(self, device) -> None:
+        logger.info("detected Wooting keyboard (analog interface v2)")
+        while self._running:
+            try:
+                data = device.read(64, timeout_ms=100)
+                if data and any(b != 0 for b in data):
+                    self._process_wooting_v2(data)
+            except Exception as e:
+                logger.error("error reading Wooting analog interface v2: %s", e)
                 break
 
     def _loop_razer_v2(self, device) -> None:
@@ -307,6 +332,7 @@ class AnalogHandler:
                 break
 
     def _process_wooting(self, data: list) -> None:
+        #[scancode_hi, scancode_lo, value, ...] triplets :gasp:
         try:
             active_keys = []
             i = 0
@@ -328,6 +354,26 @@ class AnalogHandler:
                 self._queue_message({"event_type": "analog_depth", "rawcode": key["rawcode"], "depth": key["depth"]})
         except Exception as e:
             logger.error("error processing Wooting data: %s", e)
+
+    def _process_wooting_v2(self, data: list) -> None:
+        #v5.3.0+ 4-byte records [?, scancode, value_lo, value_hi]
+        try:
+            active_keys = []
+            i = 0
+            while i + 3 < len(data):
+                scancode = data[i + 1]
+                if scancode == 0:
+                    break
+                value  = (data[i + 3] << 8) | data[i + 2]  #16bit littol eddi
+                depth  = value / 65535.0
+                i += 4
+                rawcode = HID_TO_VK.get(scancode, 0)
+                if rawcode > 0 and depth > 0.01 and self._is_allowed(rawcode):
+                    active_keys.append({"rawcode": rawcode, "depth": round(depth, 4)})
+            for key in active_keys:
+                self._queue_message({"event_type": "analog_depth", "rawcode": key["rawcode"], "depth": key["depth"]})
+        except Exception as e:
+            logger.error("error processing Wooting v2 data: %s", e)
 
     def _process_razer_huntsman(self, data: list) -> None:
         try:

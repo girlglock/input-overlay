@@ -1,6 +1,6 @@
 import sys
 
-WS_SERVER_VERSION = "1.5.1"
+WS_SERVER_VERSION = "1.5.2"
 RAW_MOUSE_FLUSH_HZ = 125
 
 if sys.platform == "win32":
