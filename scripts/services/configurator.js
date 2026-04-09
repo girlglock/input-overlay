@@ -267,18 +267,7 @@ export class ConfiguratorMode {
         container.classList.add("hint");
         setTimeout(() => container.classList.remove("hint"), 1000);
 
-        const isNonLocal = (settings.wsaddress || "localhost") !== "localhost";
-        const copyBtn = document.getElementById("copybtn");
-        const downloadBtn = document.getElementById("downloadbtn");
         const authWarning = document.getElementById("authwarning");
-
-        if (isNonLocal) {
-            if (copyBtn) copyBtn.style.display = "none";
-            if (downloadBtn) downloadBtn.style.display = "";
-        } else {
-            if (copyBtn) copyBtn.style.display = "";
-            if (downloadBtn) downloadBtn.style.display = "none";
-        }
 
         const hasAuth = !!(settings.wsauth && settings.wsauth.trim());
         if (authWarning) authWarning.style.display = hasAuth ? "" : "none";

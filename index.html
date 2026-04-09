@@ -10,9 +10,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css" onerror="this.href='scripts/libs/pickr.min.css'" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css"
+        onerror="this.href='scripts/libs/pickr.min.css'" />
     <link rel="stylesheet" type="text/css" href="style.css">
-    <script>if(navigator.onLine){document.write('<script src="https://cdn.counter.dev/script.js" data-id="8990aad5-58d6-440b-9322-f04502f4214f" data-utcoffset="1"><\/script>')}</script>
+    <script>if (navigator.onLine) { document.write('<script src="https://cdn.counter.dev/script.js" data-id="8990aad5-58d6-440b-9322-f04502f4214f" data-utcoffset="1"><\/script>') }</script>
 </head>
 
 <body>
@@ -80,8 +81,6 @@
                     <button class="cfg-btn" id="loadbtn">⟳ load url</button>
                     <button class="cfg-btn cfg-btn--share" id="copysharebtn">share</button>
                     <button class="cfg-btn cfg-btn--accent" id="copybtn">⎘ copy url</button>
-                    <button class="cfg-btn cfg-btn--accent" id="downloadbtn" style="display:none;">⬇ download
-                        html</button>
                 </div>
                 <div id="authwarning" class="cfg-auth-warning" style="display:none;">
                     ⚠ copy url includes your auth token, don't share it publicly. use share button instead
@@ -114,16 +113,20 @@
                             <h1>Sending keys to another pc</h1>
                             <blockquote class="note note--purple">(eg. from gaming to streaming pc)</blockquote>
                             <ol>
-                                <li>edit <code>config.json</code> to set the address/port of your gaming pc
+                                <li>open the input-overlay-ws server settings and enable the http server<br><small>(run
+                                        the ws server on your gaming pc)</small></li>
+                                <li>change the address in to the address of your gaming pc
                                     <br><small>run <code>ipconfig</code> in cmd and copy the local IPv4
                                         address (usually 192.168.0.1 or 192.168.X.X with X being 0-255)</small>
                                 </li>
-                                <li>enter the gaming pc's address in both the <strong>input-overlay-ws</strong> and
+                                <li>click the <code>open in browser</code> button inside the http server settings</li>
+                                <li>enter the gaming pc's address in both the <strong>input-overlay-ws</strong> and the
+                                    hosted
                                     <strong>configurator</strong>
                                 </li>
-                                <li><a href="#" id="download-local-tip-btn">download the overlay as a local HTML
-                                        file</a> and add it as a browser source in OBS on your streaming pc instead of
-                                    copying the url</li>
+                                <li>click the <code>⎘ copy url</code> button to copy your hosted overlay url from the
+                                    hosted configurator and add it as a browser source in your OBS running on the
+                                    streaming pc</li>
                             </ol>
                         </div>
                     </div>
@@ -302,11 +305,21 @@
                             <ul>
                                 <li>the ws server will request admin on windows by default</li>
                                 <li>error handling for invalid addresses</li>
-                                <li><a href="https://github.com/girlglock/input-overlay/pull/3">added optional overlay frontend self hosting</a> (this wont always run the latest overlay version that is being hosted on overlay.girlglock.com)</li>
+                                <li><a href="https://github.com/girlglock/input-overlay/pull/3">added optional overlay
+                                        frontend self hosting</a> (this wont always run the latest overlay version that
+                                    is being hosted on overlay.girlglock.com)</li>
+                                <li>fix http server not restarting when address is changed</li>
+                                <li>fix http server not doing proper cleanup when shutting down</li>
+                                <li>autostart will now use an elevated scheduled task on windows</li>
+                                <li>http server will now serve as a dual pc solution</li>
+                                <li>update popup markdown now properly supports codeblocks</li>
+                                <li>fix windows build not having proper window styling (maybe ?)</li>
+                                <li>fix invalid address oversight</li>
                             </ul>
                             <h3>overlay</h3>
                             <ul>
                                 <li>slightly clearer ws related logging inside overlay mode</li>
+                                <li>retire bundled html file for dual pc</li>
                             </ul>
                             <h1>2026-04-05</h1>
                             <h3>ws server</h3>
