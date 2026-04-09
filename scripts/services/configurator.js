@@ -393,10 +393,6 @@ export class ConfiguratorMode {
         document.getElementById("copybtn").addEventListener("click", this.copyLink.bind(this));
         document.getElementById("copysharebtn").addEventListener("click", this.copyShareLink.bind(this));
         document.getElementById("loadbtn").addEventListener("click", this.loadSettingsFromLink.bind(this));
-        document.getElementById("downloadbtn")?.addEventListener("click", (e) => {
-            e.preventDefault();
-            this.downloadOverlayHTML();
-        });
 
         document.getElementById("layoutPresets")?.addEventListener("change", (e) => {
             const presetUrl = e.target.value;
@@ -405,11 +401,6 @@ export class ConfiguratorMode {
                 this.loadSettingsFromLink(false);
                 setTimeout(() => { e.target.selectedIndex = 0; }, 100);
             }
-        });
-
-        document.getElementById("download-local-tip-btn")?.addEventListener("click", (e) => {
-            e.preventDefault();
-            this.downloadOverlayHTML();
         });
     }
 
@@ -811,176 +802,5 @@ export class ConfiguratorMode {
         let dec = decNum.toString().padStart(2, "0");
         if (dec.endsWith("0") && !dec.startsWith("0")) dec = dec.slice(0, -1);
         return `u${intPart}-${dec}`;
-    }
-
-    async downloadOverlayHTML() {
-        const btn = document.getElementById("downloadbtn");
-        const original = btn?.textContent || "⬇ download html";
-        if (btn) { btn.textContent = "bundling..."; btn.disabled = true; }
-
-        try {
-            const settings = this.getCurrentSettings();
-            const paramsString = this.urlManager.buildURLParams(settings);
-            const compressed = this.urlManager.compressSettings(paramsString);
-            const cfgParam = compressed ? `cfg=${compressed}` : paramsString;
-            const wsParam = `ws=${settings.wsaddress || "localhost"}:${settings.wsport || "4455"}`;
-            const wsauth = settings.wsauth ? `&wsauth=${encodeURIComponent(settings.wsauth)}` : "";
-
-            const base = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, "/");
-            const scriptsBase = `${base}scripts/`;
-
-            const fetchText = async (url) => {
-                const r = await fetch(url);
-                if (!r.ok) throw new Error(`failed to fetch ${url}: ${r.status}`);
-                const text = await r.text();
-                if (text.trimStart().startsWith("<")) throw new Error(`got HTML instead of JS for ${url} — check path`);
-                return text;
-            };
-
-            const [cssText, consts, utils, urlManager, layoutParser, overlayVisualiser, webSocketManager, overlay, pakoText] = await Promise.all([
-                fetchText(`${base}style.css`),
-                fetchText(`${scriptsBase}consts.js`),
-                fetchText(`${scriptsBase}utils.js`),
-                fetchText(`${scriptsBase}services/urlManager.js`),
-                fetchText(`${scriptsBase}services/layoutParser.js`),
-                fetchText(`${scriptsBase}services/overlayVisualiser.js`),
-                fetchText(`${scriptsBase}services/webSocketManager.js`),
-                fetchText(`${scriptsBase}services/overlay.js`),
-                fetch("https://cdn.jsdelivr.net/npm/pako/dist/pako.min.js").then(r => r.ok ? r.text() : fetchText(`${scriptsBase}libs/pako.min.js`)).catch(() => fetchText(`${scriptsBase}libs/pako.min.js`)),
-            ]);
-
-            const strip = (src) => src
-                .replace(/^\/\/.*$/gm, "")
-                .replace(/^\s*import\s+.*?from\s+['"][^'"]+['"]\s*;?\s*$/gm, "")
-                .replace(/^\s*export\s+(default\s+)?(class|function|const|let|var)\s+/gm, "$2 ");
-
-            const bakedSearch = `?${cfgParam}&${wsParam}${wsauth}`;
-
-            const bundledJS = `
-// overlay.girlglock.com generated at ${new Date().toISOString()}
-(function() {
-'use strict';
-
-${strip(consts)}
-
-${strip(utils)}
-
-${strip(urlManager)}
-
-${strip(layoutParser)}
-
-${strip(overlayVisualiser)}
-
-${strip(webSocketManager)}
-
-${strip(overlay)}
-
-(function boot() {
-    const BAKED_PARAMS = '${bakedSearch.replace(/'/g, "\\'")}';
-    const _bakedParams = new URLSearchParams(BAKED_PARAMS.slice(1));
-
-    document.addEventListener("DOMContentLoaded", () => {
-        const utils = new Utils();
-        const urlManager = new UrlManager(utils);
-        urlManager.urlParams = _bakedParams;
-        urlManager.isOverlayMode = _bakedParams.has("ws");
-        const layoutParser = new LayoutParser();
-        const visualizer = new OverlayVisualiser(utils, layoutParser);
-        new OverlayMode(utils, urlManager, layoutParser, visualizer);
-    });
-})();
-
-})();
-`;
-
-            const html = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>input overlay</title>
-<style>
-${cssText}
-</style>
-</head>
-<body>
-<div class="overlay-container show" id="overlay">
-    <div class="return status" id="return" style="margin-bottom:60px">
-        <button class="return-button" style="background:none;border:none;color:aliceblue;cursor:pointer" id="return-button">edit this overlay</button>
-    </div>
-    <div class="status" id="status">connecting...</div>
-    <div class="container" id="inner-overlay-container" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
-        <div class="top-section">
-            <div class="keyboard-section" id="keyboard-target"></div>
-        </div>
-        <div class="bottom-section" id="mouse-target"></div>
-    </div>
-</div>
-<div id="configurator" style="display:none"></div>
-<script>
-${pakoText}
-</script>
-<script>
-${bundledJS}
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-    let timer;
-    const returnBox = document.getElementById("return");
-    document.addEventListener("mousemove", () => {
-        returnBox.classList.add("show");
-        clearTimeout(timer);
-        timer = setTimeout(() => returnBox.classList.remove("show"), 1500);
-    });
-    document.getElementById("return-button").addEventListener("click", () => {
-        window.open("${window.location.origin}${window.location.pathname}?${cfgParam}", "_blank");
-    });
-});
-
-window.setDynamicScale = function setDynamicScale() {
-    const container = document.getElementById("inner-overlay-container");
-    if (!container) return;
-    container.style.transformOrigin = "0 0";
-    container.style.transform = "none";
-    requestAnimationFrame(() => {
-        const cr = container.getBoundingClientRect();
-        let left = cr.left, top = cr.top, right = cr.right, bottom = cr.bottom;
-        container.querySelectorAll(".mousepad-wrap").forEach(wrap => {
-            const wr = wrap.getBoundingClientRect();
-            if (wr.width === 0 && wr.height === 0) return;
-            if (wr.left < left) left = wr.left;
-            if (wr.top < top) top = wr.top;
-            if (wr.right > right) right = wr.right;
-            if (wr.bottom > bottom) bottom = wr.bottom;
-        });
-        const totalW = right - left, totalH = bottom - top;
-        const scale = Math.min(window.innerWidth / totalW, window.innerHeight / totalH) * 0.65;
-        const tx = -(left + totalW / 2 - window.innerWidth / 2) * scale;
-        const ty = -(top + totalH / 2 - window.innerHeight / 2) * scale;
-        container.style.transform = \`translate(\${tx}px, \${ty}px) scale(\${scale})\`;
-    });
-};
-window.addEventListener("resize", window.setDynamicScale);
-</script>
-</body>
-</html>`;
-
-            const blob = new Blob([html], { type: "text/html" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "overlay.html";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            if (btn) flashBtn(btn, "downloaded!", original);
-        } catch (e) {
-            console.error("overlay bundle error:", e);
-            if (btn) flashBtn(btn, "error", original);
-        } finally {
-            if (btn) btn.disabled = false;
-        }
     }
 }
