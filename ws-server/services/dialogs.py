@@ -89,7 +89,30 @@ class _SegmentedProgressBar(QWidget):
         painter.end()
 
 def _render_markdown(text: str) -> str:
+    import re as _re
     text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = _re.sub(r"</?(li|br|p|div|span)\b[^>]*>", "", text, flags=_re.IGNORECASE)
+    def _dedent_fences(t: str) -> str:
+        lines = t.split("\n")
+        out = []
+        in_fence = False
+        fence_indent = 0
+        for line in lines:
+            stripped = line.lstrip()
+            if not in_fence and stripped.startswith("```"):
+                in_fence = True
+                fence_indent = len(line) - len(stripped)
+                out.append(stripped)
+            elif in_fence:
+                if stripped.startswith("```"):
+                    in_fence = False
+                    out.append(stripped)
+                else:
+                    out.append(line[fence_indent:] if line.startswith(" " * fence_indent) else line)
+            else:
+                out.append(line)
+        return "\n".join(out)
+    text = _dedent_fences(text)
     try:
         import markdown
         from markdown.extensions.fenced_code import FencedCodeExtension
@@ -98,6 +121,16 @@ def _render_markdown(text: str) -> str:
     except ImportError:
         import html as _html
         html_body = "<br>".join(_html.escape(line) for line in text.split("\n"))
+
+    PRE_STYLE  = "background-color:#292c21;padding:6px;margin:4px 0;font-family:monospace;font-size:12px;white-space:pre;border:1px solid #3a3d30;"
+    CODE_STYLE = "background-color:#292c21;padding:1px 3px;font-family:monospace;font-size:12px;"
+
+    import re as _re
+    html_body = _re.sub(
+        r'<pre><code(?:\s[^>]*)?>',
+        f"<pre style='{PRE_STYLE}'><code>",
+        html_body,
+    )
 
     return (
         "<html><body style='"
@@ -115,8 +148,7 @@ def _render_markdown(text: str) -> str:
         .replace("<ol>", "<ol style='margin:2px 0 2px 16px;padding:0;'>")
         .replace("<li>", "<li style='margin:1px 0;'>")
         .replace("<a ", "<a style='color:#c4b550;' ")
-        .replace("<code>", "<code style='background-color:#292c21;padding:1px 3px;font-family:monospace;'>")
-        .replace("<pre>", "<pre style='background-color:#292c21;padding:6px;margin:4px 0;font-family:monospace;font-size:12px;'>")
+        .replace("<code>", f"<code style='{CODE_STYLE}'>")
         .replace("<hr />", "<hr style='border:none;border-top:1px solid #8c9284;margin:6px 0;'>")
         .replace("<p>", "<p style='margin:2px 0;'>")
         + "</body></html>"

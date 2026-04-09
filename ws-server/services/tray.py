@@ -420,6 +420,7 @@ def main(server_class=None) -> None:
     server.host                   = config.get("host", "localhost")
     server.port                   = config.get("port", 4455)
     server.http_enabled           = config.get("http_enabled", False)
+    server.http_host              = config.get("http_host", config.get("host", "localhost"))
     server.http_port              = config.get("http_port", 4456)
     server.auth_token             = config.get("auth_token", "")
     server.analog_enabled         = config.get("analog_enabled", False)

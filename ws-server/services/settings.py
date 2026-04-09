@@ -145,6 +145,7 @@ class SettingsEditor(QMainWindow):
             config["host"]                  = new_host
             config["port"]                  = new_port
             config["http_enabled"]          = self.http_checkbox.isChecked()
+            config["http_host"]             = new_host
             config["http_port"]             = int(self.http_port_input.text() or 4456)
             config["auth_token"]            = self.auth_input.text()
             config["analog_enabled"]        = self.analog_checkbox.isChecked()
@@ -397,7 +398,7 @@ class SettingsEditor(QMainWindow):
         whitelist_group.setLayout(whitelist_layout)
         right_column.addWidget(whitelist_group)
 
-        http_group  = QGroupBox("LOCAL HTTP SERVER (only for offline use)")
+        http_group  = QGroupBox("LOCAL HTTP SERVER (for dual pc usage)")
         http_layout = QVBoxLayout()
 
         http_top_row = QHBoxLayout()

@@ -80,6 +80,7 @@ class InputOverlayServer:
         self.host: str  = "localhost"
         self.port: int  = 4455
         self.http_enabled: bool = False
+        self.http_host: str = "localhost"
         self.http_port: int  = 4456
         self.auth_token: str = ""
 
@@ -161,6 +162,7 @@ class InputOverlayServer:
                 "host":                  "localhost",
                 "port":                  4455,
                 "http_enabled":          False,
+                "http_host":             "localhost",
                 "http_port":             4456,
                 "auth_token":            random_token,
                 "analog_enabled":        False,
@@ -206,12 +208,31 @@ class InputOverlayServer:
                 config   = self.load_config(self.config_path)
                 new_host = config.get("host", self.host)
                 new_port = config.get("port", self.port)
+
                 if new_host != self.host or new_port != self.port:
-                    logger.info("rebind requested: %s:%d -> %s:%d", self.host, self.port, new_host, new_port)
+                    logger.info("rebind requested: %s:%d -> %s:%d",
+                                self.host, self.port, new_host, new_port)
+
                     self.host = new_host
                     self.port = new_port
+
                     if self.loop and hasattr(self, "_rebind_event"):
                         self.loop.call_soon_threadsafe(self._rebind_event.set)
+
+                new_http_host = config.get("http_host", self.http_host)
+                new_http_port = config.get("http_port", self.http_port)
+                new_http_enabled = config.get("http_enabled", self.http_enabled)
+
+                if (
+                    new_http_enabled != self.http_enabled
+                    or new_http_host != self.http_host
+                    or new_http_port != self.http_port
+                ):
+                    self.http_enabled = new_http_enabled
+                    self.http_host    = new_http_host
+                    self.http_port    = new_http_port
+                    self._restart_http_server()
+
                 return True
 
             if config_file.exists():
@@ -220,27 +241,51 @@ class InputOverlayServer:
                     logger.info("config file changed, reloading...")
                     config = self.load_config(self.config_path)
 
+                    old_host           = self.host
+                    old_port           = self.port
                     old_analog_enabled = self.analog_enabled
                     old_analog_device  = self.analog_device
                     old_raw_mouse      = self.raw_mouse_enabled
                     old_linux_device   = self.linux_raw_mouse_device
                     old_auth_token     = self.auth_token
                     old_http_enabled   = self.http_enabled
+                    old_http_host      = self.http_host
                     old_http_port      = self.http_port
 
-                    self.auth_token              = config.get("auth_token", self.auth_token)
-                    self.analog_enabled          = config.get("analog_enabled", False)
-                    self.analog_device           = config.get("analog_device", None)
-                    self.key_whitelist           = config.get("key_whitelist", [])
-                    self.balloon_notifications   = config.get("balloon_notifications", True)
-                    self.raw_mouse_enabled       = config.get("raw_mouse_enabled", False)
-                    self.raw_mouse_min_delta     = config.get("raw_mouse_min_delta", 0)
-                    self.linux_raw_mouse_device  = config.get("linux_raw_mouse_device", "")
-                    self.http_enabled            = config.get("http_enabled", False)
-                    self.http_port               = config.get("http_port", 4456)
+                    new_host = config.get("host", self.host)
+                    new_port = config.get("port", self.port)
 
-                    logger.info("settings updated - analog: %s, device: %s", self.analog_enabled, self.analog_device)
+                    self.host                     = new_host
+                    self.port                     = new_port
+                    self.auth_token               = config.get("auth_token", self.auth_token)
+                    self.analog_enabled           = config.get("analog_enabled", False)
+                    self.analog_device            = config.get("analog_device", None)
+                    self.key_whitelist            = config.get("key_whitelist", [])
+                    self.balloon_notifications    = config.get("balloon_notifications", True)
+                    self.raw_mouse_enabled        = config.get("raw_mouse_enabled", False)
+                    self.raw_mouse_min_delta      = config.get("raw_mouse_min_delta", 0)
+                    self.linux_raw_mouse_device   = config.get("linux_raw_mouse_device", "")
+                    self.http_enabled             = config.get("http_enabled", False)
+                    self.http_host                = config.get("http_host", self.http_host)
+                    self.http_port                = config.get("http_port", 4456)
+
+                    logger.info("settings updated - analog: %s, device: %s",
+                                self.analog_enabled, self.analog_device)
                     logger.info("whitelist: %d keys", len(self.key_whitelist))
+
+                    if new_host != old_host or new_port != old_port:
+                        logger.info("config-triggered rebind: %s:%d -> %s:%d",
+                                    old_host, old_port, new_host, new_port)
+
+                        if self.loop and hasattr(self, "_rebind_event"):
+                            self.loop.call_soon_threadsafe(self._rebind_event.set)
+
+                    if (
+                        old_http_enabled != self.http_enabled
+                        or old_http_host != self.http_host
+                        or old_http_port != self.http_port
+                    ):
+                        self._restart_http_server()
 
                     if old_analog_enabled != self.analog_enabled or old_analog_device != self.analog_device:
                         if old_analog_enabled:
@@ -260,11 +305,6 @@ class InputOverlayServer:
                             if self.linux_raw_mouse_device:
                                 self.start_raw_mouse()
 
-                    if old_http_enabled != self.http_enabled or old_http_port != self.http_port:
-                        self.stop_http_server()
-                        if self.http_enabled:
-                            self.start_http_server()
-
                     if old_auth_token != self.auth_token and self.authenticated_clients:
                         logger.info("auth token changed, kicking existing clients...")
                         if self.loop:
@@ -275,11 +315,14 @@ class InputOverlayServer:
                                     except Exception:
                                         pass
                                 self.authenticated_clients.clear()
+
                             asyncio.run_coroutine_threadsafe(_kick_clients(), self.loop)
 
                     return True
+
         except Exception:
             logger.exception("error reloading config")
+
         return False
 
     def save_config(self, config_path: str = "config.json") -> None:
@@ -498,13 +541,19 @@ class InputOverlayServer:
             logger.debug("HTTP server already running")
             return
         web_root = get_web_root()
-        self._http_server = LocalHTTPServer(self.host, self.http_port, web_root)
+        self._http_server = LocalHTTPServer(self.http_host, self.http_port, web_root)
         self._http_server.start()
 
     def stop_http_server(self) -> None:
-        if self._http_server:
-            self._http_server.stop()
-            self._http_server = None
+        server = self._http_server
+        self._http_server = None
+        if server:
+            server.stop()
+
+    def _restart_http_server(self) -> None:
+        self.stop_http_server()
+        if self.http_enabled:
+            self.start_http_server()
 
     def start_analog_support(self) -> None:
         if not ANALOG_AVAILABLE:

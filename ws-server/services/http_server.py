@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class _SilentHandler(http.server.SimpleHTTPRequestHandler):
+    timeout = 5
+
     def log_message(self, format, *args):
         logger.debug("HTTP %s", format % args)
 
@@ -19,12 +21,16 @@ class _SilentHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 
+class _ThreadingHTTPServer(http.server.ThreadingHTTPServer):
+    daemon_threads = True
+
+
 class LocalHTTPServer:
     def __init__(self, host: str, port: int, web_root: Path) -> None:
         self.host = host
         self.port = port
         self.web_root = web_root
-        self._server: http.server.HTTPServer | None = None
+        self._server: _ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
@@ -34,7 +40,7 @@ class LocalHTTPServer:
 
         handler = partial(_SilentHandler, directory=str(self.web_root))
         try:
-            self._server = http.server.HTTPServer((self.host, self.port), handler)
+            self._server = _ThreadingHTTPServer((self.host, self.port), handler)
         except OSError as e:
             logger.error("failed to start HTTP server on %s:%d: %s", self.host, self.port, e)
             return
@@ -46,6 +52,17 @@ class LocalHTTPServer:
     def stop(self) -> None:
         if self._server:
             self._server.shutdown()
+            self._server.server_close()
             self._server = None
             self._thread = None
             logger.info("HTTP server stopped")
+
+    def restart(self, host: str | None = None, port: int | None = None) -> None:
+        self.stop()
+
+        if host is not None:
+            self.host = host
+        if port is not None:
+            self.port = port
+
+        self.start()
