@@ -492,6 +492,30 @@ QToolTip {
 }
 """
 
+def dwm_sharp_corners(hwnd: int) -> None:
+    #tell dwm to stfu and do sharp corners
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        DWMWA_WINDOW_CORNER_PREFERENCE = 33
+        DWMWCP_DONOTROUND              = 1
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            ctypes.byref(ctypes.c_int(DWMWCP_DONOTROUND)),
+            ctypes.sizeof(ctypes.c_int),
+        )
+    except Exception:
+        pass
+
+
+class _SharpCornersMixin:
+    def showEvent(self, event):
+        super().showEvent(event)
+        dwm_sharp_corners(int(self.winId()))
+
+
 def _load_pixel_font() -> None:
     font_path = get_resource_path("assets/arialpixel.ttf")
     if font_path.exists():
@@ -653,7 +677,7 @@ class UpdateChecker(QObject):
                 self.check_done.emit()
         threading.Thread(target=_run, daemon=True).start()
 
-class UpdateDialog(QDialog):
+class UpdateDialog(_SharpCornersMixin, QDialog):
     def __init__(self, latest_version: str, release_body: str = "", parent=None) -> None:
         super().__init__(parent)
         self.latest_version = latest_version
@@ -812,7 +836,7 @@ class UpdateDialog(QDialog):
     def _on_later(self) -> None:
         self.accept()
 
-class PortErrorDialog(QDialog):
+class PortErrorDialog(_SharpCornersMixin, QDialog):
     def __init__(self, error_kind: str, host: str, port: int,
                  config_path: str, parent=None) -> None:
         super().__init__(parent)
@@ -897,7 +921,7 @@ class PortErrorDialog(QDialog):
         self.open_settings = False
         self.accept()
 
-class RebindFailedDialog(QDialog):
+class RebindFailedDialog(_SharpCornersMixin, QDialog):
     def __init__(self, kind: str, failed_host: str, failed_port: int,
                  prev_host: str, prev_port: int, parent=None) -> None:
         super().__init__(parent)
@@ -1052,7 +1076,7 @@ def check_linux_permissions() -> tuple[bool, list[str]]:
     return ok, missing
 
 
-class LinuxPermsDialog(QDialog):
+class LinuxPermsDialog(_SharpCornersMixin, QDialog):
     def __init__(self, missing: list[str], parent=None) -> None:
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)

@@ -53,6 +53,7 @@ from services.dialogs import (
     _load_pixel_font,
     _run_port_error_process,
     _run_update_popup_process,
+    dwm_sharp_corners,
 )
 from services.utils import get_resource_path, is_autostart_enabled, set_autostart
 
@@ -131,6 +132,10 @@ class SettingsEditor(QMainWindow):
             self.linux_raw_mouse_device  = ""
             self.autostart_enabled       = is_autostart_enabled()
             self.dismissed_versions      = []
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        dwm_sharp_corners(int(self.winId()))
 
     def save_config(self) -> None:
         try:
