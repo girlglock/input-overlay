@@ -340,28 +340,26 @@ class AsProvider
     }
 }
 
-class AsProviderWootingLegacy extends AsProvider
+//wooting analog interface v1
+class AsProviderWootingV1 extends AsProvider
 {
-    //wooting boards with Analog Interface v1 firmware (v5.2.4)
     static populateFilters(filters)
     {
         filters.push({ usagePage: 0xFF54, vendorId: 0x31E3 });
-        filters.push({ usagePage: 0xFF54, vendorId: 0x03EB, productId: 0xFF01 }); // Wooting One with old firmware
-        filters.push({ usagePage: 0xFF54, vendorId: 0x03EB, productId: 0xFF02 }); // Wooting Two with old firmware
+        filters.push({ usagePage: 0xFF54, vendorId: 0x03EB, productId: 0xFF01 }); // Wooting One old firmware
+        filters.push({ usagePage: 0xFF54, vendorId: 0x03EB, productId: 0xFF02 }); // Wooting Two old firmware
     }
 
     startListening(handler)
     {
+        //v1 big eddie u16 scancodes , u8 value, up to 16 keys
         this.dev.oninputreport = function(event)
         {
             const active_keys = [];
             for (let i = 0; i < event.data.byteLength; )
             {
                 const scancode = (event.data.getUint8(i++) << 8) | event.data.getUint8(i++);
-                if (scancode == 0)
-                {
-                    break;
-                }
+                if (scancode == 0) break;
                 const value = event.data.getUint8(i++);
                 active_keys.push({ scancode, value: value / 255 });
             }
@@ -375,9 +373,9 @@ class AsProviderWootingLegacy extends AsProvider
     }
 }
 
-class AsProviderWooting extends AsProvider
+//wooting analog interface v2 (firmware 2.13.0 and up | wootility 5.3.0 and up)
+class AsProviderWootingV2 extends AsProvider
 {
-    //wooting boards with Analog Interface v2 firmware (v5.3.0+)
     static populateFilters(filters)
     {
         filters.push({ usagePage: 0xFF53, vendorId: 0x31E3 });
@@ -388,15 +386,24 @@ class AsProviderWooting extends AsProvider
         this.dev.oninputreport = function(event)
         {
             const active_keys = [];
-            for (let i = 0; i + 3 < event.data.byteLength; i += 4)
+            const data = event.data;
+            //each entry is 4 bytes (pos, keycode, namespace + analog lo, analog depth
+            //namespace 0 are regular hid keys, non zero are media keys
+            //analog value is 10bit 0 to1023
+            for (let i = 0; i + 4 <= data.byteLength; i += 4)
             {
-                const scancode = event.data.getUint8(i + 1);
-                if (scancode == 0)
-                {
-                    break;
-                }
-                const value = (event.data.getUint8(i + 3) << 8) | event.data.getUint8(i + 2);
-                active_keys.push({ scancode, value: value / 65535 });
+                const keycode      = data.getUint8(i + 1);
+                if (keycode === 0) break;
+                const packed       = data.getUint8(i + 2);
+                const value_hi     = data.getUint8(i + 3);
+
+                const keyNamespace = (packed >> 2) & 0xf;
+                const value_lo     = (packed >> 6) & 0x3;
+
+                const scancode = (keyNamespace << 8) | keycode;
+                const value    = (value_hi << 2) | value_lo;
+
+                active_keys.push({ scancode, value: value / 1023 });
             }
             handler(active_keys);
         };
@@ -904,8 +911,8 @@ class AsProviderBytech extends AsProvider
 
 window.analogsense = {
     providers: [
-        AsProviderWooting,
-        AsProviderWootingLegacy,
+        AsProviderWootingV1,
+        AsProviderWootingV2,
         AsProviderRazerHuntsman,
         AsProviderRazerHuntsmanV3,
         AsProviderNuphy,
