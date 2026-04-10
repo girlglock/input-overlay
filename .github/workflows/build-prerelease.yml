@@ -1,10 +1,10 @@
-name: release ws-server
+name: pre-release ws-server
 
 on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*'
+      - 'v*-pre*'
 
 permissions:
   contents: write
@@ -123,14 +123,18 @@ jobs:
           prev=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           echo "tag=$prev" >> "$GITHUB_OUTPUT"
 
-      - name: make release
+      - name: make pre-release
         uses: softprops/action-gh-release@v2
         with:
+          prerelease: true
           files: |
             input-overlay-ws-windows.zip
             input-overlay-ws-linux.zip
           body: |
-            ## input-overlay websocket server ${{ github.ref_name }}
+            ## input-overlay websocket server ${{ github.ref_name }} (pre-release)
+
+            > [!WARNING]
+            > this is a pre-release build and may be unstable.
 
             # **patchnotes:**
 
