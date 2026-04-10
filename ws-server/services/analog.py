@@ -356,18 +356,27 @@ class AnalogHandler:
             logger.error("error processing Wooting data: %s", e)
 
     def _process_wooting_v2(self, data: list) -> None:
-        #v5.3.0+ 4-byte records [?, scancode, value_lo, value_hi]
+        #each entry is 4 bytes (pos, keycode, namespace + analog lo, analog depth
+        #namespace 0 are regular hid keys, non zero are media keys
+        #analog value is 10bit 0 to1023
         try:
             active_keys = []
             i = 0
-            while i + 3 < len(data):
-                scancode = data[i + 1]
-                if scancode == 0:
+            while i + 4 <= len(data):
+                keycode = data[i + 1]
+                if keycode == 0:
                     break
-                value  = (data[i + 3] << 8) | data[i + 2]  #16bit littol eddi
-                depth  = value / 65535.0
+                packed        = data[i + 2]
+                value_hi      = data[i + 3]
+                key_namespace = (packed >> 2) & 0xF
+                value_lo      = (packed >> 6) & 0x3
+                scancode      = (key_namespace << 8) | keycode
+                value         = (value_hi << 2) | value_lo
+                depth         = value / 1023.0
                 i += 4
                 rawcode = HID_TO_VK.get(scancode, 0)
+                if rawcode == 0 and (scancode & 0xFF) > 0:
+                    rawcode = HID_TO_VK.get(scancode & 0xFF, 0)
                 if rawcode > 0 and depth > 0.01 and self._is_allowed(rawcode):
                     active_keys.append({"rawcode": rawcode, "depth": round(depth, 4)})
             for key in active_keys:
