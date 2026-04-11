@@ -108,9 +108,41 @@ if sys.platform == "win32":
         **({mouse.Button.x2: 5} if hasattr(mouse.Button, 'x2') else {}),
     }
 
+    import ctypes as _ctypes
+    _user32 = _ctypes.windll.user32
+    _user32.GetKeyboardLayout.restype  = _ctypes.c_void_p
+    _user32.GetKeyboardLayout.argtypes = [_ctypes.wintypes.DWORD]
+    _user32.GetForegroundWindow.restype  = _ctypes.wintypes.HWND
+    _user32.GetForegroundWindow.argtypes = []
+    _user32.GetWindowThreadProcessId.restype  = _ctypes.wintypes.DWORD
+    _user32.GetWindowThreadProcessId.argtypes = [_ctypes.wintypes.HWND, _ctypes.c_void_p]
+    _user32.MapVirtualKeyExW.restype  = _ctypes.wintypes.UINT
+    _user32.MapVirtualKeyExW.argtypes = [_ctypes.wintypes.UINT, _ctypes.wintypes.UINT, _ctypes.c_void_p]
+    _user32.LoadKeyboardLayoutW.restype  = _ctypes.c_void_p
+    _user32.LoadKeyboardLayoutW.argtypes = [_ctypes.wintypes.LPCWSTR, _ctypes.wintypes.UINT]
+
+    _US_LAYOUT = _user32.LoadKeyboardLayoutW("00000409", 0)
+
+    _MAPVK_VK_TO_VSC    = 0
+    _MAPVK_VSC_TO_VK_EX = 3
+
+    def _get_active_layout() -> int:
+        hwnd = _user32.GetForegroundWindow()
+        tid  = _user32.GetWindowThreadProcessId(hwnd, None)
+        return _user32.GetKeyboardLayout(tid)
+
+    #cache the layout TODO: find a light way to observe layout changes
+    _ACTIVE_LAYOUT: int = _get_active_layout()
+
     def get_rawcode(key) -> int:
-        if hasattr(key, 'vk') and key.vk:
-            return key.vk
+        vk = getattr(key, 'vk', None)
+        if vk:
+            scan = _user32.MapVirtualKeyExW(vk, _MAPVK_VK_TO_VSC, _ACTIVE_LAYOUT)
+            if scan:
+                us_vk = _user32.MapVirtualKeyExW(scan, _MAPVK_VSC_TO_VK_EX, _US_LAYOUT)
+                if us_vk:
+                    return us_vk
+            return vk
         if key in KEY_CODE_MAP:
             return KEY_CODE_MAP[key]
         if hasattr(key, 'char') and key.char:
