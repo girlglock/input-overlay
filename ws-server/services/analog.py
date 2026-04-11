@@ -346,7 +346,7 @@ class AnalogHandler:
                 depth   = data[i] / 255.0
                 i += 1
                 rawcode = HID_TO_VK.get(scancode, 0)
-                if rawcode == 0 and (scancode & 0xFF) > 0:
+                if rawcode == 0 and (scancode >> 8) == 0 and (scancode & 0xFF) > 0:
                     rawcode = HID_TO_VK.get(scancode & 0xFF, 0)
                 if rawcode > 0 and depth > 0.01 and self._is_allowed(rawcode):
                     active_keys.append({"rawcode": rawcode, "depth": round(depth, 2)})
@@ -375,7 +375,7 @@ class AnalogHandler:
                 depth         = value / 1023.0
                 i += 4
                 rawcode = HID_TO_VK.get(scancode, 0)
-                if rawcode == 0 and (scancode & 0xFF) > 0:
+                if rawcode == 0 and (scancode >> 8) == 0 and (scancode & 0xFF) > 0:
                     rawcode = HID_TO_VK.get(scancode & 0xFF, 0)
                 if rawcode > 0 and depth > 0.01 and self._is_allowed(rawcode):
                     active_keys.append({"rawcode": rawcode, "depth": round(depth, 4)})

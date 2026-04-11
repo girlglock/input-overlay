@@ -1,6 +1,6 @@
 import sys
 
-WS_SERVER_VERSION = "1.5.3"
+WS_SERVER_VERSION = "1.6.0"
 RAW_MOUSE_FLUSH_HZ = 125
 
 if sys.platform == "win32":
@@ -127,6 +127,7 @@ else:
         return 0
 
 HID_TO_VK = {
+    0x409: 255,  # Fn key (custom/non-standard HID scancode used by Wooting, Keychron, etc.)
     0x04: 65, 0x05: 66, 0x06: 67, 0x07: 68, 0x08: 69, 0x09: 70, 0x0A: 71, 0x0B: 72,
     0x0C: 73, 0x0D: 74, 0x0E: 75, 0x0F: 76, 0x10: 77, 0x11: 78, 0x12: 79, 0x13: 80,
     0x14: 81, 0x15: 82, 0x16: 83, 0x17: 84, 0x18: 85, 0x19: 86, 0x1A: 87, 0x1B: 88,
@@ -264,7 +265,8 @@ RAW_CODE_TO_KEY_NAME = {
     99: "key_numpad_3",
     108: "key_numpad_enter",
     96: "key_numpad_0",
-    110: "key_numpad_decimal"
+    110: "key_numpad_decimal",
+    255: "key_fn",
 }
 
 MOUSE_BUTTON_NAMES = {
