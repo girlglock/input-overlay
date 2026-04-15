@@ -51,14 +51,63 @@ def enum_analog_devices() -> list[dict]:
             for known_vid, known_pid, name, required_usage in ANALOG_KEYBOARDS:
                 if vid != known_vid or (known_pid is not None and pid != known_pid):
                     continue
+
                 if required_usage is not None and usage_page != required_usage:
-                    if sys.platform == "win32" or usage_page != 0:
+                    if sys.platform != "win32" and usage_page == 0:
                         continue
+                    continue
+
                 if required_usage is None:
                     vidpid_key = (vid, pid)
                     if vidpid_key in seen_vidpid:
                         break
                     seen_vidpid.add(vidpid_key)
+
+                canonical_usage = required_usage if required_usage is not None else usage_page
+
+                device_str   = f"{vid:04x}:{pid:04x}:{interface}" if interface >= 0 else f"{vid:04x}:{pid:04x}"
+                product_name = device_dict.get("product_string", name)
+                logger.info("found: %s (%s) usage_page=0x%04x interface=%d",
+                            product_name, device_str, canonical_usage, interface)
+                devices.append({
+                    "id":         device_str,
+                    "name":       f"{product_name} ({device_str}) [usage:0x{canonical_usage:04x}]",
+                    "interface":  interface,
+                    "usage_page": canonical_usage,
+                    "path":       path,
+                })
+                break
+    except Exception:
+        logger.exception("error enumerating HID devices")
+
+    logger.info("found %d analog keyboard interface(s)", len(devices))
+    return devices
+
+def enum_analog_devices_all() -> list[dict]:
+    try:
+        import hid
+    except ImportError:
+        logger.error("hidapi not installed")
+        return []
+
+    devices: list    = []
+    seen_paths: set  = set()
+    logger.info("scanning for analog keyboards on all usage_pages...")
+    try:
+        for device_dict in hid.enumerate():
+            vid        = device_dict["vendor_id"]
+            pid        = device_dict["product_id"]
+            usage_page = device_dict.get("usage_page", 0)
+            interface  = device_dict.get("interface_number", -1)
+            path       = device_dict.get("path", b"").decode("utf-8", errors="ignore")
+
+            for known_vid, known_pid, name, _ in ANALOG_KEYBOARDS:
+                if vid != known_vid or (known_pid is not None and pid != known_pid):
+                    continue
+
+                if path in seen_paths:
+                    break
+                seen_paths.add(path)
 
                 device_str   = f"{vid:04x}:{pid:04x}:{interface}" if interface >= 0 else f"{vid:04x}:{pid:04x}"
                 product_name = device_dict.get("product_string", name)
@@ -73,9 +122,9 @@ def enum_analog_devices() -> list[dict]:
                 })
                 break
     except Exception:
-        logger.exception("error enumerating HID devices")
+        logger.exception("error enumerating HID devices (all usage pages)")
 
-    logger.info("found %d analog keyboard interface(s)", len(devices))
+    logger.info("found %d analog keyboard interface(s) (all usage pages)", len(devices))
     return devices
 
 class AnalogHandler:
@@ -152,21 +201,29 @@ class AnalogHandler:
                 device.open(vid, pid)
 
             device.set_nonblocking(False)
-            logger.info("opened analog device: %04x:%04x", vid, pid)
-            logger.info("manufacturer: %s", device.get_manufacturer_string())
-            logger.info("product: %s", device.get_product_string())
+
+            # resolve actual usage_page for the opened interface
+            _connected_usage = 0
+            for d in hid.enumerate(vid, pid):
+                if len(parts) > 2:
+                    if d.get("interface_number", -1) == int(parts[2]):
+                        _connected_usage = d.get("usage_page", 0)
+                        break
+                else:
+                    _connected_usage = d.get("usage_page", 0)
+                    break
+
+            logger.info(
+                "connected to analog device: vid=0x%04x pid=0x%04x usage_page=0x%04x interface=%s manufacturer=%s product=%s",
+                vid, pid, _connected_usage,
+                parts[2] if len(parts) > 2 else "default",
+                device.get_manufacturer_string(),
+                device.get_product_string(),
+            )
 
             if vid == 0x31E3 or (vid == 0x03EB and pid in [0xFF01, 0xFF02]):
                 #see if its anawuhg interface v2 or v1
-                usage_page = 0
-                for d in hid.enumerate(vid, pid):
-                    if len(parts) > 2:
-                        if d.get("interface_number", -1) == int(parts[2]):
-                            usage_page = d.get("usage_page", 0)
-                            break
-                    else:
-                        usage_page = d.get("usage_page", 0)
-                        break
+                usage_page = _connected_usage
                 if usage_page == 0xFF53:
                     self._loop_wooting_v2(device)
                 else:

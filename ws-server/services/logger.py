@@ -68,7 +68,16 @@ def _resolve_logs_dir() -> Path:
 
 
 _logs_dir = _resolve_logs_dir()
-_LOG_FILE = _logs_dir / f"{_dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{os.getpid()}.log"
+
+def _process_label() -> str:
+    argv = sys.argv[1:] if len(sys.argv) > 1 else []
+    if argv:
+        flag = argv[0].lstrip("-")
+        if flag in ("settings", "update-popup", "port-error", "rebind-failed"):
+            return flag.replace("-", "_")
+    return "server"
+
+_LOG_FILE = _logs_dir / f"{_dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{_process_label()}_{os.getpid()}.log"
 _fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 _file_handler = _RedactingHandler(
