@@ -49,8 +49,6 @@ export class WebSocketManager {
         this.authenticated = false;
         this.keyStates = {};
         this.keyDepths = {};
-        this.messageHistory = [];
-        this.HISTORY_MAX_LENGTH = 100;
     }
 
     _setStatus(text, state) {
@@ -185,49 +183,42 @@ export class WebSocketManager {
         return null;
     }
 
-    _recalculateKeyStates() {
+    _applyInputEvent(event) {
+        const isPressed = event.event_type.endsWith("_pressed");
+
+        const info = this._getMappedKeyInfo(event);
+        if (!info) return;
+
         const viz = this.visualizer;
         const els = viz.previewElements;
         if (!els) return;
 
-        const desiredActive = {};
-        for (const event of this.messageHistory) {
-            const info = this._getMappedKeyInfo(event);
-            if (!info) continue;
-            const map = info.type === "key" ? els.keyElements : els.mouseElements;
-            if (!map.has(info.name)) continue;
-            desiredActive[info.id] = event.event_type.endsWith("_pressed");
+        const isKey = info.type === "key";
+        const map = isKey ? els.keyElements : els.mouseElements;
+        const activeSet = isKey ? viz.activeKeys : viz.activeMouseButtons;
+
+        if (!map.has(info.name)) return;
+
+        //skip if state didnt change
+        const currentlyPressed = !!this.keyStates[info.id];
+        if (isPressed === currentlyPressed) return;
+
+        if (isPressed) {
+            this.keyStates[info.id] = true;
+        } else {
+            delete this.keyStates[info.id];
         }
 
-        const allIds = new Set([...Object.keys(desiredActive), ...Object.keys(this.keyStates)]);
-        for (const id of allIds) {
-            const desired = !!desiredActive[id];
-            const current = !!this.keyStates[id];
-            if (desired === current) continue;
+        const elements = map.get(info.name);
+        if (!elements?.length) return;
 
-            const isKey = id.startsWith("k_");
-            const rawId = parseInt(id.substring(2));
-            const name = isKey ? RAW_CODE_TO_KEY_NAME[rawId] : MOUSE_BUTTON_MAP[rawId];
-            if (!name) continue;
-
-            const elements = isKey ? els.keyElements.get(name) : els.mouseElements.get(name);
-            const activeSet = isKey ? viz.activeKeys : viz.activeMouseButtons;
-            if (!elements?.length) continue;
-
-            for (const el of elements) {
-                viz.updateElementState(el, name, desired, activeSet);
-                if (!isKey) {
-                    const animDur = viz.animDuration || "0.15s";
-                    const t = `all ${animDur} cubic-bezier(0.4,0,0.2,1)`;
-                    el.style.setProperty("transition", t, "important");
-                    el.style.setProperty("transform", desired ? `scale(${viz.pressScaleValue || 1.05})` : "scale(1)", "important");
-                }
+        for (const el of elements) {
+            viz.updateElementState(el, info.name, isPressed, activeSet);
+            if (!isKey) {
+                const animDur = viz.animDuration || "0.15s";
+                el.style.setProperty("transition", `all ${animDur} cubic-bezier(0.4,0,0.2,1)`, "important");
+                el.style.setProperty("transform", isPressed ? `scale(${viz.pressScaleValue || 1.05})` : "scale(1)", "important");
             }
-        }
-
-        this.keyStates = {};
-        for (const [id, active] of Object.entries(desiredActive)) {
-            if (active) this.keyStates[id] = true;
         }
     }
 
@@ -254,16 +245,7 @@ export class WebSocketManager {
         if (event_type === "key_pressed" || event_type === "key_released" ||
             event_type === "mouse_pressed" || event_type === "mouse_released") {
             //TODO: add conditions for mouse_pad and trail highlight being there
-            if (event_type === "mouse_pressed" || event_type === "mouse_released") {
-                const info = this._getMappedKeyInfo(event);
-                if (info?.type === "mouse") {
-                    if (event_type === "mouse_pressed") this.visualizer.activeMouseButtons.add(info.name);
-                    else this.visualizer.activeMouseButtons.delete(info.name);
-                }
-            }
-            this.messageHistory.push(event);
-            if (this.messageHistory.length > this.HISTORY_MAX_LENGTH) this.messageHistory.shift();
-            this._recalculateKeyStates();
+            this._applyInputEvent(event);
         }
     }
 
@@ -314,7 +296,6 @@ export class WebSocketManager {
         }
 
         viz.currentScrollCount = 0;
-        this.messageHistory = [];
         this.keyStates = {};
         this.keyDepths = {};
 

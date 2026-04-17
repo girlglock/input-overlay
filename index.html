@@ -305,8 +305,20 @@
                             <ul>
                                 <li>slight logger changes</li>
                                 <li>fixed build workflow on bimbows not adding previledges to the manifest</li>
-                                <li>cleaned up old port dialogs that could cause a rebind loop (oopsie i forgor about them)</li>
-                                <li>added toggle to settings that allows you to list all usage pages for supported analog devices</li>
+                                <li>cleaned up old port dialogs that could cause a rebind loop (oopsie i forgor about
+                                    them)</li>
+                                <li>added toggle to settings that allows you to list all usage pages for supported
+                                    analog devices</li>
+                                <h3>TODO</h3>
+                                <ul>
+                                    <li>for analog support send the last analog_depth=0.0 event regardless of hz to
+                                        prevent it being stuck at the last known depth</li>
+                                </ul>
+                            </ul>
+                            <h3>overlay</h3>
+                            <ul>
+                                <li>retired an old workaround for stuck keys when using the (now unsupported but
+                                    technically still somewhat compatible) input-overlay obs plugin as ws provider</li>
                             </ul>
                             <h1>2026-04-11</h1>
                             <h3>ws server</h3>
@@ -323,11 +335,13 @@
                             <h1>2026-04-10</h1>
                             <h3>ws server</h3>
                             <ul>
-                                <li>update analogsense py to support wooting analog interface v2 (new beta firmware)</li>
+                                <li>update analogsense py to support wooting analog interface v2 (new beta firmware)
+                                </li>
                             </ul>
                             <h3>overlay</h3>
                             <ul>
-                                <li>update analogsense js sdk to support wooting analog interface v2 (new beta firmware)</li>
+                                <li>update analogsense js sdk to support wooting analog interface v2 (new beta firmware)
+                                </li>
                             </ul>
                             <h1>2026-04-09</h1>
                             <h3>ws server</h3>
