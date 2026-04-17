@@ -342,33 +342,22 @@ class InputOverlayServer:
         except Exception:
             logger.exception("error saving config")
 
-    def _revert_config(self, host: str, port: int) -> None:
+    def _write_port_status(self, kind: str | None, host: str = "", port: int = 0) -> None:
         try:
-            config_file = Path(self.config_path)
-            if config_file.exists():
-                with open(config_file, "r") as f:
-                    config = json.load(f)
-                config["host"] = host
-                config["port"] = port
-                with open(config_file, "w") as f:
-                    json.dump(config, f, indent=4)
-                self.config_last_modified = config_file.stat().st_mtime
-                logger.info("config reverted to %s:%d", host, port)
+            status_file = Path(self.config_path).parent / "port_status.json"
+            if kind is None:
+                data: dict = {"ok": True}
+            else:
+                data = {
+                    "ok":   False,
+                    "kind": kind,
+                    "host": host or self.host,
+                    "port": port or self.port,
+                }
+            with open(status_file, "w") as f:
+                json.dump(data, f)
         except Exception:
-            logger.exception("failed to revert config")
-
-    def _spawn_rebind_failed(self, failed_host: str, failed_port: int,
-                              kind: str, prev_host: str, prev_port: int) -> None:
-        proc = spawn_subprocess(
-            "--rebind-failed", kind, failed_host, str(failed_port), prev_host, str(prev_port)
-        )
-        if proc:
-            self.child_processes.append(proc)
-
-    def _spawn_port_error(self, kind: str) -> None:
-        proc = spawn_subprocess("--port-error", kind, self.host, str(self.port), self.config_path)
-        if proc:
-            self.child_processes.append(proc)
+            logger.exception("failed to write port_status.json")
 
     def _write_clients_file(self) -> None:
         try:
@@ -665,8 +654,7 @@ class InputOverlayServer:
             try:
                 ws_server = await websockets.serve(self.handle_client, self.host, self.port)
                 logger.info("server started on ws://%s:%d", self.host, self.port)
-                self._prev_host = self.host
-                self._prev_port = self.port
+                self._write_port_status(None)
             except OSError as e:
                 import socket as _socket
                 if e.errno in (10048, 98):
@@ -677,27 +665,16 @@ class InputOverlayServer:
                     kind = "badhost"
                 else:
                     kind = "oserror"
-                prev_host = getattr(self, "_prev_host", None)
-                prev_port = getattr(self, "_prev_port", None)
-                if prev_host and prev_port:
-                    logger.error("rebind to %s:%d failed (%s) - reverting to %s:%d",
-                                 attempt_host, attempt_port, kind, prev_host, prev_port)
-                    self.host = prev_host
-                    self.port = prev_port
-                    self._revert_config(prev_host, prev_port)
-                    self._spawn_rebind_failed(attempt_host, attempt_port, kind, prev_host, prev_port)
-                    continue
-                else:
-                    logger.error("initial bind to %s:%d failed (%s) - waiting for port change...",
-                                 attempt_host, attempt_port, kind)
-                    self._spawn_port_error(kind)
-                    while self.running and not self._rebind_event.is_set():
-                        try:
-                            await asyncio.wait_for(self._stop_event.wait(), timeout=1.0)
-                        except asyncio.TimeoutError:
-                            pass
-                        self.reload_config_if_changed()
-                    continue
+                logger.error("bind to %s:%d failed (%s) - retrying on config change...",
+                             attempt_host, attempt_port, kind)
+                self._write_port_status(kind, attempt_host, attempt_port)
+                while self.running and not self._rebind_event.is_set():
+                    try:
+                        await asyncio.wait_for(self._stop_event.wait(), timeout=1.0)
+                    except asyncio.TimeoutError:
+                        pass
+                    self.reload_config_if_changed()
+                continue
 
             try:
                 while self.running and not self._rebind_event.is_set():

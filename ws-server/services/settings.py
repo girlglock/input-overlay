@@ -51,7 +51,6 @@ from services.dialogs import (
     TitleBar,
     UpdateChecker,
     _load_pixel_font,
-    _run_port_error_process,
     _run_update_popup_process,
     dwm_sharp_corners,
 )
@@ -233,8 +232,16 @@ class SettingsEditor(QMainWindow):
 
         server_layout.addLayout(server_grid)
 
+        self.port_status_label = QLabel("")
+        self.port_status_label.setWordWrap(True)
+        self.port_status_label.setStyleSheet("color: #ff7070; font-size: 14px; font-weight: normal;")
+        self.port_status_label.hide()
+        server_layout.addWidget(self.port_status_label)
+
         server_group.setLayout(server_layout)
         left_column.addWidget(server_group)
+
+        self._refresh_port_status()
 
         auth_group  = QGroupBox("AUTHENTICATION")
         auth_layout = QVBoxLayout()
@@ -772,6 +779,34 @@ class SettingsEditor(QMainWindow):
                 lbl.setStyleSheet("color: #dedfd6; font-size: 14px;")
                 self.clients_inner.addWidget(lbl)
 
+    def _refresh_port_status(self) -> None:
+        status_file = Path(self.config_path).parent / "port_status.json"
+        try:
+            if not status_file.exists():
+                self.port_status_label.hide()
+                return
+            with open(status_file, "r") as f:
+                data = json.load(f)
+            if data.get("ok"):
+                self.port_status_label.hide()
+                return
+            kind = data.get("kind", "inuse")
+            host = data.get("host", "")
+            port = data.get("port", 0)
+            addr = f"{host}:{port}" if host and port else "the configured address"
+            if kind == "inuse":
+                msg = f"Port {port} is already in use\n(probably by another app like a obs pngtuber)... try any free port above 1024"
+            elif kind == "denied":
+                msg = f"Access to {addr} was denied\n(probably in use by another app like a obs pngtuber)... try any free port above 1024"
+            elif kind == "badhost":
+                msg = f"Host \"{host}\" is invalid... try localhost or 0.0.0.0"
+            else:
+                msg = f"Could not bind to {addr} (Check the logs)"
+            self.port_status_label.setText(msg)
+            self.port_status_label.show()
+        except Exception:
+            self.port_status_label.hide()
+
     def save_and_close(self) -> None:
         self.save_config()
         self.close()
@@ -792,12 +827,6 @@ def run_settings_editor(config_path: str = "config.json") -> None:
     sys.exit(app.exec())
 
 if __name__ == "__main__":
-    from services.dialogs import (
-        _run_port_error_process,
-        _run_rebind_failed_process,
-        _run_update_popup_process,
-    )
-
     args = sys.argv[1:]
 
     if args and args[0] == "--update-popup":
@@ -805,21 +834,6 @@ if __name__ == "__main__":
         config_path  = args[2] if len(args) >= 3 else "config.json"
         release_body = os.environ.get("IOV_UPDATE_BODY", "")
         _run_update_popup_process(latest, config_path, release_body)
-
-    elif args and args[0] == "--port-error":
-        error_kind  = args[1] if len(args) >= 2 else "inuse"
-        host        = args[2] if len(args) >= 3 else "localhost"
-        port        = int(args[3]) if len(args) >= 4 else 4455
-        config_path = args[4] if len(args) >= 5 else "config.json"
-        _run_port_error_process(error_kind, host, port, config_path)
-
-    elif args and args[0] == "--rebind-failed":
-        kind        = args[1] if len(args) >= 2 else "inuse"
-        failed_host = args[2] if len(args) >= 3 else "localhost"
-        failed_port = int(args[3]) if len(args) >= 4 else 4455
-        prev_host   = args[4] if len(args) >= 5 else "localhost"
-        prev_port   = int(args[5]) if len(args) >= 6 else 4455
-        _run_rebind_failed_process(kind, failed_host, failed_port, prev_host, prev_port)
 
     else:
         config_path = args[0] if args else "config.json"
