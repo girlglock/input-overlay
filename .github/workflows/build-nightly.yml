@@ -32,7 +32,7 @@ jobs:
       - name: build ws-server exe
         working-directory: ws-server
         run: >
-          python -m PyInstaller --onefile --windowed --add-data "assets;assets" --add-data "services;services" --add-data "../index.html;web" --add-data "../style.css;web" --add-data "../scripts;web/scripts" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=services.rawinput --hidden-import=winotify --hidden-import=certifi --hidden-import=markdown --manifest admin.manifest input-overlay-ws.py
+          python -m PyInstaller --onefile --windowed --uac-admin --add-data "assets;assets" --add-data "services;services" --add-data "../index.html;web" --add-data "../style.css;web" --add-data "../scripts;web/scripts" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=services.rawinput --hidden-import=winotify --hidden-import=certifi --hidden-import=markdown --manifest admin.manifest input-overlay-ws.py
 
       - name: create windows zip
         working-directory: ws-server
