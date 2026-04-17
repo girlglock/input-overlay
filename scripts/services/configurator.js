@@ -71,6 +71,7 @@ export class ConfiguratorMode {
             mousetraillength: "150",
             mousetrailm1highlight: false,
             mousepadtexture: "",
+            mousepadtexturezoom: "1",
             showmousedistance: false,
             mousedistancedpi: "400",
         });
@@ -126,6 +127,7 @@ export class ConfiguratorMode {
             mousetraillength: val("mousetraillength") || "150",
             mousetrailm1highlight: chk("mousetrailm1highlight"),
             mousepadtexture: val("mousepadtexture"),
+            mousepadtexturezoom: val("mousepadtexturezoom") || "1",
             showmousedistance: chk("showmousedistance"),
             mousedistancedpi: val("mousedistancedpi") || "400",
         };
@@ -218,6 +220,7 @@ export class ConfiguratorMode {
         applyValue("mousetraillength", settings.mousetraillength ?? "150");
         applyValue("mousetrailm1highlight", settings.mousetrailm1highlight ?? false);
         applyValue("mousepadtexture", settings.mousepadtexture ?? "");
+        applyValue("mousepadtexturezoom", settings.mousepadtexturezoom ?? "1");
         applyValue("showmousedistance", settings.showmousedistance ?? false);
         applyValue("mousedistancedpi", settings.mousedistancedpi ?? "400");
     }
