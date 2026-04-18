@@ -883,8 +883,12 @@ export class OverlayVisualiser {
                     const panY = this.MOUSEPAD_MODE === "pan" ? (this.MOUSEPAD_PAN_Y || 0) : 0;
                     const tilW = this._mousePadTextureTintCanvas?.width || tw;
                     const tilH = this._mousePadTextureTintCanvas?.height || th;
-                    const wrapX = ((panX % tilW) + tilW) % tilW;
-                    const wrapY = ((panY % tilH) + tilH) % tilH;
+                    const centerOffX = (W / 2 - tilW / 2); //center the tex
+                    const centerOffY = (H / 2 - tilH / 2);
+                    const rawX = centerOffX + panX;
+                    const rawY = centerOffY + panY;
+                    const wrapX = ((rawX % tilW) + tilW) % tilW;
+                    const wrapY = ((rawY % tilH) + tilH) % tilH;
                     const mat = new DOMMatrix().translate(wrapX, wrapY);
                     this._mousePadTexturePattern.setTransform(mat);
                     ctx.fillStyle = this._mousePadTexturePattern;
