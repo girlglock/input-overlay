@@ -4,7 +4,7 @@ pystray
 Pillow==12.2.0
 pyperclip
 PyQt6
-hidapi
+analogsensepy
 winotify; sys_platform == "win32"
 certifi
 markdown
