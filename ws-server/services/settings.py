@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import (
 )
 import sys
 
-from services.analog import enum_analog_devices, enum_analog_devices_all
+from services.analog import enum_analog_devices
 from services.consts import (
     MOUSE_BUTTON_NAMES,
     RAW_CODE_TO_KEY_NAME,
@@ -110,7 +110,6 @@ class SettingsEditor(QMainWindow):
             self.auth_token              = config.get("auth_token", "")
             self.analog_enabled          = config.get("analog_enabled", False)
             self.analog_device           = config.get("analog_device", None)
-            self.analog_list_all         = config.get("analog_list_all", False)
             self.balloon_enabled         = config.get("balloon_notifications", True)
             self.raw_mouse_enabled       = config.get("raw_mouse_enabled", False)
             self.linux_raw_mouse_device  = config.get("linux_raw_mouse_device", "")
@@ -127,7 +126,6 @@ class SettingsEditor(QMainWindow):
             self.auth_token              = ""
             self.analog_enabled          = False
             self.analog_device           = None
-            self.analog_list_all         = False
             self.balloon_enabled         = True
             self.raw_mouse_enabled       = False
             self.linux_raw_mouse_device  = ""
@@ -155,7 +153,6 @@ class SettingsEditor(QMainWindow):
             config["http_port"]             = int(self.http_port_input.text() or 4456)
             config["auth_token"]            = self.auth_input.text()
             config["analog_enabled"]        = self.analog_checkbox.isChecked()
-            config["analog_list_all"]       = self.analog_list_all_checkbox.isChecked()
             config["balloon_notifications"] = self.balloon_checkbox.isChecked()
             config["dismissed_versions"]    = self.dismissed_versions
             if sys.platform == "win32":
@@ -179,8 +176,6 @@ class SettingsEditor(QMainWindow):
             logger.exception("error saving config")
 
     def get_analog_devices(self) -> list:
-        if getattr(self, "analog_list_all_checkbox", None) and self.analog_list_all_checkbox.isChecked():
-            return [{"id": d["id"], "name": d["name"]} for d in enum_analog_devices_all()]
         return [{"id": d["id"], "name": d["name"]} for d in enum_analog_devices()]
 
     def setup_ui(self) -> None:
@@ -295,14 +290,6 @@ class SettingsEditor(QMainWindow):
         device_row.addWidget(self.device_combo, 3)
         device_row.addWidget(refresh_btn, 2)
         analog_layout.addLayout(device_row)
-
-        self.analog_list_all_checkbox = InstantTooltipCheckBox("List all usage pages")
-        self.analog_list_all_checkbox.setToolTip(
-            "show every hid interface for supported devices"
-        )
-        self.analog_list_all_checkbox.setChecked(self.analog_list_all)
-        self.analog_list_all_checkbox.stateChanged.connect(self.refresh_devices)
-        analog_layout.addWidget(self.analog_list_all_checkbox)
 
         analog_layout.addStretch()
         analog_group.setLayout(analog_layout)
