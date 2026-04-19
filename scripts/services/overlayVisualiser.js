@@ -585,7 +585,7 @@ export class OverlayVisualiser {
         const elements = this.previewElements.keyElements.get(keyName) || this.previewElements.gamepadElements?.get(keyName);
         if (!elements?.length) return;
 
-        const depthThreshold = 0.15;
+        const depthThreshold = 0.01;
         const effectiveDepth = depth < depthThreshold ? 0 : depth;
         const maxScale = this.pressScaleValue || 1.05;
         const scale = 1 + (maxScale - 1) * effectiveDepth;
