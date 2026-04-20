@@ -50,25 +50,102 @@ A input overlay for OBS and other broadcast software.
 </table>
 
 ## Single PC Setup
- 
-1. Get the [input-overlay-ws](https://github.com/girlglock/input-overlay/releases) server
-2. Run it and right click the tray icon to open the settings
-3. Copy your auth token
- 
-   > **Tip:** You can change the token to whatever you like
- 
-4. Paste the token in the auth token field above
-5. Configure your overlay to your liking, then click the `⎘ Copy URL` button and paste the copied URL as an OBS browser source
- 
-> **Tip:** You can configure the key whitelist in the server settings to ensure you are only sending keys over your network that are configured in the overlay
+<ol>
+    <li>get the <a href="https://github.com/girlglock/input-overlay/releases"
+            target="_blank">input-overlay-ws</a> server</li>
+    <li>run it and right click the tray icon to open the settings</li>
+    <li>copy your auth token</li>
+    <blockquote class="note note--purple">(you can change it to whatever you like)
+    </blockquote>
+    <li>paste the token in the auth token field above</li>
+    <li>configure your overlay to your liking, then click the <code>⎘ copy url</code> button
+        and paste the copied url as an OBS
+        browser source</li>
+</ol>
+<blockquote class="note note--purple">tip: you can configure the key whitelist in the
+    server settings to ensure you
+    are only sending keys over your network that are configured in the overlay
+</blockquote>
  
 ## Sending Keys to Another PC
- 
-> e.g. from a gaming PC to a streaming PC
- 
-1. Edit `config.json` to set the address/port of your gaming PC
- 
-   > Run `ipconfig` in cmd and copy the local IPv4 address (usually `192.168.0.1` or `192.168.X.X` with X being 0–255)
- 
-2. Enter the gaming PC's address in both the **input-overlay-ws** and **configurator**
-3. Download the overlay as a local HTML file and add it as a browser source in OBS on your streaming PC instead of copying the URL
+<blockquote class="note note--purple">(eg. from gaming to streaming pc)</blockquote>
+<ol>
+    <li>open the input-overlay-ws server settings and enable the http ser(run
+            the ws server on your gaming pc)</small></li>
+    <li>change the address in to the address of your gaming pc
+        <br><small>run <code>ipconfig</code> in cmd and copy the local IPv4
+            address (usually 192.168.0.1 or 192.168.X.X with X being 0-255)</small>
+    </li>
+    <li>click the <code>open in browser</code> button inside the http serli>
+    <li>enter the gaming pc's address in both the <strong>input-overlay-wsthe
+        hosted
+        <strong>configurator</strong>
+    </li>
+    <li>click the <code>⎘ copy url</code> button to copy your hosted overlay url from the
+        hosted configurator and add it as a browser source in your OBS running on the
+        streaming pc</li>
+</ol>
+
+## Building the input-overlay-ws server
+
+> [!NOTE]
+> the released binaries are built via GitHub Actions already...
+> you only need this if you want to build from source yourself
+
+**1. install dependencies**
+
+```bash
+python -m pip install --upgrade pip
+pip install pyinstaller -r ws-server/requirements.txt
+```
+
+**2. build** (run from the `ws-server/` dir)
+
+Windows:
+```bash
+python -m PyInstaller --onedir --windowed --noupx \
+  --add-data "assets;assets" \
+  --add-data "services;services" \
+  --add-data "../index.html;web" \
+  --add-data "../style.css;web" \
+  --add-data "../scripts;web/scripts" \
+  --icon="assets/icon.ico" \
+  --name="input-overlay-ws" \
+  --hidden-import=services.analog \
+  --hidden-import=services.consts \
+  --hidden-import=services.logger \
+  --hidden-import=services.utils \
+  --hidden-import=services.dialogs \
+  --hidden-import=services.settings \
+  --hidden-import=services.tray \
+  --hidden-import=services.rawinput \
+  --hidden-import=winotify \
+  --hidden-import=certifi \
+  --hidden-import=markdown \
+  --manifest admin.manifest \
+  input-overlay-ws.py
+```
+
+Linux:
+```bash
+python -m PyInstaller --onedir --windowed --noupx \
+  --add-data "assets:assets" \
+  --add-data "services:services" \
+  --add-data "../index.html:web" \
+  --add-data "../style.css:web" \
+  --add-data "../scripts:web/scripts" \
+  --icon="assets/icon.ico" \
+  --name="input-overlay-ws" \
+  --hidden-import=services.analog \
+  --hidden-import=services.consts \
+  --hidden-import=services.logger \
+  --hidden-import=services.utils \
+  --hidden-import=services.dialogs \
+  --hidden-import=services.settings \
+  --hidden-import=services.tray \
+  --hidden-import=certifi \
+  --hidden-import=markdown \
+  input-overlay-ws.py
+```
+
+the output will be inside `dist/input-overlay-ws/`
