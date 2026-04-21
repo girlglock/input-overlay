@@ -785,8 +785,7 @@ class UpdateDialog(_SharpCornersMixin, QDialog):
 
     def _on_download(self) -> None:
         if sys.platform != "win32":
-            import subprocess as _sp
-            _sp.Popen(["xdg-open", GITHUB_RELEASES_URL], stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+            QDesktopServices.openUrl(QUrl(GITHUB_RELEASES_URL))
             self.accept()
             return
 
