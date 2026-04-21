@@ -192,6 +192,7 @@ export class OverlayVisualiser {
                 align-items: center !important;
                 justify-content: center !important;
                 border-width: ${opts.outlinescaleunpressed ?? 1}px !important;
+                transform: scale(1) !important;
             }
             .key, .mouse-btn { overflow: hidden !important; }
             .scroll-display { overflow: visible !important; }
@@ -227,7 +228,7 @@ export class OverlayVisualiser {
                 color: ${opts.fontcolor} !important;
                 transform: ${activeTransform} !important;
                 border-color: ${opts.activecolor} !important;
-                box-shadow: 0 2px ${opts.glowradius}px ${opts.activecolor} !important;
+                box-shadow: 0 0 ${opts.glowradius}px ${opts.activecolor} !important;
                 border-width: ${opts.outlinescalepressed ?? 1}px !important;
             }
             .key.active:not(.analog-key), .mouse-btn.active:not(.analog-key), .scroll-display.active:not(.analog-key) {
