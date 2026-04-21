@@ -261,10 +261,10 @@ class SettingsEditor(QMainWindow):
         auth_group.setLayout(auth_layout)
         left_column.addWidget(auth_group)
 
-        analog_group  = QGroupBox("ANALOG SUPPORT")
+        analog_group  = QGroupBox("AnalogSense")
         analog_layout = QVBoxLayout()
 
-        self.analog_checkbox = QCheckBox("Enable Analog Mode")
+        self.analog_checkbox = QCheckBox("Enable AnalogSense")
         self.analog_checkbox.setChecked(self.analog_enabled)
         self.analog_checkbox.stateChanged.connect(self.on_analog_toggled)
         analog_layout.addWidget(self.analog_checkbox)
