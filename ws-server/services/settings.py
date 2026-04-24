@@ -58,6 +58,15 @@ from services.utils import get_resource_path, is_autostart_enabled, set_autostar
 
 logger = logging.getLogger(__name__)
 
+
+def _get_analogsense_version() -> str:
+    try:
+        import importlib.metadata
+        return importlib.metadata.version("analogsensepy")
+    except Exception:
+        return ""
+
+
 class InputSignals(QObject):
     key_detected   = pyqtSignal(str)
     stop_listening = pyqtSignal()
@@ -261,7 +270,7 @@ class SettingsEditor(QMainWindow):
         auth_group.setLayout(auth_layout)
         left_column.addWidget(auth_group)
 
-        analog_group  = QGroupBox("AnalogSense")
+        analog_group  = QGroupBox(f"AnalogSense {_get_analogsense_version()}")
         analog_layout = QVBoxLayout()
 
         self.analog_checkbox = QCheckBox("Enable AnalogSense")
