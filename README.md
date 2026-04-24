@@ -8,7 +8,7 @@ A input overlay for OBS and other broadcast software.
 ## Features
 
 - **WebSocket connection with authentication** with support to stream your inputs to a secondary PC (for example a dedicated streaming PC)
-- **Hall effect keyboard support** via the [AnalogSense SDK](https://github.com/AnalogSense/JavaScript-SDK) ported to py
+- **Hall effect keyboard support** via the [AnalogSense SDK py port](https://github.com/girlglock/AnalogSense-Python-SDK)
   <details>
   <summary>Keyboards/Devices</summary>
 
