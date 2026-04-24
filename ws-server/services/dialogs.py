@@ -625,6 +625,7 @@ class TitleBar(QWidget):
 
         lbl = QLabel(title)
         lbl.setObjectName("TitleLabel")
+        lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         layout.addWidget(lbl)
         layout.addStretch()
 
@@ -645,6 +646,13 @@ class TitleBar(QWidget):
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
+            #on wayland use native system mover
+            if sys.platform != "win32":
+                win_handle = self._parent.windowHandle()
+                if win_handle is not None:
+                    win_handle.startSystemMove()
+                    event.accept()
+                    return
             self._drag_pos = event.globalPosition().toPoint() - self._parent.frameGeometry().topLeft()
             event.accept()
 
