@@ -147,7 +147,9 @@ jobs:
 
             - right-click the tray icon for settings
 
-
+            > [!NOTICE]
+            > you might need to run the ws server as admin when tabbed into apps that run with admin elevations themselves
+            > the "start with windows" checkbox will automatically start the ws server with admin rights on the next boot
 
             ## **linux setup (experimental):**
 
@@ -185,6 +187,7 @@ jobs:
             > all builds are created via github actions directly from the repo sources
             > the ws server migh might occasionally trigger a false positive on windows defender due to it not being signed and how we handle rawinputbuffer reads via an "invisible background window"
             > alternatively you can build the ws server yourself. see the readme for instructions :p
+            
             ${{ steps.prev_tag.outputs.tag != '' && format('[CHANGELOG]({0}/{1}/compare/{2}...{3})', github.server_url, github.repository, steps.prev_tag.outputs.tag, github.ref_name) || 'First release.' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
