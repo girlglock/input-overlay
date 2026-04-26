@@ -32,10 +32,16 @@ A input overlay for OBS and other broadcast software.
         and paste the copied url as an OBS
         browser source</li>
 </ol>
-<blockquote class="note note--purple">tip: you can configure the key whitelist in the
-    server settings to ensure you
-    are only sending keys over your network that are configured in the overlay
-</blockquote>
+
+> [!NOTE]
+> tip: you can configure the key whitelist in the
+> server settings to ensure you
+> are only sending keys over your network that are configured in the overlay
+
+
+> [!NOTE]
+> Nightly releases can be downloaded here:
+> <a href="https://nightly.link/girlglock/input-overlay/workflows/nightly/main/input-overlay-ws-windows.zip" target="_blank">bimbows nightly</a> | <a href="https://nightly.link/girlglock/input-overlay/workflows/nightly/main/input-overlay-ws-linux.zip" target="_blank">bimbux nightly</a>
  
 ## Sending Keys to Another PC
 <blockquote class="note note--purple">(eg. from gaming to streaming pc)</blockquote>
