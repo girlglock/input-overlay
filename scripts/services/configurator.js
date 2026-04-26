@@ -526,7 +526,7 @@ export class ConfiguratorMode {
         this.analogSenseActiveKeys = new Set();
         this.analogSensePrevDepths = {};
 
-        const DIGITAL_THRESHOLD = 0.5;
+        const DIGITAL_THRESHOLD = 0.01;
 
         const handleAnalogReport = (activeKeys) => {
             const viz = this.visualizer;
