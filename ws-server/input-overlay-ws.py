@@ -378,7 +378,7 @@ class InputOverlayServer:
                    is_scroll: bool = False, is_mouse_move: bool = False) -> bool:
         if not self.key_whitelist:
             return True
-        if is_mouse_move and self.raw_mouse_enabled:
+        if is_mouse_move and (self.raw_mouse_enabled or self.linux_raw_mouse_device):
             return True
         if is_scroll:
             if "mouse_wheel" in self.key_whitelist:
