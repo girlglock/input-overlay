@@ -1,0 +1,107 @@
+name: build ws-server
+
+on:
+  workflow_call:
+    inputs:
+      windows-artifact-name:
+        type: string
+        default: windows-zip
+      linux-artifact-name:
+        type: string
+        default: linux-zip
+      retention-days:
+        type: number
+        default: 0
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: setup py
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: install deps
+        run: python -m pip install --upgrade pip && pip install pyinstaller -r ws-server/requirements.txt
+
+      - name: build ws-server exe
+        working-directory: ws-server
+        run: >
+          python -m PyInstaller --onefile --windowed --add-data "assets;assets" --add-data "services;services" --add-data "../index.html;web" --add-data "../style.css;web" --add-data "../scripts;web/scripts" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=services.rawinput --hidden-import=winotify --hidden-import=certifi --hidden-import=markdown --manifest admin.manifest input-overlay-ws.py
+
+      - name: create windows zip
+        working-directory: ws-server
+        run: |
+          mkdir windows-release
+          copy dist\input-overlay-ws.exe windows-release\
+          powershell Compress-Archive -Path windows-release\* -DestinationPath ..\input-overlay-ws-windows.zip
+
+      - name: attest windows build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: input-overlay-ws-windows.zip
+
+      - name: upload windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.windows-artifact-name }}
+          path: input-overlay-ws-windows.zip
+          retention-days: ${{ inputs.retention-days }}
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: setup py
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev libusb-1.0-0-dev libhidapi-dev
+
+      - name: install deps
+        run: python -m pip install --upgrade pip && pip install pyinstaller -r ws-server/requirements.txt
+
+      - name: build ws-server binary
+        working-directory: ws-server
+        run: >
+          python -m PyInstaller --onefile --windowed --add-data "assets:assets" --add-data "services:services" --add-data "../index.html:web" --add-data "../style.css:web" --add-data "../scripts:web/scripts" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=certifi --hidden-import=markdown input-overlay-ws.py
+
+      - name: create linux zip
+        working-directory: ws-server
+        run: |
+          mkdir linux-release
+          cp dist/input-overlay-ws linux-release/
+          cd linux-release && zip -r ../../input-overlay-ws-linux.zip .
+
+      - name: attest linux build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: input-overlay-ws-linux.zip
+
+      - name: upload linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.linux-artifact-name }}
+          path: input-overlay-ws-linux.zip
+          retention-days: ${{ inputs.retention-days }}
