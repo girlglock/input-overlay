@@ -169,6 +169,7 @@ class EvdevInputListener(threading.Thread):
                     try:
                         self._on_mouse_click(btn_code, value == 1)
                     except Exception:
+                        self._on_mouse_click(btn_code, false)
                         logger.exception("evdev: on_mouse_click error")
                 return
 
@@ -185,6 +186,7 @@ class EvdevInputListener(threading.Thread):
                 elif value == 0:
                     self._on_key_release(vk)
             except Exception:
+                self._on_key_release(vk)
                 logger.exception("evdev: on_key_press/release error")
 
         elif event.type == EV_REL:
