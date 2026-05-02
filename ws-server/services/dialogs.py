@@ -12,10 +12,11 @@ import zipfile
 from pathlib import Path
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QUrl, pyqtSignal
-from PyQt6.QtGui import QColor, QDesktopServices, QFontDatabase, QIcon, QMovie, QPainter
+from PyQt6.QtGui import QColor, QCursor, QDesktopServices, QFontDatabase, QIcon, QMovie, QPainter
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QComboBox,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -536,8 +537,12 @@ class _InstantTooltipMixin:
 
     def event(self, e):
         if e.type() == QEvent.Type.HoverEnter:
-            QToolTip.showText(self.mapToGlobal(self.rect().center()), self.toolTip(), self)
+            QToolTip.showText(QCursor.pos(), self.toolTip(), self)
             self._tooltip_shown = True
+            return True
+        if e.type() == QEvent.Type.HoverMove:
+            if self.toolTip():
+                QToolTip.showText(QCursor.pos(), self.toolTip(), self)
             return True
         if e.type() == QEvent.Type.HoverLeave:
             QToolTip.hideText()
@@ -567,6 +572,12 @@ class InstantTooltipLineEdit(_InstantTooltipMixin, QLineEdit):
 
 
 class InstantTooltipPushButton(_InstantTooltipMixin, QPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._init_instant_tooltip()
+
+
+class InstantTooltipComboBox(_InstantTooltipMixin, QComboBox):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._init_instant_tooltip()

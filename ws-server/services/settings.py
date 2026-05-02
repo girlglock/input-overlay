@@ -11,7 +11,6 @@ from PyQt6.QtGui import QIcon, QMovie
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
-    QComboBox,
     QFrame,
     QGroupBox,
     QHBoxLayout,
@@ -47,6 +46,7 @@ from services.dialogs import (
     CS16DisabledButton,
     GITHUB_RELEASES_URL,
     InstantTooltipCheckBox,
+    InstantTooltipComboBox,
     InstantTooltipLineEdit,
     TitleBar,
     UpdateChecker,
@@ -54,9 +54,62 @@ from services.dialogs import (
     _run_update_popup_process,
     dwm_sharp_corners,
 )
+from PyQt6.QtGui import QColor, QPainter
+from PyQt6.QtWidgets import QStyleOptionButton
+
+
+class CS16DisabledCheckBox(InstantTooltipCheckBox):
+    _SHADOW_COLOR   = QColor("#75806f")
+    _DISABLED_COLOR = QColor("#292c21")
+
+    def paintEvent(self, event) -> None:
+        if not self.isEnabled():
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+
+            opt = QStyleOptionButton()
+            self.initStyleOption(opt)
+            style = self.style()
+
+            check_size = style.pixelMetric(style.PixelMetric.PM_IndicatorWidth, opt, self)
+            check_h    = style.pixelMetric(style.PixelMetric.PM_IndicatorHeight, opt, self)
+            spacing    = style.pixelMetric(style.PixelMetric.PM_CheckBoxLabelSpacing, opt, self)
+
+            # Restrict the option rect to just the indicator box
+            from PyQt6.QtCore import QRect
+            indicator_rect = QRect(0, (self.height() - check_h) // 2, check_size, check_h)
+            opt.rect = indicator_rect
+            style.drawPrimitive(style.PrimitiveElement.PE_IndicatorCheckBox, opt, painter, self)
+
+            # Engraved label text
+            text_rect = self.rect().adjusted(check_size + spacing, 0, 0, 0)
+            painter.setFont(self.font())
+
+            from PyQt6.QtCore import Qt
+            align = Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+
+            painter.setPen(self._SHADOW_COLOR)
+            painter.drawText(text_rect.translated(1, 1), align, self.text())
+
+            painter.setPen(self._DISABLED_COLOR)
+            painter.drawText(text_rect, align, self.text())
+
+            painter.end()
+        else:
+            super().paintEvent(event)
 from services.utils import get_resource_path, is_autostart_enabled, set_autostart
 
 logger = logging.getLogger(__name__)
+
+
+def _is_admin() -> bool:
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False  #if check fails its not admin i guess
 
 
 def _get_analogsense_version() -> str:
@@ -200,6 +253,17 @@ class SettingsEditor(QMainWindow):
         self._title_bar = TitleBar("SETTINGS", self, minimizable=True)
         main_layout.addWidget(self._title_bar)
 
+        if sys.platform == "win32" and not _is_admin():
+            admin_warning = QLabel(
+                "[!] Not running as admin! You might also run into port issues.\n[!] Both keys and RawInputBuffer might not work correctly when tabbed into apps that run with admin elevations themselves.\n[!] Consider restarting as admin. Setting `Start with Windows` will automatically start the ws server with admin rights on the next boot."
+            )
+            admin_warning.setWordWrap(True)
+            admin_warning.setContentsMargins(10, 6, 10, 6)
+            admin_warning.setStyleSheet(
+                "color: #ffd080;"
+            )
+            main_layout.addWidget(admin_warning)
+
         content = QWidget()
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(15, 15, 15, 15)
@@ -282,7 +346,7 @@ class SettingsEditor(QMainWindow):
         device_lbl.setStyleSheet("color: #a0aa95; font-weight: normal; margin-top: 10px;")
         analog_layout.addWidget(device_lbl)
 
-        self.device_combo = QComboBox()
+        self.device_combo = InstantTooltipComboBox()
         self.device_combo.addItem("No device selected", None)
         for dev in self.get_analog_devices():
             self.device_combo.addItem(dev["name"], dev["id"])
@@ -312,8 +376,11 @@ class SettingsEditor(QMainWindow):
         app_layout.addWidget(self.balloon_checkbox)
 
         autostart_label = "Start with Windows" if sys.platform == "win32" else "Start on login"
-        self.autostart_checkbox = QCheckBox(autostart_label)
+        self.autostart_checkbox = CS16DisabledCheckBox(autostart_label)
         self.autostart_checkbox.setChecked(self.autostart_enabled)
+        if sys.platform == "win32" and not _is_admin():
+            self.autostart_checkbox.setEnabled(False)
+            self.autostart_checkbox.setToolTip("Admin startup is needed in order to create/remove the Scheduled Task")
         app_layout.addWidget(self.autostart_checkbox)
 
         if sys.platform == "win32":
@@ -329,7 +396,7 @@ class SettingsEditor(QMainWindow):
             mouse_row = QHBoxLayout()
             mouse_row.setSpacing(4)
 
-            self.linux_mouse_combo = QComboBox()
+            self.linux_mouse_combo = InstantTooltipComboBox()
             self.linux_mouse_combo.setToolTip(
                 "Select a raw evdev mouse device for the mouse_pad element\n"
                 "Linux has no RawInputBuffer API... this reads directly from /dev/input\n"
