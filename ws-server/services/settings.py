@@ -385,7 +385,7 @@ class SettingsEditor(QMainWindow):
 
         if sys.platform == "win32":
             self.raw_mouse_checkbox = InstantTooltipCheckBox("Enable RawInputBuffer reads from the Windows API\n(mouse movement for mouse_pad element)")
-            self.raw_mouse_checkbox.setToolTip("Sometimes requires the ws server to run with admin privileges depending on foreground window privileges")
+            self.raw_mouse_checkbox.setToolTip("[!] Requires the ws server to run with admin privileges depending on foreground window privileges\n[!] Also make sure your bindows is up to date, preferably Windows 11 25H2 or higher\n[!] (older versions may limit your `polling rate` when using RawInputBuffer from the background)")
             self.raw_mouse_checkbox.setChecked(self.raw_mouse_enabled)
             app_layout.addWidget(self.raw_mouse_checkbox)
         else:
