@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import select
 import threading
 import time
@@ -86,6 +87,12 @@ class RawMouseLinuxThread(threading.Thread):
             return
 
         logger.info("raw mouse linux: opened %s (%s)", self._device_path, dev.name)
+
+        try:
+            os.nice(5)
+            logger.debug("raw mouse linux: niceness set to %d", os.nice(0))
+        except OSError:
+            logger.debug("raw mouse linux: could not set niceness (not permitted)")
 
         flush_thread = threading.Thread(
             target=self._flush_loop,

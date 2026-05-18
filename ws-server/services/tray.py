@@ -453,11 +453,22 @@ def _apply_cpu_affinity(cpu_affinity) -> None:
         return
     try:
         import ctypes
+        import ctypes.wintypes as wt
+        k32 = ctypes.windll.kernel32
+        k32.GetCurrentProcess.restype  = wt.HANDLE
+        k32.GetCurrentProcess.argtypes = []
+        k32.SetProcessAffinityMask.restype  = wt.BOOL
+        k32.SetProcessAffinityMask.argtypes = [wt.HANDLE, ctypes.c_size_t]
+        k32.GetLastError.restype  = wt.DWORD
+        k32.GetLastError.argtypes = []
         mask = 0
         for core in cpu_affinity:
             mask |= 1 << core
-        ctypes.windll.kernel32.SetProcessAffinityMask(
-            ctypes.windll.kernel32.GetCurrentProcess(), mask
-        )
+        ok = k32.SetProcessAffinityMask(k32.GetCurrentProcess(), ctypes.c_size_t(mask))
+        if ok:
+            logger.info("cpu affinity set to cores %s (mask=0x%x)", cpu_affinity, mask)
+        else:
+            logger.warning("SetProcessAffinityMask failed (cores=%s mask=0x%x error=%d)",
+                           cpu_affinity, mask, k32.GetLastError())
     except Exception:
-        logger.warning("failed to set CPU affinity")
+        logger.warning("failed to set CPU affinity", exc_info=True)

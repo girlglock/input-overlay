@@ -24,6 +24,16 @@ RIDEV_REMOVE    = 0x00000001
 RID_INPUT       = 0x10000003
 WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_NOACTIVATE = 0x08000000
+HWND_MESSAGE    = -3
+THREAD_PRIORITY_IDLE          = -15
+THREAD_PRIORITY_LOWEST        = -2
+THREAD_PRIORITY_BELOW_NORMAL  = -1
+THREAD_PRIORITY_NORMAL        =  0
+THREAD_PRIORITY_ABOVE_NORMAL  =  1
+THREAD_PRIORITY_HIGHEST       =  2
+THREAD_PRIORITY_TIME_CRITICAL =  15
+PM_REMOVE       = 0x0001
+PM_NOREMOVE     = 0x0000
 
 
 class RAWINPUTDEVICE(ctypes.Structure):
@@ -55,8 +65,8 @@ class RAWINPUTHEADER(ctypes.Structure):
     _fields_ = [
         ("dwType",  wt.DWORD),
         ("dwSize",  wt.DWORD),
-        ("hDevice", wt.HANDLE),
-        ("wParam",  wt.WPARAM),
+        ("hDevice", ctypes.c_uint64),
+        ("wParam",  ctypes.c_uint64),
     ]
 
 
@@ -76,6 +86,15 @@ _WNDPROC = ctypes.WINFUNCTYPE(_LRESULT, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
 _kernel32.GetModuleHandleW.restype  = ctypes.c_void_p
 _kernel32.GetModuleHandleW.argtypes = [wt.LPCWSTR]
 
+_kernel32.GetCurrentThread.restype  = wt.HANDLE
+_kernel32.GetCurrentThread.argtypes = []
+
+_kernel32.SetThreadPriority.restype  = wt.BOOL
+_kernel32.SetThreadPriority.argtypes = [wt.HANDLE, ctypes.c_int]
+
+_kernel32.SetThreadPriorityBoost.restype  = wt.BOOL
+_kernel32.SetThreadPriorityBoost.argtypes = [wt.HANDLE, wt.BOOL]
+
 _user32.CreateWindowExW.restype  = wt.HWND
 _user32.CreateWindowExW.argtypes = [
     wt.DWORD,
@@ -92,30 +111,15 @@ _user32.CreateWindowExW.argtypes = [
 _user32.DefWindowProcW.restype  = _LRESULT
 _user32.DefWindowProcW.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
 
-_user32.GetRawInputData.restype  = wt.UINT
-_user32.GetRawInputData.argtypes = [
-    wt.HANDLE,
-    wt.UINT,
+_user32.WaitMessage.restype  = wt.BOOL
+_user32.WaitMessage.argtypes = []
+
+_user32.GetRawInputBuffer.restype  = wt.UINT
+_user32.GetRawInputBuffer.argtypes = [
     ctypes.c_void_p,
     ctypes.POINTER(wt.UINT),
     wt.UINT,
 ]
-
-
-def _get_raw_input(lParam: int) -> RAWINPUT | None:
-    buf_size = wt.UINT(0)
-    ret = _user32.GetRawInputData(lParam, RID_INPUT, None, ctypes.byref(buf_size), ctypes.sizeof(RAWINPUTHEADER))
-    if ret != 0:
-        logger.debug("raw_mouse: GetRawInputData (size query) returned %d, expected 0", ret)
-    if buf_size.value == 0:
-        logger.warning("raw_mouse: GetRawInputData reported 0 buffer size")
-        return None
-    buf = ctypes.create_string_buffer(buf_size.value)
-    filled = _user32.GetRawInputData(lParam, RID_INPUT, buf, ctypes.byref(buf_size), ctypes.sizeof(RAWINPUTHEADER))
-    if filled != buf_size.value:
-        logger.warning("raw_mouse: GetRawInputData size mismatch (got %d, expected %d)", filled, buf_size.value)
-        return None
-    return RAWINPUT.from_buffer_copy(buf)
 
 
 class RawMouseThread(threading.Thread):
@@ -136,8 +140,15 @@ class RawMouseThread(threading.Thread):
             _user32.PostMessageW(self._hwnd, WM_QUIT, 0, 0)
         self.join(timeout=2.0)
 
+    @staticmethod
+    def _set_background_priority():
+        h = _kernel32.GetCurrentThread()
+        _kernel32.SetThreadPriority(h, THREAD_PRIORITY_BELOW_NORMAL)
+        _kernel32.SetThreadPriorityBoost(h, True)
+
     def run(self):
         try:
+            self._set_background_priority()
             logger.debug("raw_mouse: thread starting, registering window class")
             self._hwnd = self._create_window()
             if not self._hwnd:
@@ -167,6 +178,7 @@ class RawMouseThread(threading.Thread):
             logger.info("raw_mouse: listener stopped")
 
     def _flush_loop(self):
+        self._set_background_priority()
         interval = 1.0 / self.FLUSH_HZ
         logger.debug("raw_mouse: flush loop running (interval=%.4fs)", interval)
         while True:
@@ -184,8 +196,6 @@ class RawMouseThread(threading.Thread):
 
     def _create_window(self) -> int | None:
         def _wnd_proc(hwnd, msg, wParam, lParam):
-            if msg == WM_INPUT:
-                self._on_wm_input(lParam)
             return _user32.DefWindowProcW(hwnd, msg, wParam, lParam)
 
         self._wnd_proc_ref = _WNDPROC(_wnd_proc)
@@ -217,7 +227,7 @@ class RawMouseThread(threading.Thread):
             WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
             class_name, None, 0,
             0, 0, 0, 0,
-            None, None, wc.hInstance, None,
+            HWND_MESSAGE, None, wc.hInstance, None,
         )
         if hwnd:
             logger.debug("raw_mouse: message window created successfully")
@@ -258,22 +268,52 @@ class RawMouseThread(threading.Thread):
                 ("time",    wt.DWORD),  ("pt",      wt.POINT),
             ]
 
+        _user32.PeekMessageW.restype  = wt.BOOL
+        _user32.PeekMessageW.argtypes = [
+            ctypes.POINTER(MSG), wt.HWND, wt.UINT, wt.UINT, wt.UINT,
+        ]
+
         logger.debug("raw_mouse: entering message pump")
         msg = MSG()
         msg_count = 0
-        while _user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
-            msg_count += 1
-            if msg_count <= 5:
-                logger.debug("raw_mouse: pump received message #%d (msg=0x%x)", msg_count, msg.message)
-            _user32.TranslateMessage(ctypes.byref(msg))
-            _user32.DispatchMessageW(ctypes.byref(msg))
-        logger.debug("raw_mouse: message pump exited (total messages processed: %d)", msg_count)
+        while True:
+            while _user32.PeekMessageW(ctypes.byref(msg), None, WM_INPUT, WM_INPUT, PM_NOREMOVE):
+                self._drain_raw_input_buffer()
 
-    def _on_wm_input(self, lParam: int):
-        ri = _get_raw_input(lParam)
-        if ri is None:
-            logger.debug("raw_mouse: _get_raw_input returned None")
-            return
+            while _user32.PeekMessageW(ctypes.byref(msg), None, 0, WM_INPUT - 1, PM_REMOVE):
+                msg_count += 1
+                if msg_count <= 5:
+                    logger.debug("raw_mouse: pump received message #%d (msg=0x%x)", msg_count, msg.message)
+                if msg.message == WM_QUIT:
+                    logger.debug("raw_mouse: message pump exited (total messages processed: %d)", msg_count)
+                    return
+                _user32.TranslateMessage(ctypes.byref(msg))
+                _user32.DispatchMessageW(ctypes.byref(msg))
+
+            _user32.WaitMessage()
+
+    def _drain_raw_input_buffer(self):
+        while True:
+            buf_size = wt.UINT(0)
+            if _user32.GetRawInputBuffer(None, ctypes.byref(buf_size), ctypes.sizeof(RAWINPUTHEADER)) != 0:
+                break
+            if buf_size.value == 0:
+                break
+
+            alloc = buf_size.value * 8
+            buf = ctypes.create_string_buffer(alloc)
+            buf_size.value = alloc
+            count = _user32.GetRawInputBuffer(buf, ctypes.byref(buf_size), ctypes.sizeof(RAWINPUTHEADER))
+            if count == 0 or count == 0xFFFFFFFF:
+                break
+            raw = bytes(buf)
+            offset = 0
+            for _ in range(count):
+                ri = RAWINPUT.from_buffer_copy(raw[offset:])
+                self._handle_rawinput(ri)
+                offset = (offset + ri.header.dwSize + 7) & ~7
+
+    def _handle_rawinput(self, ri: RAWINPUT):
         if ri.header.dwType != RIM_TYPEMOUSE:
             logger.debug("raw_mouse: ignoring non-mouse rawinput (dwType=%d)", ri.header.dwType)
             return
