@@ -70,7 +70,7 @@ export class OverlayVisualiser {
             } else {
                 const scaleY = this.pressScaleValue || 1.05;
                 const scaleX = this.pressScaleValue > 1 ? this._getPressScale(el) : scaleY;
-                el.style.setProperty("transform", `translateY(-2px) scale(${scaleX}, ${scaleY})`, "important");
+                el.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
             }
             activeSet.add(keyName);
         } else {
@@ -170,7 +170,7 @@ export class OverlayVisualiser {
             document.head.appendChild(styleEl);
         }
 
-        const activeTransform = this.analogMode ? "translateY(-2px) scaleX(1) scaleY(1)" : `translateY(-2px) scaleX(${pressscalevalue}) scaleY(${pressscalevalue})`;
+        const activeTransform = this.analogMode ? "scaleX(1) scaleY(1)" : `scaleX(${pressscalevalue}) scaleY(${pressscalevalue})`;
         const transitionStyle = this.analogMode
             ? `color ${animDuration} cubic-bezier(0.4,0,0.2,1), border-color ${animDuration} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDuration} cubic-bezier(0.4,0,0.2,1), transform 0.05s cubic-bezier(0.4,0,0.2,1)`
             : `all ${animDuration} cubic-bezier(0.4,0,0.2,1)`;
