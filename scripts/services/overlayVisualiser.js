@@ -68,9 +68,9 @@ export class OverlayVisualiser {
             } else if (keyName === "gp_lt" || keyName === "gp_rt") {
                 el.classList.add("analog-key");
             } else {
-                const t = `all ${this.animDuration || "0.15s"} cubic-bezier(0.4,0,0.2,1)`;
-                el.style.setProperty("transition", t, "important");
-                el.style.setProperty("transform", `scale(${this.pressScaleValue || 1.05})`, "important");
+                const scaleX = this._getPressScale(el);
+                const scaleY = this.pressScaleValue || 1.05;
+                el.style.setProperty("transform", `translateY(-2px) scale(${scaleX}, ${scaleY})`, "important");
             }
             activeSet.add(keyName);
         } else {
@@ -90,14 +90,19 @@ export class OverlayVisualiser {
                 const inv = el.querySelector(".key-label-inverted");
                 if (inv) inv.style.clipPath = "inset(100% 0 0 0)";
             } else {
-                const t = `all ${this.animDuration || "0.15s"} cubic-bezier(0.4,0,0.2,1)`;
-                el.style.setProperty("transition", t, "important");
-                el.style.setProperty("transform", "scale(1)", "important");
+                el.style.removeProperty("transform");
             }
 
             const map = this.previewElements?.keyElements.get(keyName) || this.previewElements?.mouseElements.get(keyName) || this.previewElements?.gamepadElements?.get(keyName);
             if (map && !map.some(e => this.activeElements.has(e))) activeSet.delete(keyName);
         }
+    }
+
+    _getPressScale(el) {
+        const style = getComputedStyle(el);
+        const keyWidth = parseFloat(style.getPropertyValue("--key-width")) || 50;
+        const modifier = parseFloat(style.getPropertyValue("--key-width-modifier")) || 1;
+        return 1 + (this.pressScaleValue - 1) * 50 / (keyWidth * modifier);
     }
 
     applyStyles(opts) {
@@ -165,7 +170,7 @@ export class OverlayVisualiser {
             document.head.appendChild(styleEl);
         }
 
-        const activeTransform = this.analogMode ? "translateY(-2px)" : `translateY(-2px) scale(${pressscalevalue})`;
+        const activeTransform = this.analogMode ? "translateY(-2px) scaleX(1) scaleY(1)" : `translateY(-2px) scaleX(${pressscalevalue}) scaleY(${pressscalevalue})`;
         const transitionStyle = this.analogMode
             ? `color ${animDuration} cubic-bezier(0.4,0,0.2,1), border-color ${animDuration} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDuration} cubic-bezier(0.4,0,0.2,1), transform 0.05s cubic-bezier(0.4,0,0.2,1)`
             : `all ${animDuration} cubic-bezier(0.4,0,0.2,1)`;
@@ -179,6 +184,7 @@ export class OverlayVisualiser {
                 --active-color: ${opts.activecolor};
                 --font-weight: ${fontWeight};
                 --gap-modifier: ${gapModifier};
+                --press-expansion: ${pressscalevalue - 1};
             }
             .key, .mouse-btn, .scroll-display {
                 border-radius: ${opts.borderradius}px !important;
@@ -192,7 +198,7 @@ export class OverlayVisualiser {
                 align-items: center !important;
                 justify-content: center !important;
                 border-width: ${opts.outlinescaleunpressed ?? 1}px !important;
-                transform: scale(1) !important;
+                transform: translateY(0) scaleX(1) scaleY(1) !important;
             }
             .key, .mouse-btn { overflow: hidden !important; }
             .scroll-display { overflow: visible !important; }
@@ -509,7 +515,9 @@ export class OverlayVisualiser {
                 display.style.zIndex = (++this.Z_INDEX_COUNTER).toString();
                 if (this.analogMode) {
                     display.style.setProperty("transition", `color ${animDur} cubic-bezier(0.4,0,0.2,1), background ${animDur} cubic-bezier(0.4,0,0.2,1), border-color ${animDur} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDur} cubic-bezier(0.4,0,0.2,1), transform 0.05s cubic-bezier(0.4,0,0.2,1)`, "important");
-                    display.style.setProperty("transform", `scale(${this.pressScaleValue || 1.05})`, "important");
+                    const scaleX = this._getPressScale(display);
+                    const scaleY = this.pressScaleValue || 1.05;
+                    display.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
                 }
             }
             display.classList.add("active");
@@ -588,8 +596,6 @@ export class OverlayVisualiser {
 
         const depthThreshold = 0.01;
         const effectiveDepth = depth < depthThreshold ? 0 : depth;
-        const maxScale = this.pressScaleValue || 1.05;
-        const scale = 1 + (maxScale - 1) * effectiveDepth;
 
         const unpressedWidth = this.outlineScaleUnpressed ?? 2;
         const pressedWidth = this.outlineScalePressed ?? 2;
@@ -608,7 +614,11 @@ export class OverlayVisualiser {
             if (effectiveDepth > 0) el.classList.add("analog-key");
             else if (!el.classList.contains("active")) el.classList.remove("analog-key");
 
-            el.style.setProperty("transform", `scale(${scale})`, "important");
+            const maxScaleX = this._getPressScale(el);
+            const maxScaleY = this.pressScaleValue || 1.05;
+            const scaleX = 1 + (maxScaleX - 1) * effectiveDepth;
+            const scaleY = 1 + (maxScaleY - 1) * effectiveDepth;
+            el.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
 
             const isDigitallyPressed = this.activeKeys.has(keyName) || this.activeGamepadButtons?.has(keyName);
             const fillHeight = effectiveDepth * 100;
