@@ -72,6 +72,7 @@ export class ConfiguratorMode {
             mousetrailm1highlight: false,
             mousepadtexture: "",
             mousepadtexturezoom: "1",
+            mousepadtextureopacity: "1",
             showmousedistance: false,
             mousedistancedpi: "400",
         });
@@ -128,6 +129,7 @@ export class ConfiguratorMode {
             mousetrailm1highlight: chk("mousetrailm1highlight"),
             mousepadtexture: val("mousepadtexture"),
             mousepadtexturezoom: val("mousepadtexturezoom") || "1",
+            mousepadtextureopacity: val("mousepadtextureopacity") || "1",
             showmousedistance: chk("showmousedistance"),
             mousedistancedpi: val("mousedistancedpi") || "400",
         };
@@ -221,6 +223,7 @@ export class ConfiguratorMode {
         applyValue("mousetrailm1highlight", settings.mousetrailm1highlight ?? false);
         applyValue("mousepadtexture", settings.mousepadtexture ?? "");
         applyValue("mousepadtexturezoom", settings.mousepadtexturezoom ?? "1");
+        applyValue("mousepadtextureopacity", settings.mousepadtextureopacity ?? "1");
         applyValue("showmousedistance", settings.showmousedistance ?? false);
         applyValue("mousedistancedpi", settings.mousedistancedpi ?? "400");
     }
@@ -258,7 +261,7 @@ export class ConfiguratorMode {
             const safeUrl = `${base}?cfg=${safeCompressed}`;
             window.history.replaceState({}, "", safeUrl);
             linkInput.value = `${base}?cfg=${compressed}&${wsParam}`;
-            console.clear();
+            //console.clear();
             console.log(`compressed params: ${compressed}`);
             console.log(`uncompressed params: ${paramsString}`);
         } else {

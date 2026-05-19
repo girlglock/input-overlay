@@ -33,6 +33,7 @@ export class OverlayVisualiser {
         this.MOUSEPAD_M1_HIGHLIGHT = false;
         this.MOUSEPAD_BG_TEXTURE = "";
         this.MOUSEPAD_TEXTURE_ZOOM = 1;
+        this.MOUSEPAD_TEXTURE_OPACITY = 1;
         this.MOUSEPAD_SHOW_DISTANCE = false;
         this.MOUSEPAD_DPI = 400;
         this._mousePadTotalDistancePx = 0;
@@ -44,6 +45,9 @@ export class OverlayVisualiser {
         this._mousePadTextureUrl = null;
         this._mousePadTexturePattern = null;
         this._mousePadTextureTintCanvas = null;
+        this._mousePadVideoEl = null;
+        this._mousePadWasLiveTrail = false;
+        this._mousePadTextureAnimated = false;
 
         this._activeColorRGB = null;
 
@@ -138,22 +142,55 @@ export class OverlayVisualiser {
 
         const newTextureUrl = opts.mousepadtexture || "";
         const newTextureZoom = parseFloat(opts.mousepadtexturezoom) || 1;
+        this.MOUSEPAD_TEXTURE_OPACITY = Math.min(1, Math.max(0, parseFloat(opts.mousepadtextureopacity) ?? 1));
         if (newTextureUrl !== this.MOUSEPAD_BG_TEXTURE || newTextureZoom !== this.MOUSEPAD_TEXTURE_ZOOM) {
             this.MOUSEPAD_BG_TEXTURE = newTextureUrl;
             this.MOUSEPAD_TEXTURE_ZOOM = newTextureZoom;
             this._mousePadTextureImg = null;
             this._mousePadTexturePattern = null;
             this._mousePadTextureTintCanvas = null;
+            this._mousePadTextureAnimated = false;
+            if (this._mousePadVideoEl) {
+                this._mousePadVideoEl.pause();
+                this._mousePadVideoEl.src = "";
+                this._mousePadVideoEl._domNode?.remove();
+                this._mousePadVideoEl = null;
+            }
             if (newTextureUrl) {
-                const img = new Image();
-                img.crossOrigin = "anonymous";
-                img.onload = () => {
-                    this._mousePadTextureImg = img;
-                    this._mousePadTexturePattern = null;
-                    this._mousePadTextureTintCanvas = null;
-                };
-                img.onerror = () => { this._mousePadTextureImg = null; };
-                img.src = newTextureUrl;
+                const ext = (newTextureUrl.split("?")[0].toLowerCase().match(/\.(\w+)$/) || [])[1] || "";
+                const isVideo = ext === "mp4" || ext === "webm" || ext === "ogg";
+                if (isVideo) {
+                    const video = document.createElement("video");
+                    video.muted = true;
+                    video.autoplay = true;
+                    video.loop = true;
+                    video.playsInline = true;
+                    video.crossOrigin = "anonymous";
+                    const node = document.createElement("div");
+                    node.style.cssText = "position:fixed;left:-9999px;top:-9999px;pointer-events:none";
+                    node.appendChild(video);
+                    document.body.appendChild(node);
+                    video._domNode = node;
+                    video.src = newTextureUrl;
+                    video.play().catch(() => { });
+                    this._mousePadVideoEl = video;
+                    this._mousePadTextureAnimated = true;
+                    if (!this.mousePadRafId && this.mousePadCtx)
+                        this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
+                } else {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.onload = () => {
+                        if (newTextureUrl !== this.MOUSEPAD_BG_TEXTURE) return;
+                        this._mousePadTextureImg = img;
+                        this._mousePadTexturePattern = null;
+                        this._mousePadTextureTintCanvas = null;
+                        if (!this.mousePadRafId && this.mousePadCtx)
+                            this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
+                    };
+                    img.onerror = () => { this._mousePadTextureImg = null; };
+                    img.src = newTextureUrl;
+                }
             }
         }
 
@@ -857,59 +894,91 @@ export class OverlayVisualiser {
 
         ctx.clearRect(0, 0, W, H);
 
-        if (this._mousePadTextureImg || this.MOUSEPAD_MODE === "pan") {
+        if (this._mousePadTextureImg || this._mousePadVideoEl || this.MOUSEPAD_MODE === "pan") {
             const [r, g, b] = this._activeColorRGB || [139, 92, 246];
             const tintColor = `rgba(${r},${g},${b},0.13)`;
 
-            if (this._mousePadTextureImg) {
-                const imgSrc = this._mousePadTextureImg;
-                const tw = imgSrc.naturalWidth || imgSrc.width;
-                const th = imgSrc.naturalHeight || imgSrc.height;
-                const needRebuild = !this._mousePadTextureTintCanvas ||
+            let texSrc = null;
+            let tw = 0, th = 0;
+            if (this._mousePadVideoEl) {
+                texSrc = this._mousePadVideoEl;
+                tw = this._mousePadVideoEl.videoWidth;
+                th = this._mousePadVideoEl.videoHeight;
+            } else if (this._mousePadTextureImg) {
+                texSrc = this._mousePadTextureImg;
+                tw = texSrc.naturalWidth || texSrc.width;
+                th = texSrc.naturalHeight || texSrc.height;
+            }
+
+            if (texSrc && tw > 0 && th > 0) {
+                const zoom = this.MOUSEPAD_TEXTURE_ZOOM || 1;
+                const dpr = (window.devicePixelRatio || 1) * 2;
+                const neededW = Math.round(tw * zoom * dpr);
+                const neededH = Math.round(th * zoom * dpr);
+
+                const needRebuild = this._mousePadTextureAnimated ||
+                    !this._mousePadTextureTintCanvas ||
+                    this._mousePadTextureTintCanvas.width !== neededW ||
+                    this._mousePadTextureTintCanvas.height !== neededH ||
                     this._mousePadTextureTintCanvas._tintColor !== tintColor ||
-                    this._mousePadTextureTintCanvas._srcImg !== imgSrc ||
-                    this._mousePadTextureTintCanvas._zoom !== (this.MOUSEPAD_TEXTURE_ZOOM || 1) ||
-                    this._mousePadTextureTintCanvas._dpr !== (window.devicePixelRatio || 1) * 2;
+                    this._mousePadTextureTintCanvas._zoom !== zoom ||
+                    this._mousePadTextureTintCanvas._dpr !== dpr;
 
                 if (needRebuild) {
-                    const zoom = this.MOUSEPAD_TEXTURE_ZOOM || 1;
-                    const dpr = (window.devicePixelRatio || 1) * 2;
-                    const tc = document.createElement("canvas");
-                    tc.width = Math.round(tw * zoom * dpr);
-                    tc.height = Math.round(th * zoom * dpr);
+                    let tc = this._mousePadTextureTintCanvas;
+                    if (!tc || tc.width !== neededW || tc.height !== neededH) {
+                        tc = document.createElement("canvas");
+                        tc.width = neededW;
+                        tc.height = neededH;
+                        this._mousePadTextureTintCanvas = tc;
+                        this._mousePadTexturePattern = null;
+                    }
                     const tc2d = tc.getContext("2d");
-                    tc2d.drawImage(imgSrc, 0, 0, tc.width, tc.height);
+                    tc2d.globalCompositeOperation = "source-over";
+                    tc2d.clearRect(0, 0, neededW, neededH);
+                    tc2d.drawImage(texSrc, 0, 0, neededW, neededH);
                     tc2d.globalCompositeOperation = "multiply";
                     tc2d.fillStyle = tintColor;
-                    tc2d.fillRect(0, 0, tc.width, tc.height);
+                    tc2d.fillRect(0, 0, neededW, neededH);
                     tc2d.globalCompositeOperation = "destination-in";
-                    tc2d.drawImage(imgSrc, 0, 0, tc.width, tc.height);
+                    tc2d.drawImage(texSrc, 0, 0, neededW, neededH);
+                    tc2d.globalCompositeOperation = "source-over";
                     tc._tintColor = tintColor;
-                    tc._srcImg = imgSrc;
                     tc._zoom = zoom;
                     tc._dpr = dpr;
-                    this._mousePadTextureTintCanvas = tc;
-                    this._mousePadTexturePattern = ctx.createPattern(tc, "repeat");
+                    if (!this._mousePadTextureAnimated)
+                        this._mousePadTexturePattern = ctx.createPattern(tc, "repeat");
                 }
 
-                if (this._mousePadTexturePattern) {
-                    const panX = this.MOUSEPAD_MODE === "pan" ? (this.MOUSEPAD_PAN_X || 0) : 0;
-                    const panY = this.MOUSEPAD_MODE === "pan" ? (this.MOUSEPAD_PAN_Y || 0) : 0;
-                    const tc = this._mousePadTextureTintCanvas;
-                    const tcDpr = tc?._dpr || 1;
-                    const tilW = tc ? tc.width / tcDpr : tw;
-                    const tilH = tc ? tc.height / tcDpr : th;
-                    const centerOffX = (W / 2 - tilW / 2);
-                    const centerOffY = (H / 2 - tilH / 2);
-                    const rawX = centerOffX + panX;
-                    const rawY = centerOffY + panY;
-                    const wrapX = ((rawX % tilW) + tilW) % tilW;
-                    const wrapY = ((rawY % tilH) + tilH) % tilH;
+                const tc = this._mousePadTextureTintCanvas;
+                const tcDpr = tc._dpr || 1;
+                const tilW = tc.width / tcDpr;
+                const tilH = tc.height / tcDpr;
+                const panX = this.MOUSEPAD_MODE === "pan" ? (this.MOUSEPAD_PAN_X || 0) : 0;
+                const panY = this.MOUSEPAD_MODE === "pan" ? (this.MOUSEPAD_PAN_Y || 0) : 0;
+                const centerOffX = W / 2 - tilW / 2;
+                const centerOffY = H / 2 - tilH / 2;
+                const rawX = centerOffX + panX;
+                const rawY = centerOffY + panY;
+                const wrapX = ((rawX % tilW) + tilW) % tilW;
+                const wrapY = ((rawY % tilH) + tilH) % tilH;
+
+                const opacity = this.MOUSEPAD_TEXTURE_OPACITY ?? 1;
+                if (opacity !== 1) ctx.globalAlpha = opacity;
+                if (this._mousePadTextureAnimated) {
+                    // Tile the pre-tinted canvas directly — no createPattern needed
+                    const startX = wrapX - tilW;
+                    const startY = wrapY - tilH;
+                    for (let y = startY; y < H; y += tilH)
+                        for (let x = startX; x < W; x += tilW)
+                            ctx.drawImage(tc, x, y, tilW, tilH);
+                } else if (this._mousePadTexturePattern) {
                     const mat = new DOMMatrix().scale(1 / tcDpr).translate(wrapX * tcDpr, wrapY * tcDpr);
                     this._mousePadTexturePattern.setTransform(mat);
                     ctx.fillStyle = this._mousePadTexturePattern;
                     ctx.fillRect(0, 0, W, H);
                 }
+                if (opacity !== 1) ctx.globalAlpha = 1;
             } else if (this.MOUSEPAD_MODE === "pan") {
                 const SZ = 12;
                 const panX = ((this.MOUSEPAD_PAN_X || 0) % (SZ * 2) + SZ * 2) % (SZ * 2);
@@ -1084,16 +1153,17 @@ export class OverlayVisualiser {
         const trailEmpty = this.mousePadTrail.length === 0;
         const hasLiveTrail = (!trailEmpty && (noFadeout ? true : idleFade > 0)) || (this.MOUSEPAD_SHOW_DISTANCE && !trailEmpty);
 
-        if (hasLiveTrail)
-            this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
-        else {
-            if (fullyFaded) this.mousePadTrail = [];
+        if (this._mousePadWasLiveTrail && !hasLiveTrail) {
             this.mousePadTrail = [];
             if (this.MOUSEPAD_MODE !== "pan") {
                 this.mousePadCursorX = null;
                 this.mousePadCursorY = null;
             }
         }
+        this._mousePadWasLiveTrail = hasLiveTrail;
+
+        if (hasLiveTrail || this._mousePadTextureAnimated)
+            this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
     }
 
     _mousePadColor(alpha) {

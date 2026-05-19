@@ -117,6 +117,9 @@ export class UrlManager {
         if (settings.mousepadtexturezoom && parseFloat(settings.mousepadtexturezoom) !== 1) {
             addParam("mousepadtexturezoom", settings.mousepadtexturezoom);
         }
+        if (settings.mousepadtextureopacity && parseFloat(settings.mousepadtextureopacity) !== 1) {
+            addParam("mousepadtextureopacity", settings.mousepadtextureopacity);
+        }
         if (settings.showmousedistance === true || settings.showmousedistance === "true" || settings.showmousedistance === "1") {
             params.push("showmousedistance=1");
         }
@@ -176,6 +179,7 @@ export class UrlManager {
                     mousetrailm1highlight: decompressedParams.get("mousetrailm1highlight") === "1",
                     mousepadtexture: decompressedParams.get("mousepadtexture") ? decodeURIComponent(decompressedParams.get("mousepadtexture")) : "",
                     mousepadtexturezoom: decompressedParams.get("mousepadtexturezoom") || "1",
+                    mousepadtextureopacity: decompressedParams.get("mousepadtextureopacity") || "1",
                     showmousedistance: decompressedParams.get("showmousedistance") === "1",
                     mousedistancedpi: decompressedParams.get("mousedistancedpi") || "400",
                     customLayoutRow1: decompressedParams.has("customLayoutRow1") ? decompressedParams.get("customLayoutRow1") : DEFAULT_LAYOUT_STRINGS.row1,
@@ -221,6 +225,7 @@ export class UrlManager {
             mousetrailm1highlight: params.get("mousetrailm1highlight") === "1",
             mousepadtexture: params.get("mousepadtexture") ? decodeURIComponent(params.get("mousepadtexture")) : "",
             mousepadtexturezoom: params.get("mousepadtexturezoom") || "1",
+            mousepadtextureopacity: params.get("mousepadtextureopacity") || "1",
             showmousedistance: params.get("showmousedistance") === "1",
             mousedistancedpi: params.get("mousedistancedpi") || "400",
             customLayoutRow1: params.has("customLayoutRow1") ? params.get("customLayoutRow1") : DEFAULT_LAYOUT_STRINGS.row1,
