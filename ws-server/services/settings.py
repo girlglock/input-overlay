@@ -639,7 +639,7 @@ class SettingsEditor(QMainWindow):
         if sys.platform == "win32":
             return
         try:
-            from services.rawinput_linux import enum_raw_mouse_devices
+            from services.linux.input_mouse_move import enum_raw_mouse_devices
             mouse_devs = enum_raw_mouse_devices()
         except Exception:
             mouse_devs = []
