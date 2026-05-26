@@ -1,5 +1,4 @@
 websockets
-pynput; sys_platform == "win32"
 pystray
 Pillow==12.2.0
 pyperclip
