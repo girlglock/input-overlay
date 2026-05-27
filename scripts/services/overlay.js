@@ -9,6 +9,7 @@ export class OverlayMode {
 
         document.getElementById("configurator").style.display = "none";
         document.getElementById("overlay").classList.add("show");
+        document.body.classList.add("overlay-mode");
         const statusEl = document.getElementById("status");
 
         const settings = this.urlManager.getOverlaySettings();
