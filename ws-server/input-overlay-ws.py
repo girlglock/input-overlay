@@ -89,6 +89,7 @@ class InputOverlayServer:
         self.authenticated_clients: Set[websockets.WebSocketServerProtocol] = set()
 
         self._input_listener   = None
+        self._input_watchpuppy_task = None
         self.running           = False
         self.loop: asyncio.AbstractEventLoop | None = None
         self.message_queue     = Queue()
@@ -475,10 +476,22 @@ class InputOverlayServer:
         self._input_listener.start()
 
     def stop_input_listeners(self) -> None:
+        if self._input_watchpuppy_task:
+            self._input_watchpuppy_task.cancel()
+            self._input_watchpuppy_task = None
         listener = getattr(self, "_input_listener", None)
         if listener:
             listener.stop()
             self._input_listener = None
+
+    async def _input_listener_watchpuppy(self) -> None:
+        while self.running:
+            await asyncio.sleep(5)
+            listener = self._input_listener
+            if listener is not None and not listener.is_alive():
+                logger.warning("rawinputbuffer: listener doid :c restarting...")
+                self._input_listener = None
+                self.start_input_listeners()
 
     def start_raw_mouse(self) -> None:
         if not RAW_MOUSE_AVAILABLE:
@@ -678,6 +691,7 @@ class InputOverlayServer:
         self.start_http_server()
         self.queue_processor_task = asyncio.create_task(self.process_message_queue())
         self.start_input_listeners()
+        self._input_watchpuppy_task = asyncio.create_task(self._input_listener_watchpuppy())
         self.start_analog_support()
         if sys.platform != "win32" and self.linux_raw_mouse_device:
             self.start_raw_mouse()
