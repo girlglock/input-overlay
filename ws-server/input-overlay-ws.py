@@ -399,6 +399,7 @@ class InputOverlayServer:
         FLUSH_INTERVAL = 1.0 / RAW_MOUSE_FLUSH_HZ
         last_flush = asyncio.get_event_loop().time()
         pending_dx = pending_dy = 0
+        pending_events: list = []
         while self.running:
             try:
                 now = asyncio.get_event_loop().time()
@@ -411,10 +412,14 @@ class InputOverlayServer:
                         pending_dx += msg.get("dx", 0)
                         pending_dy += msg.get("dy", 0)
                     else:
+                        pending_events.append(msg)
+                if (now - last_flush) >= FLUSH_INTERVAL:
+                    for msg in pending_events:
                         await self.broadcast(msg)
-                if (pending_dx or pending_dy) and (now - last_flush) >= FLUSH_INTERVAL:
-                    await self.broadcast({"event_type": "mouse_moved", "dx": pending_dx, "dy": pending_dy})
-                    pending_dx = pending_dy = 0
+                    pending_events.clear()
+                    if pending_dx or pending_dy:
+                        await self.broadcast({"event_type": "mouse_moved", "dx": pending_dx, "dy": pending_dy})
+                        pending_dx = pending_dy = 0
                     last_flush = now
                 await asyncio.sleep(0.001)
             except Exception as e:
