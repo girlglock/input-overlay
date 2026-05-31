@@ -326,18 +326,16 @@ class RawInputBuffer(threading.Thread):
         )
 
     def _pump(self) -> None:
+        interval = 1.0 / self.FLUSH_HZ
         msg = _MSG()
         while True:
-            while _user32.PeekMessageW(ctypes.byref(msg), None, WM_INPUT, WM_INPUT, PM_NOREMOVE):
-                self._drain_buffer()
-
+            time.sleep(interval)
+            self._drain_buffer()
             while _user32.PeekMessageW(ctypes.byref(msg), None, 0, WM_INPUT - 1, PM_REMOVE):
                 if msg.message == WM_QUIT:
                     return
                 _user32.TranslateMessage(ctypes.byref(msg))
                 _user32.DispatchMessageW(ctypes.byref(msg))
-
-            _user32.WaitMessage()
 
     def _drain_buffer(self) -> None:
         while True:
