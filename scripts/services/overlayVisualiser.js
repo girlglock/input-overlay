@@ -106,7 +106,7 @@ export class OverlayVisualiser {
         const style = getComputedStyle(el);
         const keyWidth = parseFloat(style.getPropertyValue("--key-width")) || 50;
         const modifier = parseFloat(style.getPropertyValue("--key-width-modifier")) || 1;
-        return 1 + (this.pressScaleValue - 1) * 50 / (keyWidth * modifier);
+        return 1 + (this.pressScaleValue - 1) * 50 / Math.max(keyWidth * modifier, 25);
     }
 
     applyStyles(opts) {
