@@ -47,6 +47,9 @@ class AnalogHandler:
         self._lock          = threading.Lock()
 
     def start(self, device_id: str) -> None:
+        threading.Thread(target=self._start_bg, args=(device_id,), daemon=True).start()
+
+    def _start_bg(self, device_id: str) -> None:
         with self._lock:
             if self._running:
                 logger.debug("analog handler already running")

@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import threading
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QSize, QTimer, Qt, pyqtSignal
@@ -30,6 +31,9 @@ from services.consts import (
     RAW_CODE_TO_KEY_NAME,
     WS_SERVER_VERSION,
 )
+
+_EVDEV_AVAILABLE = False
+_EvdevInputListener = None
 
 if sys.platform == "win32":
     try:
@@ -126,6 +130,7 @@ def _get_analogsense_version() -> str:
 class InputSignals(QObject):
     key_detected   = pyqtSignal(str)
     stop_listening = pyqtSignal()
+    devices_ready  = pyqtSignal(list)
 
 class SettingsEditor(QMainWindow):
     def __init__(self, config_path: str) -> None:
@@ -145,6 +150,7 @@ class SettingsEditor(QMainWindow):
 
         self.signals.key_detected.connect(self.on_key_detected)
         self.signals.stop_listening.connect(self.stop_listening)
+        self.signals.devices_ready.connect(self._on_devices_ready)
 
         self.load_config()
         self.setup_ui()
@@ -331,14 +337,9 @@ class SettingsEditor(QMainWindow):
         analog_layout.addWidget(device_lbl)
 
         self.device_combo = InstantTooltipComboBox()
-        self.device_combo.addItem("No device selected", None)
-        for dev in self.get_analog_devices():
-            self.device_combo.addItem(dev["name"], dev["id"])
-        if self.analog_device:
-            idx = self.device_combo.findData(self.analog_device)
-            if idx >= 0:
-                self.device_combo.setCurrentIndex(idx)
-        self.device_combo.setEnabled(self.analog_enabled)
+        self.device_combo.addItem("Scanning...", None)
+        self.device_combo.setEnabled(False)
+        threading.Thread(target=self._scan_devices_bg, daemon=True).start()
 
         device_row = QHBoxLayout()
         device_row.setSpacing(4)
@@ -625,15 +626,41 @@ class SettingsEditor(QMainWindow):
         self.device_combo.setEnabled(state == Qt.CheckState.Checked.value)
 
     def refresh_devices(self) -> None:
+        self.device_combo.setEnabled(False)
+        self.device_combo.clear()
+        self.device_combo.addItem("Scanning...", None)
+        threading.Thread(target=self._scan_devices_bg, daemon=True).start()
+
+    def _scan_devices_bg(self) -> None:
+        result: list = []
+        done = threading.Event()
+
+        def _do():
+            result.extend(self.get_analog_devices())
+            done.set()
+
+        t = threading.Thread(target=_do, daemon=True)
+        t.start()
+        finished = done.wait(timeout=8.0)
+        if not finished:
+            logger.warning("analog scan pooped itself because it took too long... a device might be in a bad state try reconnecting it...")
+        self.signals.devices_ready.emit(result)
+
+    def _on_devices_ready(self, devices: list) -> None:
         current = self.device_combo.currentData()
         self.device_combo.clear()
         self.device_combo.addItem("No device selected", None)
-        for dev in self.get_analog_devices():
+        for dev in devices:
             self.device_combo.addItem(dev["name"], dev["id"])
-        if current:
+        if self.analog_device:
+            idx = self.device_combo.findData(self.analog_device)
+            if idx >= 0:
+                self.device_combo.setCurrentIndex(idx)
+        elif current:
             idx = self.device_combo.findData(current)
             if idx >= 0:
                 self.device_combo.setCurrentIndex(idx)
+        self.device_combo.setEnabled(self.analog_checkbox.isChecked())
 
     def _populate_linux_mouse_combo(self) -> None:
         if sys.platform == "win32":
