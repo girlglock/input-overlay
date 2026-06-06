@@ -797,29 +797,32 @@
                         <div class="cfg-section">
                             <div class="cfg-section-title">mouse pad<div class="cs-hr"></div>
                             </div>
-                            <div class="cfg-slider-quad">
-                                <div class="cfg-field" id="mousetrailmode-field" style="margin-top:8px">
-                                    <label class="cfg-label" for="mousetrailmode">mode</label>
-                                    <select id="mousetrailmode" class="cfg-select config-input">
-                                        <option value="wrap">wrap</option>
-                                        <option value="pan">pan</option>
-                                    </select>
+                            <div class="cfg-checkboxes">
+                                <div style="display: flex; gap: 10px">
+                                    <div class="cfg-field" id="mousetrailmode-field" style="margin-top:8px">
+                                        <label class="cfg-label" for="mousetrailmode">mode</label>
+                                        <select id="mousetrailmode" class="cfg-select config-input">
+                                            <option value="wrap">wrap</option>
+                                            <option value="pan">pan</option>
+                                        </select>
+                                    </div>
+                                    <label class="cfg-checkbox" style="margin-top:25px">
+                                        <input type="checkbox" class="config-input" id="mousetrailm1highlight">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label">highlight m1 in trail</span>
+                                    </label>
+                                    <label class="cfg-checkbox" style="margin-top:25px">
+                                        <input type="checkbox" class="config-input" id="showmousedistance">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label">show dist tracker</span>
+                                    </label>
+                                    <label class="cfg-checkbox" style="margin-top:25px">
+                                        <input type="checkbox" class="config-input" id="resetmousedistanceafterfade">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label" id="resetmousedistanceafterfadelabel">reset
+                                            dist tracker after fadeout</span>
+                                    </label>
                                 </div>
-                                <label class="cfg-checkbox" style="margin-top:25px">
-                                    <input type="checkbox" class="config-input" id="mousetrailm1highlight">
-                                    <span class="cfg-checkbox-box"></span>
-                                    <span class="cfg-checkbox-label">highlight m1 in trail</span>
-                                </label>
-                                <label class="cfg-checkbox" style="margin-top:25px">
-                                    <input type="checkbox" class="config-input" id="showmousedistance">
-                                    <span class="cfg-checkbox-box"></span>
-                                    <span class="cfg-checkbox-label">show dist tracker</span>
-                                </label>
-                                <label class="cfg-checkbox" style="margin-top:25px">
-                                    <input type="checkbox" class="config-input" id="resetmousedistanceafterfade">
-                                    <span class="cfg-checkbox-box"></span>
-                                    <span class="cfg-checkbox-label" id="resetmousedistanceafterfadelabel">reset dist tracker after fadeout</span>
-                                </label>
                             </div>
                             <div class="cfg-slider-pair">
                                 <div class="cfg-slider-field">
