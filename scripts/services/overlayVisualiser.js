@@ -121,6 +121,7 @@ export class OverlayVisualiser {
 
         this.pressScaleValue = pressscalevalue;
         this.animDuration = animDuration;
+        this.scrollHoldMs = Math.round(250 * (100 / parseInt(opts.animationspeed)));
         this.activeColor = opts.activecolor;
         this.activeBgColor = opts.activebgcolor;
         this.backgroundcolor = opts.backgroundcolor;
@@ -609,7 +610,7 @@ export class OverlayVisualiser {
                 display.classList.remove("active");
                 if (this.analogMode) display.style.setProperty("transform", "scale(1)", "important");
             }
-        }, 250);
+        }, this.scrollHoldMs || 250);
     }
 
     adjustKeyFontSizes(unpressedBorderWidth = 0) {
