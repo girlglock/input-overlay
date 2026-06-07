@@ -849,6 +849,79 @@ li {
     border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
 }
 
+.cfg-raw-toggle {
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+.cfg-raw-toggle.is-raw {
+    color: var(--accent);
+    border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+}
+
+.cfg-tags-container {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-raised);
+    border: 1px solid;
+    border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+    padding: 4px;
+    min-height: 44px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-content: flex-start;
+}
+
+.cfg-tag {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-raised);
+    border: 1px solid;
+    border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+    padding: 1px 2px 1px 5px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-muted);
+    gap: 2px;
+    max-width: 100%;
+}
+
+.cfg-tag-label {
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cfg-tag-label:hover {
+    color: var(--accent);
+}
+
+.cfg-tag-remove {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 0 1px;
+    font-size: 13px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.cfg-tag-remove:hover {
+    color: var(--red);
+}
+
+.cfg-tags-placeholder {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: var(--font-ui);
+    font-style: italic;
+    padding: 2px 1px;
+    align-self: center;
+}
+
 .cfg-analog-status {
     margin-top: 6px;
     font-size: 10px;

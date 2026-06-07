@@ -12,6 +12,7 @@ export class ConfiguratorMode {
     constructor(utils, urlManager, layoutParser, visualizer) {
         this.utils = utils;
         this.urlManager = urlManager;
+        this.layoutParser = layoutParser;
         this.visualizer = visualizer;
         this.pickrInstances = {};
         this.urlDebounceTimer = null;
@@ -36,6 +37,7 @@ export class ConfiguratorMode {
 
         this.setupConfigInputs();
         this.setupKeyAddButtons();
+        this.setupTagContainers();
         this.setupPreviewInputListeners();
         this.setupAnalogSense();
         this.updateState();
@@ -234,6 +236,7 @@ export class ConfiguratorMode {
     updateState(settings = null) {
         if (!settings) settings = this.getCurrentSettings();
         this.visualizer.applyStyles(settings, true);
+        this.renderAllTags();
 
         const THROTTLE_MS = 100;
         const now = performance.now();
@@ -677,6 +680,7 @@ export class ConfiguratorMode {
         const anchorSelect = document.getElementById("popupAnchorSelect");
 
         let currentTargetRow = null, originalValue = "", isUpdating = false;
+        let editingIndex = null, editingParts = [];
 
         const updateKeyString = () => {
             if (isUpdating) return;
@@ -746,7 +750,13 @@ export class ConfiguratorMode {
 
             const targetInput = document.getElementById(`customLayout${currentTargetRow}`);
             if (targetInput) {
-                targetInput.value = originalValue ? `${originalValue}, ${keyString}` : keyString;
+                if (editingIndex !== null) {
+                    const newParts = [...editingParts];
+                    newParts[editingIndex] = keyString;
+                    targetInput.value = newParts.join(", ");
+                } else {
+                    targetInput.value = originalValue ? `${originalValue}, ${keyString}` : keyString;
+                }
                 targetInput.dispatchEvent(new Event("input", { bubbles: true }));
             }
         };
@@ -850,6 +860,9 @@ export class ConfiguratorMode {
             const btn = document.getElementById(buttonId);
             if (!btn) continue;
             btn.addEventListener("click", () => {
+                editingIndex = null;
+                editingParts = [];
+                addBtn.textContent = "add key";
                 isUpdating = false;
                 currentTargetRow = rowId;
                 originalValue = (document.getElementById(`customLayout${rowId}`)?.value || "").trim();
@@ -878,16 +891,237 @@ export class ConfiguratorMode {
             });
         }
 
+        const prefillFromRaw = (raw) => {
+            const item = this.layoutParser.parseElementDef(raw.trim());
+            if (!item) return;
+            isUpdating = true;
+
+            const setType = (val) => { keySelect.value = val; keySelect.dispatchEvent(new Event("change")); };
+
+            switch (item.type) {
+                case "scroller":
+                    setType("scroller");
+                    document.getElementById("popupScrollerDefault").value = item.labels?.[0] || "M3";
+                    document.getElementById("popupScrollerUp").value = item.labels?.[1] || "🡅";
+                    document.getElementById("popupScrollerDown").value = item.labels?.[2] || "🡇";
+                    break;
+                case "scroll_updown":
+                    setType("scroll_updown");
+                    document.getElementById("popupScrollUpDownUp").value = item.labels?.[0] || "🡅";
+                    document.getElementById("popupScrollUpDownDown").value = item.labels?.[1] || "🡇";
+                    break;
+                case "scroll_up":
+                    setType("scroll_up");
+                    labelInput.value = item.label || "🡅";
+                    break;
+                case "scroll_down":
+                    setType("scroll_down");
+                    labelInput.value = item.label || "🡇";
+                    break;
+                case "mouse_side":
+                    setType("mouse_side");
+                    document.getElementById("popupMouseSideM5").value = item.labels?.[0] || "M5";
+                    document.getElementById("popupMouseSideM4").value = item.labels?.[1] || "M4";
+                    break;
+                case "mouse_pad":
+                    setType("mouse_pad");
+                    widthSlider.value = this.widthClassToSlider(item.widthClass);
+                    heightSlider.value = this.widthClassToSlider(item.heightClass);
+                    anchorSelect.value = item.anchor || "a-tl";
+                    widthValue.textContent = `${(parseInt(widthSlider.value) / 100).toFixed(2)}u`;
+                    heightValue.textContent = `${(parseInt(heightSlider.value) / 100).toFixed(2)}u`;
+                    break;
+                case "gp_joystick":
+                    setType(item.stickId);
+                    widthSlider.value = this.widthClassToSlider(item.widthClass);
+                    heightSlider.value = this.widthClassToSlider(item.heightClass);
+                    anchorSelect.value = item.anchor || "a-tl";
+                    widthValue.textContent = `${(parseInt(widthSlider.value) / 100).toFixed(2)}u`;
+                    heightValue.textContent = `${(parseInt(heightSlider.value) / 100).toFixed(2)}u`;
+                    break;
+                case "dummy":
+                    setType("dummy");
+                    break;
+                case "br":
+                    setType("br");
+                    break;
+                default: {
+                    if (item.class?.includes("invisible") && !item.key) { setType("invisible"); break; }
+                    const keyVal = item.key || "key_a";
+                    setType(keyVal);
+                    labelInput.value = item.label || "";
+                    const wcls = (item.class || "").split(" ").find(c => /^u[\d-]+$/.test(c)) || "";
+                    widthSlider.value = this.widthClassToSlider(wcls);
+                    widthValue.textContent = `${(parseInt(widthSlider.value) / 100).toFixed(2)}u`;
+                }
+            }
+
+            isUpdating = false;
+        };
+
+        const openPopupForEdit = (rowId, idx, parts, raw) => {
+            editingIndex = idx;
+            editingParts = [...parts];
+            currentTargetRow = rowId;
+            originalValue = document.getElementById(`customLayout${rowId}`)?.value || "";
+            addBtn.textContent = "update key";
+
+            const ROW_TO_BTN = { Row1: "addKey1", Row2: "addKey2", Row3: "addKey3", Row4: "addKey4", Row5: "addKey5", Mouse: "addKeyMouse" };
+            const triggerBtn = document.getElementById(ROW_TO_BTN[rowId]);
+            const rect = triggerBtn?.getBoundingClientRect() || { left: 100, right: 110, top: 100 };
+            const pw = 340, ph = 400;
+            let left = rect.left - pw, top = rect.top;
+            if (left < 10) left = rect.right + 10;
+            if (left + pw > window.innerWidth - 10) left = Math.max(10, (window.innerWidth - pw) / 2);
+            if (top + ph > window.innerHeight - 10) top = Math.max(10, window.innerHeight - ph - 10);
+            if (top < 10) top = 10;
+
+            popup.style.cssText = `display:block;left:${left}px;top:${top}px;`;
+            scrollerLabels.style.display = "none";
+            scrollUpDownLabels.style.display = "none";
+            mouseSideLabels.style.display = "none";
+            anchorField.style.display = "none";
+            heightField.style.display = "none";
+            labelInput.parentElement.style.display = "block";
+            prefillFromRaw(raw);
+        };
+
+        this._openPopupForEdit = openPopupForEdit;
+
         const cancelPopup = () => {
+            editingIndex = null;
+            editingParts = [];
+            addBtn.textContent = "add key";
             isUpdating = true;
             const inp = document.getElementById(`customLayout${currentTargetRow}`);
             if (inp) { inp.value = originalValue; inp.dispatchEvent(new Event("input", { bubbles: true })); }
             popup.style.display = "none";
         };
 
-        addBtn.addEventListener("click", () => { popup.style.display = "none"; });
+        addBtn.addEventListener("click", () => {
+            editingIndex = null;
+            editingParts = [];
+            addBtn.textContent = "add key";
+            popup.style.display = "none";
+        });
         cancelBtn.addEventListener("click", cancelPopup);
         popup.addEventListener("click", (e) => { if (e.target === popup) cancelPopup(); });
+    }
+
+    widthClassToSlider(cls) {
+        if (!cls) return 100;
+        const m = /^u(\d+)(?:-(\d+))?$/.exec(cls);
+        if (!m) return 100;
+        const intPart = parseInt(m[1]);
+        if (!m[2]) return intPart * 100;
+        const decVal = m[2].length === 1 ? parseInt(m[2]) * 10 : parseInt(m[2]);
+        return intPart * 100 + decVal;
+    }
+
+    getTagLabel(item) {
+        if (!item) return "?";
+        switch (item.type) {
+            case "dummy": return "dummy";
+            case "br": return "↵ br";
+            case "scroller": return `scroller`;
+            case "scroll_updown": return `${item.labels?.[0] || "↑"}/${item.labels?.[1] || "↓"}`;
+            case "scroll_up": return item.label || "↑";
+            case "scroll_down": return item.label || "↓";
+            case "mouse_side": return `M4/M5`;
+            case "mouse_pad": return "mouse pad";
+            case "gp_joystick": return item.stickId === "gp_ls" ? "L stick" : "R stick";
+            default: return item.label || item.key || "?";
+        }
+    }
+
+    setupTagContainers() {
+        const rows = ["Row1", "Row2", "Row3", "Row4", "Row5", "Mouse"];
+        for (const rowId of rows) {
+            const textarea = document.getElementById(`customLayout${rowId}`);
+            if (!textarea) continue;
+
+            const container = document.createElement("div");
+            container.className = "cfg-tags-container";
+            container.dataset.rowId = rowId;
+            textarea.parentElement.insertBefore(container, textarea);
+            textarea.style.display = "none";
+
+            const toggleBtn = document.createElement("button");
+            toggleBtn.className = "cfg-addbtn cfg-raw-toggle";
+            toggleBtn.title = "edit raw syntax";
+            toggleBtn.textContent = "✎";
+            textarea.parentElement.appendChild(toggleBtn);
+
+            toggleBtn.addEventListener("click", () => {
+                const isRaw = textarea.style.display !== "none";
+                if (isRaw) {
+                    textarea.style.display = "none";
+                    container.style.display = "";
+                    toggleBtn.classList.remove("is-raw");
+                    toggleBtn.title = "edit raw syntax";
+                } else {
+                    textarea.style.display = "";
+                    container.style.display = "none";
+                    toggleBtn.classList.add("is-raw");
+                    toggleBtn.title = "show tags";
+                    textarea.focus();
+                }
+            });
+        }
+    }
+
+    renderTags(rowId) {
+        const textarea = document.getElementById(`customLayout${rowId}`);
+        const container = document.querySelector(`.cfg-tags-container[data-row-id="${rowId}"]`);
+        if (!textarea || !container) return;
+
+        const rawValue = textarea.value.trim();
+        const parts = rawValue ? rawValue.split(/\s*,\s*/) : [];
+        const items = parts.map(p => this.layoutParser.parseElementDef(p));
+
+        container.innerHTML = "";
+
+        if (!parts.length) {
+            const placeholder = document.createElement("span");
+            placeholder.className = "cfg-tags-placeholder";
+            placeholder.textContent = "empty";
+            container.appendChild(placeholder);
+            return;
+        }
+
+        parts.forEach((raw, idx) => {
+            const item = items[idx];
+
+            const tag = document.createElement("span");
+            tag.className = "cfg-tag";
+
+            const labelEl = document.createElement("span");
+            labelEl.className = "cfg-tag-label";
+            labelEl.textContent = item ? this.getTagLabel(item) : raw;
+            labelEl.title = raw;
+            labelEl.addEventListener("click", () => {
+                if (this._openPopupForEdit) this._openPopupForEdit(rowId, idx, parts, raw);
+            });
+
+            const removeBtn = document.createElement("button");
+            removeBtn.className = "cfg-tag-remove";
+            removeBtn.textContent = "×";
+            removeBtn.title = "Remove";
+            removeBtn.addEventListener("click", () => {
+                const newParts = parts.filter((_, i) => i !== idx);
+                textarea.value = newParts.join(", ") || "dummy";
+                textarea.dispatchEvent(new Event("input", { bubbles: true }));
+            });
+
+            tag.appendChild(labelEl);
+            tag.appendChild(removeBtn);
+            container.appendChild(tag);
+        });
+    }
+
+    renderAllTags() {
+        for (const rowId of ["Row1", "Row2", "Row3", "Row4", "Row5", "Mouse"])
+            this.renderTags(rowId);
     }
 
     getWidthClass(value) {
