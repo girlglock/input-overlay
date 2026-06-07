@@ -659,6 +659,7 @@ export class ConfiguratorMode {
         const addBtn = document.getElementById("popupAddBtn");
         const cancelBtn = document.getElementById("popupCancelBtn");
         const scrollerLabels = document.getElementById("popupScrollerLabels");
+        const scrollUpDownLabels = document.getElementById("popupScrollUpDownLabels");
         const mouseSideLabels = document.getElementById("popupMouseSideLabels");
         const anchorField = document.getElementById("popupAnchorField");
         const anchorSelect = document.getElementById("popupAnchorSelect");
@@ -671,32 +672,64 @@ export class ConfiguratorMode {
             let keyString;
             const widthClass = this.getWidthClass(parseInt(widthSlider.value));
 
-            if (keyName === "scroller") {
-                const def = document.getElementById("popupScrollerDefault").value || "M3";
-                const up = document.getElementById("popupScrollerUp").value || "🡅";
-                const down = document.getElementById("popupScrollerDown").value || "🡇";
-                keyString = widthClass
-                    ? `scroller:"${def}":"${up}":"${down}":${widthClass}`
-                    : `scroller:"${def}":"${up}":"${down}"`;
-            } else if (keyName === "mouse_side") {
-                const m5 = document.getElementById("popupMouseSideM5").value || "M5";
-                const m4 = document.getElementById("popupMouseSideM4").value || "M4";
-                keyString = widthClass ? `mouse_side:"${m5}":"${m4}":${widthClass}` : `mouse_side:"${m5}":"${m4}"`;
-            } else if (keyName === "mouse_pad") {
-                const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
-                const anchor = anchorSelect.value;
-                keyString = `mouse_pad:${widthClass || "u1"}:${hClass}:${anchor}`;
-            } else if (keyName === "gp_ls" || keyName === "gp_rs") {
-                const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
-                const anchor = anchorSelect.value;
-                keyString = `gp_joystick:${keyName}:${widthClass || "u3"}:${hClass}:${anchor}`;
-            } else if (keyName === "br") {
-                keyString = "br";
-            } else if (keyName === "invisible" || keyName === "dummy") {
-                keyString = widthClass ? `$none:"invis":${widthClass}` : keyName;
-            } else {
-                const label = labelInput.value || keyName.split("_")[1].toUpperCase();
-                keyString = widthClass ? `${keyName}:"${label}":${widthClass}` : `${keyName}:"${label}"`;
+            switch (keyName) {
+                case "scroller": {
+                    const def = document.getElementById("popupScrollerDefault").value || "M3";
+                    const up = document.getElementById("popupScrollerUp").value || "🡅";
+                    const down = document.getElementById("popupScrollerDown").value || "🡇";
+                    keyString = widthClass
+                        ? `scroller:"${def}":"${up}":"${down}":${widthClass}`
+                        : `scroller:"${def}":"${up}":"${down}"`;
+                    break;
+                }
+                case "scroll_updown": {
+                    const up = document.getElementById("popupScrollUpDownUp").value || "🡅";
+                    const down = document.getElementById("popupScrollUpDownDown").value || "🡇";
+                    keyString = widthClass
+                        ? `scroll_updown:"${up}":"${down}":${widthClass}`
+                        : `scroll_updown:"${up}":"${down}"`;
+                    break;
+                }
+                case "scroll_up": {
+                    const label = labelInput.value || "🡅";
+                    keyString = widthClass ? `scroll_up:"${label}":${widthClass}` : `scroll_up:"${label}"`;
+                    break;
+                }
+                case "scroll_down": {
+                    const label = labelInput.value || "🡇";
+                    keyString = widthClass ? `scroll_down:"${label}":${widthClass}` : `scroll_down:"${label}"`;
+                    break;
+                }
+                case "mouse_side": {
+                    const m5 = document.getElementById("popupMouseSideM5").value || "M5";
+                    const m4 = document.getElementById("popupMouseSideM4").value || "M4";
+                    keyString = widthClass ? `mouse_side:"${m5}":"${m4}":${widthClass}` : `mouse_side:"${m5}":"${m4}"`;
+                    break;
+                }
+                case "mouse_pad": {
+                    const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
+                    const anchor = anchorSelect.value;
+                    keyString = `mouse_pad:${widthClass || "u1"}:${hClass}:${anchor}`;
+                    break;
+                }
+                case "gp_ls":
+                case "gp_rs": {
+                    const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
+                    const anchor = anchorSelect.value;
+                    keyString = `gp_joystick:${keyName}:${widthClass || "u3"}:${hClass}:${anchor}`;
+                    break;
+                }
+                case "br":
+                    keyString = "br";
+                    break;
+                case "invisible":
+                case "dummy":
+                    keyString = widthClass ? `$none:"invis":${widthClass}` : keyName;
+                    break;
+                default: {
+                    const label = labelInput.value || keyName.split("_")[1].toUpperCase();
+                    keyString = widthClass ? `${keyName}:"${label}":${widthClass}` : `${keyName}:"${label}"`;
+                }
             }
 
             const targetInput = document.getElementById(`customLayout${currentTargetRow}`);
@@ -716,47 +749,84 @@ export class ConfiguratorMode {
         keySelect.addEventListener("change", () => {
             const key = keySelect.value;
             scrollerLabels.style.display = "none";
+            scrollUpDownLabels.style.display = "none";
             mouseSideLabels.style.display = "none";
             anchorField.style.display = "none";
             heightField.style.display = "none";
             labelInput.parentElement.style.display = "block";
 
-            if (key === "scroller") {
-                labelInput.parentElement.style.display = "none";
-                scrollerLabels.style.display = "block";
-                document.getElementById("popupScrollerDefault").value = "M3";
-                document.getElementById("popupScrollerUp").value = "🡅";
-                document.getElementById("popupScrollerDown").value = "🡇";
-            } else if (key === "mouse_side") {
-                labelInput.parentElement.style.display = "none";
-                mouseSideLabels.style.display = "block";
-                document.getElementById("popupMouseSideM5").value = "M5";
-                document.getElementById("popupMouseSideM4").value = "M4";
-            } else if (key === "mouse_pad") {
-                labelInput.parentElement.style.display = "none";
-                heightField.style.display = "block";
-                anchorField.style.display = "block";
-                widthSlider.value = 500; widthValue.textContent = "5.00u";
-                heightSlider.value = 300; heightValue.textContent = "3.00u";
-            } else if (key === "gp_ls" || key === "gp_rs") {
-                labelInput.parentElement.style.display = "none";
-                heightField.style.display = "block";
-                anchorField.style.display = "block";
-                widthSlider.value = 300; widthValue.textContent = "3.00u";
-                heightSlider.value = 300; heightValue.textContent = "3.00u";
-            } else if (key === "br") {
-                labelInput.parentElement.style.display = "none";
-            } else if (key === "invisible" || key === "dummy") {
-                labelInput.value = "invisible";
-            } else {
-                labelInput.value = keySelect.options[keySelect.selectedIndex].text;
+            switch (key) {
+                case "scroller":
+                    labelInput.parentElement.style.display = "none";
+                    scrollerLabels.style.display = "block";
+                    document.getElementById("popupScrollerDefault").value = "M3";
+                    document.getElementById("popupScrollerUp").value = "🡅";
+                    document.getElementById("popupScrollerDown").value = "🡇";
+                    break;
+                case "scroll_updown":
+                    labelInput.parentElement.style.display = "none";
+                    scrollUpDownLabels.style.display = "block";
+                    document.getElementById("popupScrollUpDownUp").value = "🡅";
+                    document.getElementById("popupScrollUpDownDown").value = "🡇";
+                    break;
+                case "scroll_up":
+                    labelInput.value = "🡅";
+                    break;
+                case "scroll_down":
+                    labelInput.value = "🡇";
+                    break;
+                case "mouse_left":
+                    labelInput.value = "M1";
+                    break;
+                case "mouse_right":
+                    labelInput.value = "M2";
+                    break;
+                case "mouse_middle":
+                    labelInput.value = "M3";
+                    break;
+                case "mouse_4":
+                    labelInput.value = "M4";
+                    break;
+                case "mouse_5":
+                    labelInput.value = "M5";
+                    break;
+                case "mouse_side":
+                    labelInput.parentElement.style.display = "none";
+                    mouseSideLabels.style.display = "block";
+                    document.getElementById("popupMouseSideM5").value = "M5";
+                    document.getElementById("popupMouseSideM4").value = "M4";
+                    break;
+                case "mouse_pad":
+                    labelInput.parentElement.style.display = "none";
+                    heightField.style.display = "block";
+                    anchorField.style.display = "block";
+                    widthSlider.value = 500; widthValue.textContent = "5.00u";
+                    heightSlider.value = 300; heightValue.textContent = "3.00u";
+                    break;
+                case "gp_ls":
+                case "gp_rs":
+                    labelInput.parentElement.style.display = "none";
+                    heightField.style.display = "block";
+                    anchorField.style.display = "block";
+                    widthSlider.value = 300; widthValue.textContent = "3.00u";
+                    heightSlider.value = 300; heightValue.textContent = "3.00u";
+                    break;
+                case "br":
+                    labelInput.parentElement.style.display = "none";
+                    break;
+                case "invisible":
+                case "dummy":
+                    labelInput.value = "invisible";
+                    break;
+                default:
+                    labelInput.value = keySelect.options[keySelect.selectedIndex].text;
             }
             updateKeyString();
         });
 
         labelInput.addEventListener("input", updateKeyString);
         anchorSelect.addEventListener("change", updateKeyString);
-        for (const id of ["popupScrollerDefault", "popupScrollerUp", "popupScrollerDown", "popupMouseSideM5", "popupMouseSideM4"])
+        for (const id of ["popupScrollerDefault", "popupScrollerUp", "popupScrollerDown", "popupMouseSideM5", "popupMouseSideM4", "popupScrollUpDownUp", "popupScrollUpDownDown"])
             document.getElementById(id).addEventListener("input", updateKeyString);
 
         const rowMappings = [
@@ -787,6 +857,7 @@ export class ConfiguratorMode {
                 heightSlider.value = 100; heightValue.textContent = "1.00u";
                 heightField.style.display = "none";
                 scrollerLabels.style.display = "none";
+                scrollUpDownLabels.style.display = "none";
                 mouseSideLabels.style.display = "none";
                 anchorField.style.display = "none";
                 anchorSelect.value = "a-tl";

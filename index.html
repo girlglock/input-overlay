@@ -248,6 +248,18 @@
                                         <td><code>scroller:"default":"up":"down"</code></td>
                                     </tr>
                                     <tr>
+                                        <td>scroll up/down (no M3)</td>
+                                        <td><code>scroll_updown:"up":"down"</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>scroll up only</td>
+                                        <td><code>scroll_up:"label"</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>scroll down only</td>
+                                        <td><code>scroll_down:"label"</code></td>
+                                    </tr>
+                                    <tr>
                                         <td>side buttons</td>
                                         <td><code>mouse_side:"m5":"m4"</code></td>
                                     </tr>
@@ -1001,7 +1013,10 @@
                         <option value="mouse_5">Mouse 5</option>
                     </optgroup>
                     <optgroup label="Special">
-                        <option value="scroller">Scroller</option>
+                        <option value="scroller">Scroller (with M3)</option>
+                        <option value="scroll_updown">Scroller (no M3)</option>
+                        <option value="scroll_up">Scroll Up Only</option>
+                        <option value="scroll_down">Scroll Down Only</option>
                         <option value="invisible">Invisible Spacer</option>
                         <option value="dummy">Dummy (Empty)</option>
                         <option value="mouse_side">Mouse Side (M4+M5)</option>
@@ -1158,6 +1173,12 @@
                 <input class="cfg-input" id="popupScrollerUp" type="text" placeholder="Up (e.g. ↑)"
                     style="margin-bottom:5px;">
                 <input class="cfg-input" id="popupScrollerDown" type="text" placeholder="Down (e.g. ↓)">
+            </div>
+            <div class="cfg-field" id="popupScrollUpDownLabels" style="display:none;">
+                <label class="cfg-label">scroll up/down labels</label>
+                <input class="cfg-input" id="popupScrollUpDownUp" type="text" placeholder="Up (e.g. ↑)"
+                    style="margin-bottom:5px;">
+                <input class="cfg-input" id="popupScrollUpDownDown" type="text" placeholder="Down (e.g. ↓)">
             </div>
             <div class="cfg-field" id="popupMouseSideLabels" style="display:none;">
                 <label class="cfg-label">mouse side labels</label>

@@ -405,44 +405,72 @@ export class OverlayVisualiser {
             rowEl.className = row.isMouse ? "mouse-row" : "key-row";
             rowEl.style.position = "relative";
 
-            for (let itemIdx = 0; itemIdx < row.items.length; itemIdx++) {
-                const item = row.items[itemIdx];
-                if (item.type === "gp_joystick") {
-                    rowEl.appendChild(this._buildJoystickElement(item));
-                } else if (item.type === "mouse_pad") {
-                    rowEl.appendChild(this._buildMousePadElement(item));
-                } else if (item.type === "scroller") {
-                    const disp = this.createScrollDisplay(item.labels, item.class);
-                    rowEl.appendChild(disp.el);
-                    scrollDisplays.push(disp.el);
-                    scrollArrows.push(disp.arrow);
-                    scrollCounts.push(disp.count);
-
-                    register(mouseElements, "mouse_middle", disp.el);
-
-                    if (item.keys?.length) {
-                        item.keys.forEach((keyName, idx) => {
+            for (const item of row.items) {
+                switch (item.type) {
+                    case "gp_joystick":
+                        rowEl.appendChild(this._buildJoystickElement(item));
+                        break;
+                    case "mouse_pad":
+                        rowEl.appendChild(this._buildMousePadElement(item));
+                        break;
+                    case "scroller": {
+                        const disp = this.createScrollDisplay(item.labels, item.class);
+                        rowEl.appendChild(disp.el);
+                        scrollDisplays.push(disp.el);
+                        scrollArrows.push(disp.arrow);
+                        scrollCounts.push(disp.count);
+                        register(mouseElements, "mouse_middle", disp.el);
+                        item.keys?.forEach((keyName, idx) => {
                             if (keyName === "scroller") return;
                             const map = keyName.startsWith("mouse_") ? mouseElements : keyElements;
                             register(map, keyName, disp.el);
                             this.scrollerAliases.set(keyName, idx === 1 ? -1 : 1);
                         });
+                        break;
                     }
-                } else if (item.type === "mouse_side") {
-                    const side = this.createSideMouseButton(item.labels[0], item.labels[1], item.class);
-                    rowEl.appendChild(side.el);
-                    register(mouseElements, "mouse5", side.m5El);
-                    register(mouseElements, "mouse4", side.m4El);
-                } else {
-                    const el = this.createKeyOrButtonElement(item);
-                    rowEl.appendChild(el);
-
-                    if (!item.class || (item.class !== "invisible" && item.class !== "dummy")) {
-                        let map;
-                        if (item.type === "mouse") map = mouseElements;
-                        else if ((item.keys || [item.key]).some(k => k.startsWith("gp_"))) map = gamepadElements;
-                        else map = keyElements;
-                        for (const keyName of (item.keys || [item.key])) register(map, keyName, el);
+                    case "scroll_updown": {
+                        const disp = this.createScrollDisplay(["", item.labels[0], item.labels[1]], item.class);
+                        rowEl.appendChild(disp.el);
+                        scrollDisplays.push(disp.el);
+                        scrollArrows.push(disp.arrow);
+                        scrollCounts.push(disp.count);
+                        break;
+                    }
+                    case "scroll_up": {
+                        const disp = this.createScrollDisplay([item.label, item.label, ""], item.class);
+                        disp.el.dataset.scrollDir = "up";
+                        rowEl.appendChild(disp.el);
+                        scrollDisplays.push(disp.el);
+                        scrollArrows.push(disp.arrow);
+                        scrollCounts.push(disp.count);
+                        break;
+                    }
+                    case "scroll_down": {
+                        const disp = this.createScrollDisplay([item.label, "", item.label], item.class);
+                        disp.el.dataset.scrollDir = "down";
+                        rowEl.appendChild(disp.el);
+                        scrollDisplays.push(disp.el);
+                        scrollArrows.push(disp.arrow);
+                        scrollCounts.push(disp.count);
+                        break;
+                    }
+                    case "mouse_side": {
+                        const side = this.createSideMouseButton(item.labels[0], item.labels[1], item.class);
+                        rowEl.appendChild(side.el);
+                        register(mouseElements, "mouse5", side.m5El);
+                        register(mouseElements, "mouse4", side.m4El);
+                        break;
+                    }
+                    default: {
+                        const el = this.createKeyOrButtonElement(item);
+                        rowEl.appendChild(el);
+                        if (!item.class || (item.class !== "invisible" && item.class !== "dummy")) {
+                            let map;
+                            if (item.type === "mouse") map = mouseElements;
+                            else if ((item.keys || [item.key]).some(k => k.startsWith("gp_"))) map = gamepadElements;
+                            else map = keyElements;
+                            for (const keyName of (item.keys || [item.key])) register(map, keyName, el);
+                        }
                     }
                 }
             }
@@ -515,7 +543,7 @@ export class OverlayVisualiser {
         for (const display of this.previewElements.scrollDisplays) {
             const arrow = display.querySelector(".scroll-arrow");
             const count = display.querySelector(".scroll-count");
-            arrow.innerHTML = display.dataset.defaultLabel || "-";
+            arrow.innerHTML = display.dataset.defaultLabel || "";
             arrow.style.transform = "none";
             count.textContent = "";
             display.classList.remove("active");
@@ -541,10 +569,14 @@ export class OverlayVisualiser {
 
         for (let i = 0; i < els.scrollDisplays.length; i++) {
             const display = els.scrollDisplays[i];
+            const scrollDir = display.dataset.scrollDir;
+            if (scrollDir === "up" && dir > 0) continue;
+            if (scrollDir === "down" && dir < 0) continue;
+
             const arrow = els.scrollArrows[i];
             const countEl = els.scrollCounts[i];
 
-            arrow.innerHTML = dir === -1 ? (display.dataset.upLabel || "↑") : (display.dataset.downLabel || "↓");
+            if (!scrollDir) arrow.innerHTML = dir === -1 ? (display.dataset.upLabel || "↑") : (display.dataset.downLabel || "↓");
 
             const containerWidth = display.clientWidth - 16;
             const scale = arrow.scrollWidth > containerWidth ? containerWidth / arrow.scrollWidth : 1;
