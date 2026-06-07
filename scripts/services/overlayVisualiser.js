@@ -18,6 +18,7 @@ export class OverlayVisualiser {
         this.analogCurrentDepths = {};
         this.analogRafId = null;
         this._analogRafLoop = this._analogRafLoop.bind(this);
+        this._digitalPressKeys = new Set();
 
         this.mousePadCanvas = null;
         this.mousePadCtx = null;
@@ -70,6 +71,10 @@ export class OverlayVisualiser {
                     const primary = el.querySelector(".key-label-primary");
                     if (primary) primary.style.setProperty("color", this.inactiveColor, "important");
                 }
+                if (!(this.analogTargetDepths[keyName] > 0)) {
+                    this.setAnalogDepthTarget(keyName, 1.0);
+                    this._digitalPressKeys.add(keyName);
+                }
             } else if (keyName === "gp_lt" || keyName === "gp_rt") {
                 el.classList.add("analog-key");
             } else {
@@ -83,11 +88,11 @@ export class OverlayVisualiser {
             this.activeElements.delete(el);
 
             if (this.analogMode && (keyName.startsWith("key_") || keyName === "gp_lt" || keyName === "gp_rt")) {
-                document.getElementById(`analog-depth-${el.dataset.key}`)?.remove();
                 el.style.setProperty("transform", "scale(1)", "important");
                 el.querySelector(".key-label-primary")?.style.removeProperty("color");
                 const inv = el.querySelector(".key-label-inverted");
                 if (inv) inv.style.clipPath = "inset(100% 0 0 0)";
+                if (this._digitalPressKeys.delete(keyName)) this.setAnalogDepthTarget(keyName, 0);
             } else if (keyName === "gp_lt" || keyName === "gp_rt") {
                 document.getElementById(`analog-depth-${el.dataset.key}`)?.remove();
                 el.style.setProperty("transform", "scale(1)", "important");
@@ -425,6 +430,8 @@ export class OverlayVisualiser {
                             if (keyName === "scroller") return;
                             const map = keyName.startsWith("mouse_") ? mouseElements : keyElements;
                             register(map, keyName, disp.el);
+                            if (!keyName.startsWith("mouse_") && !disp.el.dataset.key)
+                                disp.el.dataset.key = keyName;
                             this.scrollerAliases.set(keyName, idx === 1 ? -1 : 1);
                         });
                         break;
@@ -654,6 +661,9 @@ export class OverlayVisualiser {
             if (current === 0 && target === 0) {
                 delete this.analogTargetDepths[keyName];
                 delete this.analogCurrentDepths[keyName];
+                const els = this.previewElements?.keyElements.get(keyName);
+                if (els) for (const el of els)
+                    document.getElementById(`analog-depth-${keyName}-${el.dataset.key || ""}`)?.remove();
             }
         }
 
@@ -675,14 +685,6 @@ export class OverlayVisualiser {
         const keyLegendMode = this.keyLegendMode || "inverting";
 
         for (const el of elements) {
-            const uniqueId = `${keyName}-${el.dataset.key || ""}`;
-            let styleEl = document.getElementById(`analog-depth-${uniqueId}`);
-            if (!styleEl) {
-                styleEl = document.createElement("style");
-                styleEl.id = `analog-depth-${uniqueId}`;
-                document.head.appendChild(styleEl);
-            }
-
             if (effectiveDepth > 0) el.classList.add("analog-key");
             else if (!el.classList.contains("active")) el.classList.remove("analog-key");
 
@@ -701,13 +703,31 @@ export class OverlayVisualiser {
 
             el.style.setProperty("border-width", `${borderWidth}px`, "important");
 
-            const dataKey = el.dataset.key || keyName;
-            styleEl.textContent = `
-                [data-key="${dataKey}"]::after { height: ${fillHeight}% !important; }
-                [data-key="${dataKey}"].analog-key {
-                    border-color: ${isDigitallyPressed ? this.activeColor : "inherit"} !important;
-                    box-shadow: ${outerGlow} !important;
-                }`;
+            if (el.classList.contains("scroll-display")) {
+                if (effectiveDepth > 0) {
+                    const pct = fillHeight.toFixed(1);
+                    el.style.setProperty("background-image",
+                        `linear-gradient(to top, ${this.activeBgColor} ${pct}%, transparent ${pct}%)`,
+                        "important");
+                } else {
+                    el.style.removeProperty("background-image");
+                }
+            } else {
+                const uniqueId = `${keyName}-${el.dataset.key || ""}`;
+                let styleEl = document.getElementById(`analog-depth-${uniqueId}`);
+                if (!styleEl) {
+                    styleEl = document.createElement("style");
+                    styleEl.id = `analog-depth-${uniqueId}`;
+                    document.head.appendChild(styleEl);
+                }
+                const dataKey = el.dataset.key || keyName;
+                styleEl.textContent = `
+                    [data-key="${dataKey}"]::after { height: ${fillHeight}% !important; }
+                    [data-key="${dataKey}"].analog-key {
+                        border-color: ${isDigitallyPressed ? this.activeColor : "inherit"} !important;
+                        box-shadow: ${outerGlow} !important;
+                    }`;
+            }
 
             const primary = el.querySelector(".key-label-primary");
             const inverted = el.querySelector(".key-label-inverted");

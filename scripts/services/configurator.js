@@ -679,8 +679,48 @@ export class ConfiguratorMode {
         const anchorField = document.getElementById("popupAnchorField");
         const anchorSelect = document.getElementById("popupAnchorSelect");
 
+        const pipeKeySelect = document.getElementById("popupPipeKeySelect");
+        const pipeTagsContainer = document.getElementById("popupPipeTags");
+        const pipeSection = document.getElementById("popupPipeSection");
+        const PIPE_EXCLUDED_GROUPS = new Set(["Special", "Gamepad Joysticks"]);
+        const PIPE_UNSUPPORTED = new Set(["br", "dummy", "invisible", "mouse_pad", "mouse_side", "gp_ls", "gp_rs", "scroll_updown"]);
+
+        for (const optgroup of keySelect.querySelectorAll("optgroup")) {
+            if (PIPE_EXCLUDED_GROUPS.has(optgroup.label)) continue;
+            pipeKeySelect.appendChild(optgroup.cloneNode(true));
+        }
+
         let currentTargetRow = null, originalValue = "", isUpdating = false;
         let editingIndex = null, editingParts = [];
+        let pipeKeys = [];
+
+        const renderPipeTags = () => {
+            pipeTagsContainer.innerHTML = "";
+            if (pipeKeys.length === 0) {
+                const ph = document.createElement("span");
+                ph.className = "cfg-tags-placeholder";
+                ph.textContent = "none";
+                pipeTagsContainer.appendChild(ph);
+                return;
+            }
+            pipeKeys.forEach((key, i) => {
+                const tag = document.createElement("span");
+                tag.className = "cfg-tag";
+                const lbl = document.createElement("span");
+                lbl.className = "cfg-tag-label";
+                const opt = pipeKeySelect.querySelector(`option[value="${key}"]`);
+                lbl.textContent = opt ? opt.text : key;
+                const x = document.createElement("button");
+                x.className = "cfg-tag-remove";
+                x.textContent = "×";
+                x.addEventListener("click", () => { pipeKeys.splice(i, 1); renderPipeTags(); updateKeyString(); });
+                tag.appendChild(lbl);
+                tag.appendChild(x);
+                pipeTagsContainer.appendChild(tag);
+            });
+        };
+
+        renderPipeTags();
 
         const updateKeyString = () => {
             if (isUpdating) return;
@@ -748,6 +788,9 @@ export class ConfiguratorMode {
                 }
             }
 
+            if (!PIPE_UNSUPPORTED.has(keyName) && pipeKeys.length > 0)
+                keyString = pipeKeys.join("|") + "|" + keyString;
+
             const targetInput = document.getElementById(`customLayout${currentTargetRow}`);
             if (targetInput) {
                 if (editingIndex !== null) {
@@ -776,6 +819,7 @@ export class ConfiguratorMode {
             anchorField.style.display = "none";
             heightField.style.display = "none";
             labelInput.parentElement.style.display = "block";
+            pipeSection.style.display = PIPE_UNSUPPORTED.has(key) ? "none" : "";
 
             switch (key) {
                 case "scroller":
@@ -851,6 +895,15 @@ export class ConfiguratorMode {
         for (const id of ["popupScrollerDefault", "popupScrollerUp", "popupScrollerDown", "popupMouseSideM5", "popupMouseSideM4", "popupScrollUpDownUp", "popupScrollUpDownDown"])
             document.getElementById(id).addEventListener("input", updateKeyString);
 
+        document.getElementById("popupPipeAddBtn").addEventListener("click", () => {
+            const key = pipeKeySelect.value;
+            if (key && !pipeKeys.includes(key) && key !== keySelect.value) {
+                pipeKeys.push(key);
+                renderPipeTags();
+                updateKeyString();
+            }
+        });
+
         const rowMappings = [
             ["addKey1", "Row1"], ["addKey2", "Row2"], ["addKey3", "Row3"],
             ["addKey4", "Row4"], ["addKey5", "Row5"], ["addKeyMouse", "Mouse"],
@@ -862,13 +915,14 @@ export class ConfiguratorMode {
             btn.addEventListener("click", () => {
                 editingIndex = null;
                 editingParts = [];
+                pipeKeys = [];
                 addBtn.textContent = "add key";
                 isUpdating = false;
                 currentTargetRow = rowId;
                 originalValue = (document.getElementById(`customLayout${rowId}`)?.value || "").trim();
 
                 const rect = btn.getBoundingClientRect();
-                const pw = 340, ph = 400;
+                const pw = 340, ph = 500;
                 let left = rect.left - pw, top = rect.top;
                 if (left < 10) left = rect.right + 10;
                 if (left + pw > window.innerWidth - 10) left = Math.max(10, (window.innerWidth - pw) / 2);
@@ -887,6 +941,8 @@ export class ConfiguratorMode {
                 anchorField.style.display = "none";
                 anchorSelect.value = "a-tl";
                 labelInput.parentElement.style.display = "block";
+                pipeSection.style.display = "";
+                renderPipeTags();
                 updateKeyString();
             });
         }
@@ -895,6 +951,15 @@ export class ConfiguratorMode {
             const item = this.layoutParser.parseElementDef(raw.trim());
             if (!item) return;
             isUpdating = true;
+
+            if (item.keys && item.keys.length > 1) {
+                pipeKeys = item.type === "scroller"
+                    ? item.keys.filter(k => k !== "scroller")
+                    : item.keys.slice(1);
+            } else {
+                pipeKeys = [];
+            }
+            renderPipeTags();
 
             const setType = (val) => { keySelect.value = val; keySelect.dispatchEvent(new Event("change")); };
 
@@ -969,7 +1034,7 @@ export class ConfiguratorMode {
             const ROW_TO_BTN = { Row1: "addKey1", Row2: "addKey2", Row3: "addKey3", Row4: "addKey4", Row5: "addKey5", Mouse: "addKeyMouse" };
             const triggerBtn = document.getElementById(ROW_TO_BTN[rowId]);
             const rect = triggerBtn?.getBoundingClientRect() || { left: 100, right: 110, top: 100 };
-            const pw = 340, ph = 400;
+            const pw = 340, ph = 500;
             let left = rect.left - pw, top = rect.top;
             if (left < 10) left = rect.right + 10;
             if (left + pw > window.innerWidth - 10) left = Math.max(10, (window.innerWidth - pw) / 2);
@@ -991,6 +1056,7 @@ export class ConfiguratorMode {
         const cancelPopup = () => {
             editingIndex = null;
             editingParts = [];
+            pipeKeys = [];
             addBtn.textContent = "add key";
             isUpdating = true;
             const inp = document.getElementById(`customLayout${currentTargetRow}`);
@@ -1001,6 +1067,7 @@ export class ConfiguratorMode {
         addBtn.addEventListener("click", () => {
             editingIndex = null;
             editingParts = [];
+            pipeKeys = [];
             addBtn.textContent = "add key";
             popup.style.display = "none";
         });
