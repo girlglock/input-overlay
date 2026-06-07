@@ -383,6 +383,18 @@ export class ConfiguratorMode {
             });
         }
 
+        const layoutRowIds = ["customLayoutRow1", "customLayoutRow2", "customLayoutRow3", "customLayoutRow4", "customLayoutRow5", "customLayoutMouse"];
+        for (const id of layoutRowIds) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            el.addEventListener("blur", () => {
+                if (!el.value.trim()) {
+                    el.value = "dummy";
+                    el.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+            });
+        }
+
         const wsauthEl = document.getElementById("wsauth");
         const savedAuth = localStorage.getItem("overlay_wsauth");
         if (savedAuth && !wsauthEl.value) wsauthEl.value = savedAuth;
