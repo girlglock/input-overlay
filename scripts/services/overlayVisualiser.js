@@ -1205,18 +1205,19 @@ export class OverlayVisualiser {
         const fullyFaded = !noFadeout && lastPoint !== null && (now - lastPoint.t) >= maxAge;
         if (this.mousePadTrail.length > 0 && this.mousePadTrail.every(p => p === null)) this.mousePadTrail = [];
         const trailEmpty = this.mousePadTrail.length === 0;
-        const hasLiveTrail = (!trailEmpty && (noFadeout ? true : idleFade > 0)) || (this.MOUSEPAD_SHOW_DISTANCE && !trailEmpty);
-		
-		if (this.MOUSEPAD_RESET_DISTANCE_AFTER_FADE && !hasLiveTrail) this._mousePadTotalDistancePx = 0;
+        const trailVisuallyLive = !trailEmpty && (noFadeout ? true : idleFade > 0);
+        const hasLiveTrail = trailVisuallyLive || (this.MOUSEPAD_SHOW_DISTANCE && !trailEmpty);
 
-        if (this._mousePadWasLiveTrail && !hasLiveTrail) {
+        if (this.MOUSEPAD_RESET_DISTANCE_AFTER_FADE && !trailVisuallyLive) this._mousePadTotalDistancePx = 0;
+
+        if (this._mousePadWasLiveTrail && !trailVisuallyLive) {
             this.mousePadTrail = [];
             if (this.MOUSEPAD_MODE !== "pan") {
                 this.mousePadCursorX = null;
                 this.mousePadCursorY = null;
             }
         }
-        this._mousePadWasLiveTrail = hasLiveTrail;
+        this._mousePadWasLiveTrail = trailVisuallyLive;
 
         if (hasLiveTrail || this._mousePadTextureAnimated)
             this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
