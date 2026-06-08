@@ -30,7 +30,8 @@ export class ConfiguratorMode {
         setTimeout(() => COLOR_PICKERS.forEach(cp => this.initPickrColorInput(cp.id, cp.defaultColor)), 25);
 
         const urlParams = new URLSearchParams(window.location.search);
-        const hasParams = urlParams.has("cfg") || Array.from(urlParams.keys()).some(k => k !== "ws");
+        const DEV_PARAMS = /^(vscode-|_ijt$)/; //for when im too lazy to disable the arg on a fresh install
+        const hasParams = urlParams.has("cfg") || Array.from(urlParams.keys()).some(k => k !== "ws" && !DEV_PARAMS.test(k));
 
         if (hasParams) this.loadSettingsFromLink(true);
         else this.applyDefaultSettings();
