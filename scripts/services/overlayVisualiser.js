@@ -1082,7 +1082,7 @@ export class OverlayVisualiser {
         const TAPER_PTS = 12;
 
         let _dbgStrokes = 0;
-        const drawSmoothedRun = (pts, fade = 1) => {
+        const drawSmoothedRun = (pts, fade = 1, drawTipDot = true) => {
             if (pts.length < 2) return;
             const taperEnd = Math.min(pts.length - 1, TAPER_PTS);
             const strokeRange = (fromIdx, toIdx, width, color) => {
@@ -1133,12 +1133,14 @@ export class OverlayVisualiser {
                     }
                 }
             }
-            const tip = pts[pts.length - 1];
-            const tipM1 = this.MOUSEPAD_M1_HIGHLIGHT && tip.m1;
-            ctx.beginPath();
-            ctx.arc(tip.x, tip.y, trailPx * (tipM1 ? 1.5 : 1) * 1.2, 0, Math.PI * 2);
-            ctx.fillStyle = tipM1 ? this._mousePadColorBright(fade) : this._mousePadColor(fade);
-            ctx.fill();
+            if (drawTipDot) {
+                const tip = pts[pts.length - 1];
+                const tipM1 = this.MOUSEPAD_M1_HIGHLIGHT && tip.m1;
+                ctx.beginPath();
+                ctx.arc(tip.x, tip.y, trailPx * (tipM1 ? 1.5 : 1) * 1.2, 0, Math.PI * 2);
+                ctx.fillStyle = tipM1 ? this._mousePadColorBright(fade) : this._mousePadColor(fade);
+                ctx.fill();
+            }
         };
 
         const drawTip = (tip, fade = 1) => {
@@ -1166,7 +1168,7 @@ export class OverlayVisualiser {
             let run = [];
             for (let i = 0; i < trail.length; i++) {
                 const p = trail[i];
-                if (p === null) { if (run.length === 1) drawTip(run[0], idleFade); else drawSmoothedRun(run, idleFade); run = []; }
+                if (p === null) { if (run.length > 1) drawSmoothedRun(run, idleFade, false); run = []; }
                 else run.push(p);
             }
             if (run.length === 1) drawTip(run[0], idleFade);
