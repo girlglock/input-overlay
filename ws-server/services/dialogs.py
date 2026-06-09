@@ -685,7 +685,7 @@ class UpdateChecker(QObject):
     update_available = pyqtSignal(str, str)   # latest_version, release_body
     check_done       = pyqtSignal()
 
-    def check(self, dismissed: list) -> None:
+    def check(self) -> None:
         def _run():
             try:
                 req = urllib.request.Request(GITHUB_API_URL, headers={"User-Agent": "input-overlay-ws"})
@@ -695,7 +695,6 @@ class UpdateChecker(QObject):
                 body   = data.get("body", "").strip()
                 def _ver(v): return tuple(int(x) for x in v.split("."))
                 if (latest and not WS_SERVER_VERSION.startswith("nightly-")
-                        and latest not in dismissed
                         and _ver(latest) > _ver(WS_SERVER_VERSION)):
                     self.update_available.emit(latest, body)
             except Exception as e:

@@ -158,7 +158,7 @@ class SettingsEditor(QMainWindow):
 
         self._update_checker = UpdateChecker()
         self._update_checker.update_available.connect(self._on_update_available)
-        self._update_checker.check(self.dismissed_versions)
+        self._update_checker.check()
 
     def load_config(self) -> None:
         try:
