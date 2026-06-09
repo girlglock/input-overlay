@@ -634,14 +634,21 @@ export class OverlayVisualiser {
     setAnalogDepthTarget(keyName, depth, source) {
         this.analogTargetDepths[keyName] = depth;
         if (this.analogCurrentDepths[keyName] === undefined) this.analogCurrentDepths[keyName] = 0;
-        if (!this.analogRafId) this.analogRafId = requestAnimationFrame(this._analogRafLoop);
+        if (!this.analogRafId) {
+            this._analogLastTime = 0;
+            this.analogRafId = requestAnimationFrame(this._analogRafLoop);
+        }
     }
 
-    _analogRafLoop() {
+    _analogRafLoop(now) {
+        const dt = this._analogLastTime ? Math.min(now - this._analogLastTime, 100) : 16.67;
+        this._analogLastTime = now;
+
         this.analogRafId = null;
         if (!this.previewElements) return;
 
         const LERP = 0.35, SNAP = 0.001;
+        const alpha = 1 - Math.pow(1 - LERP, dt / 16.667);
         let anyActive = false;
 
         for (const keyName of Object.keys(this.analogTargetDepths)) {
@@ -652,7 +659,7 @@ export class OverlayVisualiser {
             if (Math.abs(delta) < SNAP) {
                 current = target;
             } else {
-                current += delta * LERP;
+                current += delta * alpha;
                 anyActive = true;
             }
             this.analogCurrentDepths[keyName] = current;
