@@ -18,6 +18,7 @@ export class OverlayVisualiser {
         this.analogCurrentDepths = {};
         this.analogRafId = null;
         this._analogRafLoop = this._analogRafLoop.bind(this);
+        this._digitalPressKeys = new Set();
 
         this.mousePadCanvas = null;
         this.mousePadCtx = null;
@@ -36,6 +37,7 @@ export class OverlayVisualiser {
         this.MOUSEPAD_TEXTURE_OPACITY = 1;
         this.MOUSEPAD_SHOW_DISTANCE = false;
         this.MOUSEPAD_DPI = 400;
+        this.MOUSEPAD_RESET_DISTANCE_AFTER_FADE = false;
         this._mousePadTotalDistancePx = 0;
         this.MOUSEPAD_PAN_X = 0;
         this.MOUSEPAD_PAN_Y = 0;
@@ -69,6 +71,10 @@ export class OverlayVisualiser {
                     const primary = el.querySelector(".key-label-primary");
                     if (primary) primary.style.setProperty("color", this.inactiveColor, "important");
                 }
+                if (!(this.analogTargetDepths[keyName] > 0)) {
+                    this.setAnalogDepthTarget(keyName, 1.0);
+                    this._digitalPressKeys.add(keyName);
+                }
             } else if (keyName === "gp_lt" || keyName === "gp_rt") {
                 el.classList.add("analog-key");
             } else {
@@ -82,11 +88,11 @@ export class OverlayVisualiser {
             this.activeElements.delete(el);
 
             if (this.analogMode && (keyName.startsWith("key_") || keyName === "gp_lt" || keyName === "gp_rt")) {
-                document.getElementById(`analog-depth-${el.dataset.key}`)?.remove();
                 el.style.setProperty("transform", "scale(1)", "important");
                 el.querySelector(".key-label-primary")?.style.removeProperty("color");
                 const inv = el.querySelector(".key-label-inverted");
                 if (inv) inv.style.clipPath = "inset(100% 0 0 0)";
+                if (this._digitalPressKeys.delete(keyName)) this.setAnalogDepthTarget(keyName, 0);
             } else if (keyName === "gp_lt" || keyName === "gp_rt") {
                 document.getElementById(`analog-depth-${el.dataset.key}`)?.remove();
                 el.style.setProperty("transform", "scale(1)", "important");
@@ -120,6 +126,7 @@ export class OverlayVisualiser {
 
         this.pressScaleValue = pressscalevalue;
         this.animDuration = animDuration;
+        this.scrollHoldMs = Math.round(250 * (100 / parseInt(opts.animationspeed)));
         this.activeColor = opts.activecolor;
         this.activeBgColor = opts.activebgcolor;
         this.backgroundcolor = opts.backgroundcolor;
@@ -139,6 +146,7 @@ export class OverlayVisualiser {
         this.MOUSEPAD_M1_HIGHLIGHT = opts.mousetrailm1highlight === true || opts.mousetrailm1highlight === "true" || opts.mousetrailm1highlight === "1";
         this.MOUSEPAD_SHOW_DISTANCE = opts.showmousedistance === true || opts.showmousedistance === "true" || opts.showmousedistance === "1";
         this.MOUSEPAD_DPI = parseInt(opts.mousedistancedpi) || 400;
+        this.MOUSEPAD_RESET_DISTANCE_AFTER_FADE = opts.resetmousedistanceafterfade === true || opts.resetmousedistanceafterfade === "true" || opts.resetmousedistanceafterfade === "1";
 
         const newTextureUrl = opts.mousepadtexture || "";
         const newTextureZoom = parseFloat(opts.mousepadtexturezoom) || 1;
@@ -403,44 +411,74 @@ export class OverlayVisualiser {
             rowEl.className = row.isMouse ? "mouse-row" : "key-row";
             rowEl.style.position = "relative";
 
-            for (let itemIdx = 0; itemIdx < row.items.length; itemIdx++) {
-                const item = row.items[itemIdx];
-                if (item.type === "gp_joystick") {
-                    rowEl.appendChild(this._buildJoystickElement(item));
-                } else if (item.type === "mouse_pad") {
-                    rowEl.appendChild(this._buildMousePadElement(item));
-                } else if (item.type === "scroller") {
-                    const disp = this.createScrollDisplay(item.labels, item.class);
-                    rowEl.appendChild(disp.el);
-                    scrollDisplays.push(disp.el);
-                    scrollArrows.push(disp.arrow);
-                    scrollCounts.push(disp.count);
-
-                    register(mouseElements, "mouse_middle", disp.el);
-
-                    if (item.keys?.length) {
-                        item.keys.forEach((keyName, idx) => {
+            for (const item of row.items) {
+                switch (item.type) {
+                    case "gp_joystick":
+                        rowEl.appendChild(this._buildJoystickElement(item));
+                        break;
+                    case "mouse_pad":
+                        rowEl.appendChild(this._buildMousePadElement(item));
+                        break;
+                    case "scroller": {
+                        const disp = this.createScrollDisplay(item.labels, item.class);
+                        rowEl.appendChild(disp.el);
+                        scrollDisplays.push(disp.el);
+                        scrollArrows.push(disp.arrow);
+                        scrollCounts.push(disp.count);
+                        register(mouseElements, "mouse_middle", disp.el);
+                        item.keys?.forEach((keyName, idx) => {
                             if (keyName === "scroller") return;
                             const map = keyName.startsWith("mouse_") ? mouseElements : keyElements;
                             register(map, keyName, disp.el);
+                            if (!keyName.startsWith("mouse_") && !disp.el.dataset.key)
+                                disp.el.dataset.key = keyName;
                             this.scrollerAliases.set(keyName, idx === 1 ? -1 : 1);
                         });
+                        break;
                     }
-                } else if (item.type === "mouse_side") {
-                    const side = this.createSideMouseButton(item.labels[0], item.labels[1], item.class);
-                    rowEl.appendChild(side.el);
-                    register(mouseElements, "mouse5", side.m5El);
-                    register(mouseElements, "mouse4", side.m4El);
-                } else {
-                    const el = this.createKeyOrButtonElement(item);
-                    rowEl.appendChild(el);
-
-                    if (!item.class || (item.class !== "invisible" && item.class !== "dummy")) {
-                        let map;
-                        if (item.type === "mouse") map = mouseElements;
-                        else if ((item.keys || [item.key]).some(k => k.startsWith("gp_"))) map = gamepadElements;
-                        else map = keyElements;
-                        for (const keyName of (item.keys || [item.key])) register(map, keyName, el);
+                    case "scroll_updown": {
+                        const disp = this.createScrollDisplay(["", item.labels[0], item.labels[1]], item.class);
+                        rowEl.appendChild(disp.el);
+                        scrollDisplays.push(disp.el);
+                        scrollArrows.push(disp.arrow);
+                        scrollCounts.push(disp.count);
+                        break;
+                    }
+                    case "scroll_up": {
+                        const disp = this.createScrollDisplay([item.label, item.label, ""], item.class);
+                        disp.el.dataset.scrollDir = "up";
+                        rowEl.appendChild(disp.el);
+                        scrollDisplays.push(disp.el);
+                        scrollArrows.push(disp.arrow);
+                        scrollCounts.push(disp.count);
+                        break;
+                    }
+                    case "scroll_down": {
+                        const disp = this.createScrollDisplay([item.label, "", item.label], item.class);
+                        disp.el.dataset.scrollDir = "down";
+                        rowEl.appendChild(disp.el);
+                        scrollDisplays.push(disp.el);
+                        scrollArrows.push(disp.arrow);
+                        scrollCounts.push(disp.count);
+                        break;
+                    }
+                    case "mouse_side": {
+                        const side = this.createSideMouseButton(item.labels[0], item.labels[1], item.class);
+                        rowEl.appendChild(side.el);
+                        register(mouseElements, "mouse5", side.m5El);
+                        register(mouseElements, "mouse4", side.m4El);
+                        break;
+                    }
+                    default: {
+                        const el = this.createKeyOrButtonElement(item);
+                        rowEl.appendChild(el);
+                        if (!item.class || (item.class !== "invisible" && item.class !== "dummy")) {
+                            let map;
+                            if (item.type === "mouse") map = mouseElements;
+                            else if ((item.keys || [item.key]).some(k => k.startsWith("gp_"))) map = gamepadElements;
+                            else map = keyElements;
+                            for (const keyName of (item.keys || [item.key])) register(map, keyName, el);
+                        }
                     }
                 }
             }
@@ -513,7 +551,7 @@ export class OverlayVisualiser {
         for (const display of this.previewElements.scrollDisplays) {
             const arrow = display.querySelector(".scroll-arrow");
             const count = display.querySelector(".scroll-count");
-            arrow.innerHTML = display.dataset.defaultLabel || "-";
+            arrow.innerHTML = display.dataset.defaultLabel || "";
             arrow.style.transform = "none";
             count.textContent = "";
             display.classList.remove("active");
@@ -539,10 +577,14 @@ export class OverlayVisualiser {
 
         for (let i = 0; i < els.scrollDisplays.length; i++) {
             const display = els.scrollDisplays[i];
+            const scrollDir = display.dataset.scrollDir;
+            if (scrollDir === "up" && dir > 0) continue;
+            if (scrollDir === "down" && dir < 0) continue;
+
             const arrow = els.scrollArrows[i];
             const countEl = els.scrollCounts[i];
 
-            arrow.innerHTML = dir === -1 ? (display.dataset.upLabel || "↑") : (display.dataset.downLabel || "↓");
+            if (!scrollDir) arrow.innerHTML = dir === -1 ? (display.dataset.upLabel || "↑") : (display.dataset.downLabel || "↓");
 
             const containerWidth = display.clientWidth - 16;
             const scale = arrow.scrollWidth > containerWidth ? containerWidth / arrow.scrollWidth : 1;
@@ -575,7 +617,7 @@ export class OverlayVisualiser {
                 display.classList.remove("active");
                 if (this.analogMode) display.style.setProperty("transform", "scale(1)", "important");
             }
-        }, 250);
+        }, this.scrollHoldMs || 250);
     }
 
     adjustKeyFontSizes(unpressedBorderWidth = 0) {
@@ -592,14 +634,21 @@ export class OverlayVisualiser {
     setAnalogDepthTarget(keyName, depth, source) {
         this.analogTargetDepths[keyName] = depth;
         if (this.analogCurrentDepths[keyName] === undefined) this.analogCurrentDepths[keyName] = 0;
-        if (!this.analogRafId) this.analogRafId = requestAnimationFrame(this._analogRafLoop);
+        if (!this.analogRafId) {
+            this._analogLastTime = 0;
+            this.analogRafId = requestAnimationFrame(this._analogRafLoop);
+        }
     }
 
-    _analogRafLoop() {
+    _analogRafLoop(now) {
+        const dt = this._analogLastTime ? Math.min(now - this._analogLastTime, 100) : 16.67;
+        this._analogLastTime = now;
+
         this.analogRafId = null;
         if (!this.previewElements) return;
 
         const LERP = 0.35, SNAP = 0.001;
+        const alpha = 1 - Math.pow(1 - LERP, dt / 16.667);
         let anyActive = false;
 
         for (const keyName of Object.keys(this.analogTargetDepths)) {
@@ -610,7 +659,7 @@ export class OverlayVisualiser {
             if (Math.abs(delta) < SNAP) {
                 current = target;
             } else {
-                current += delta * LERP;
+                current += delta * alpha;
                 anyActive = true;
             }
             this.analogCurrentDepths[keyName] = current;
@@ -619,6 +668,9 @@ export class OverlayVisualiser {
             if (current === 0 && target === 0) {
                 delete this.analogTargetDepths[keyName];
                 delete this.analogCurrentDepths[keyName];
+                const els = this.previewElements?.keyElements.get(keyName);
+                if (els) for (const el of els)
+                    document.getElementById(`analog-depth-${keyName}-${el.dataset.key || ""}`)?.remove();
             }
         }
 
@@ -640,14 +692,6 @@ export class OverlayVisualiser {
         const keyLegendMode = this.keyLegendMode || "inverting";
 
         for (const el of elements) {
-            const uniqueId = `${keyName}-${el.dataset.key || ""}`;
-            let styleEl = document.getElementById(`analog-depth-${uniqueId}`);
-            if (!styleEl) {
-                styleEl = document.createElement("style");
-                styleEl.id = `analog-depth-${uniqueId}`;
-                document.head.appendChild(styleEl);
-            }
-
             if (effectiveDepth > 0) el.classList.add("analog-key");
             else if (!el.classList.contains("active")) el.classList.remove("analog-key");
 
@@ -666,13 +710,31 @@ export class OverlayVisualiser {
 
             el.style.setProperty("border-width", `${borderWidth}px`, "important");
 
-            const dataKey = el.dataset.key || keyName;
-            styleEl.textContent = `
-                [data-key="${dataKey}"]::after { height: ${fillHeight}% !important; }
-                [data-key="${dataKey}"].analog-key {
-                    border-color: ${isDigitallyPressed ? this.activeColor : "inherit"} !important;
-                    box-shadow: ${outerGlow} !important;
-                }`;
+            if (el.classList.contains("scroll-display")) {
+                if (effectiveDepth > 0) {
+                    const pct = fillHeight.toFixed(1);
+                    el.style.setProperty("background-image",
+                        `linear-gradient(to top, ${this.activeBgColor} ${pct}%, transparent ${pct}%)`,
+                        "important");
+                } else {
+                    el.style.removeProperty("background-image");
+                }
+            } else {
+                const uniqueId = `${keyName}-${el.dataset.key || ""}`;
+                let styleEl = document.getElementById(`analog-depth-${uniqueId}`);
+                if (!styleEl) {
+                    styleEl = document.createElement("style");
+                    styleEl.id = `analog-depth-${uniqueId}`;
+                    document.head.appendChild(styleEl);
+                }
+                const dataKey = el.dataset.key || keyName;
+                styleEl.textContent = `
+                    [data-key="${dataKey}"]::after { height: ${fillHeight}% !important; }
+                    [data-key="${dataKey}"].analog-key {
+                        border-color: ${isDigitallyPressed ? this.activeColor : "inherit"} !important;
+                        box-shadow: ${outerGlow} !important;
+                    }`;
+            }
 
             const primary = el.querySelector(".key-label-primary");
             const inverted = el.querySelector(".key-label-inverted");
@@ -966,7 +1028,6 @@ export class OverlayVisualiser {
                 const opacity = this.MOUSEPAD_TEXTURE_OPACITY ?? 1;
                 if (opacity !== 1) ctx.globalAlpha = opacity;
                 if (this._mousePadTextureAnimated) {
-                    // Tile the pre-tinted canvas directly — no createPattern needed
                     const startX = wrapX - tilW;
                     const startY = wrapY - tilH;
                     for (let y = startY; y < H; y += tilH)
@@ -1028,7 +1089,7 @@ export class OverlayVisualiser {
         const TAPER_PTS = 12;
 
         let _dbgStrokes = 0;
-        const drawSmoothedRun = (pts, fade = 1) => {
+        const drawSmoothedRun = (pts, fade = 1, drawTipDot = true) => {
             if (pts.length < 2) return;
             const taperEnd = Math.min(pts.length - 1, TAPER_PTS);
             const strokeRange = (fromIdx, toIdx, width, color) => {
@@ -1079,12 +1140,14 @@ export class OverlayVisualiser {
                     }
                 }
             }
-            const tip = pts[pts.length - 1];
-            const tipM1 = this.MOUSEPAD_M1_HIGHLIGHT && tip.m1;
-            ctx.beginPath();
-            ctx.arc(tip.x, tip.y, trailPx * (tipM1 ? 1.5 : 1) * 1.2, 0, Math.PI * 2);
-            ctx.fillStyle = tipM1 ? this._mousePadColorBright(fade) : this._mousePadColor(fade);
-            ctx.fill();
+            if (drawTipDot) {
+                const tip = pts[pts.length - 1];
+                const tipM1 = this.MOUSEPAD_M1_HIGHLIGHT && tip.m1;
+                ctx.beginPath();
+                ctx.arc(tip.x, tip.y, trailPx * (tipM1 ? 1.5 : 1) * 1.2, 0, Math.PI * 2);
+                ctx.fillStyle = tipM1 ? this._mousePadColorBright(fade) : this._mousePadColor(fade);
+                ctx.fill();
+            }
         };
 
         const drawTip = (tip, fade = 1) => {
@@ -1112,7 +1175,7 @@ export class OverlayVisualiser {
             let run = [];
             for (let i = 0; i < trail.length; i++) {
                 const p = trail[i];
-                if (p === null) { if (run.length === 1) drawTip(run[0], idleFade); else drawSmoothedRun(run, idleFade); run = []; }
+                if (p === null) { if (run.length > 1) drawSmoothedRun(run, idleFade, false); run = []; }
                 else run.push(p);
             }
             if (run.length === 1) drawTip(run[0], idleFade);
@@ -1151,16 +1214,19 @@ export class OverlayVisualiser {
         const fullyFaded = !noFadeout && lastPoint !== null && (now - lastPoint.t) >= maxAge;
         if (this.mousePadTrail.length > 0 && this.mousePadTrail.every(p => p === null)) this.mousePadTrail = [];
         const trailEmpty = this.mousePadTrail.length === 0;
-        const hasLiveTrail = (!trailEmpty && (noFadeout ? true : idleFade > 0)) || (this.MOUSEPAD_SHOW_DISTANCE && !trailEmpty);
+        const trailVisuallyLive = !trailEmpty && (noFadeout ? true : idleFade > 0);
+        const hasLiveTrail = trailVisuallyLive || (this.MOUSEPAD_SHOW_DISTANCE && !trailEmpty);
 
-        if (this._mousePadWasLiveTrail && !hasLiveTrail) {
+        if (this.MOUSEPAD_RESET_DISTANCE_AFTER_FADE && !trailVisuallyLive) this._mousePadTotalDistancePx = 0;
+
+        if (this._mousePadWasLiveTrail && !trailVisuallyLive) {
             this.mousePadTrail = [];
             if (this.MOUSEPAD_MODE !== "pan") {
                 this.mousePadCursorX = null;
                 this.mousePadCursorY = null;
             }
         }
-        this._mousePadWasLiveTrail = hasLiveTrail;
+        this._mousePadWasLiveTrail = trailVisuallyLive;
 
         if (hasLiveTrail || this._mousePadTextureAnimated)
             this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);

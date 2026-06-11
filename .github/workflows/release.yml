@@ -44,12 +44,22 @@ jobs:
           prev=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           echo "tag=$prev" >> "$GITHUB_OUTPUT"
 
+      - name: generate checksums
+        id: checksums
+        run: |
+          sha256sum input-overlay-ws-windows.zip input-overlay-ws-linux.zip | tee checksums.sha256
+          win=$(sha256sum input-overlay-ws-windows.zip | awk '{print $1}')
+          lin=$(sha256sum input-overlay-ws-linux.zip  | awk '{print $1}')
+          echo "windows=$win" >> "$GITHUB_OUTPUT"
+          echo "linux=$lin"   >> "$GITHUB_OUTPUT"
+
       - name: make release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             input-overlay-ws-windows.zip
             input-overlay-ws-linux.zip
+            checksums.sha256
           body: |
             ## input-overlay websocket server ${{ github.ref_name }}
 
@@ -101,6 +111,21 @@ jobs:
             -   left-click or right-click the tray icon for settings
             -   if the tray icon doesn't appear, a control window will open automatically instead
 
+            > [!NOTICE]
+            > some distros might require you installing libhid and its dependencies manually for analogsense support
+
+            ## **checksum:**
+
+            | file | sha256 |
+            |------|--------|
+            | `input-overlay-ws-windows.zip` | `${{ steps.checksums.outputs.windows }}` |
+            | `input-overlay-ws-linux.zip` | `${{ steps.checksums.outputs.linux }}` |
+
+            a `checksums.sha256` file is also attached to this release. verify with:
+
+            **linux:** `sha256sum -c checksums.sha256`
+
+            **windows:** `Get-FileHash input-overlay-ws-windows.zip -Algorithm SHA256`
 
             ---
             > [!WARNING]

@@ -1,11 +1,12 @@
 //guh
 import { DEFAULT_LAYOUT_STRINGS } from "../consts.js";
 
-const REGEX_MOUSE_PAD  = /^mouse_pad:(u[\d-]+):(u[\d-]+)(?::(a-[tbc][lrc]))?$/;
-const REGEX_GP_JOYSTICK = /^gp_joystick:(gp_ls|gp_rs):(u[\d-]+)(?::(u[\d-]+))?(?::(a-[tbc][lrc]))?$/;
-const REGEX_SCROLLER   = /^([\w|]+):"([^"]+)":"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/;
-const REGEX_MOUSE_SIDE = /^(mouse_side):"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/;
-const REGEX_STANDARD   = /^([\w|]+):"([^"]+)"(?::([-\w.]+))?$/;
+const REGEX_MOUSE_PAD    = /^mouse_pad:(u[\d-]+):(u[\d-]+)(?::(a-[tbc][lrc]))?$/;
+const REGEX_GP_JOYSTICK  = /^gp_joystick:(gp_ls|gp_rs):(u[\d-]+)(?::(u[\d-]+))?(?::(a-[tbc][lrc]))?$/;
+const REGEX_SCROLLER     = /^([\w|]+):"([^"]+)":"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/;
+const REGEX_SCROLL_UPDOWN = /^scroll_updown:"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/;
+const REGEX_MOUSE_SIDE   = /^(mouse_side):"([^"]+)":"([^"]+)"(?::([-\w.]+))?$/;
+const REGEX_STANDARD     = /^([\w|]+):"([^"]+)"(?::([-\w.]+))?$/;
 
 export class LayoutParser {
     constructor() {
@@ -40,6 +41,9 @@ export class LayoutParser {
             return { key: keys[0], keys, labels: [m[2], m[3], m[4]], class: m[5] || "", type: "scroller" };
         }
 
+        if ((m = REGEX_SCROLL_UPDOWN.exec(elementString)))
+            return { key: "scroll_updown", labels: [m[1], m[2]], class: m[3] || "", type: "scroll_updown" };
+
         if ((m = REGEX_MOUSE_SIDE.exec(elementString)))
             return { key: m[1], labels: [m[2], m[3]], class: m[4] || "", type: "mouse_side" };
 
@@ -47,6 +51,10 @@ export class LayoutParser {
             const keys = m[1].split("|");
             const label = m[2];
             const customClass = m[3];
+            if (keys[0] === "scroll_up")
+                return { key: "scroll_up", label, class: customClass || "", type: "scroll_up" };
+            if (keys[0] === "scroll_down")
+                return { key: "scroll_down", label, class: customClass || "", type: "scroll_down" };
             const type = (keys[0].startsWith("mouse_") || keys[0] === "scroller") ? "mouse" : "key";
 
             let cls;
@@ -109,7 +117,8 @@ export class LayoutParser {
         const mouseDef = this.parseCustomLayoutInput(settings.customLayoutMouse || "");
 
         const hasMouseEl = mouseDef.some(item =>
-            item.type === "mouse" || item.type === "scroller" || item.type === "mouse_side" || item.type === "mouse_pad"
+            item.type === "mouse" || item.type === "scroller" || item.type === "mouse_side" || item.type === "mouse_pad" ||
+            item.type === "scroll_up" || item.type === "scroll_down" || item.type === "scroll_updown"
         );
         if (hasMouseEl) return true;
 
@@ -121,6 +130,8 @@ export class LayoutParser {
             if (hasKey) return true;
             const hasMousePad = row.some(item => item.type === "mouse_pad");
             if (hasMousePad) return true;
+            const hasScrollEl = row.some(item => item.type === "scroll_up" || item.type === "scroll_down" || item.type === "scroll_updown");
+            if (hasScrollEl) return true;
         }
     }
 }

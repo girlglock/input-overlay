@@ -126,6 +126,9 @@ export class UrlManager {
         if (settings.mousedistancedpi && settings.mousedistancedpi !== "400") {
             addParam("mousedistancedpi", settings.mousedistancedpi);
         }
+        if (settings.resetmousedistanceafterfade === true || settings.resetmousedistanceafterfade === "true" || settings.resetmousedistanceafterfade === "1") {
+            params.push("resetmousedistanceafterfade=1");
+        }
 
         this.addCustomLayoutParams(params, settings);
 
@@ -182,6 +185,7 @@ export class UrlManager {
                     mousepadtextureopacity: decompressedParams.get("mousepadtextureopacity") || "1",
                     showmousedistance: decompressedParams.get("showmousedistance") === "1",
                     mousedistancedpi: decompressedParams.get("mousedistancedpi") || "400",
+                    resetmousedistanceafterfade: decompressedParams.get("resetmousedistanceafterfade") === "1",
                     customLayoutRow1: decompressedParams.has("customLayoutRow1") ? decompressedParams.get("customLayoutRow1") : DEFAULT_LAYOUT_STRINGS.row1,
                     customLayoutRow2: decompressedParams.has("customLayoutRow2") ? decompressedParams.get("customLayoutRow2") : DEFAULT_LAYOUT_STRINGS.row2,
                     customLayoutRow3: decompressedParams.has("customLayoutRow3") ? decompressedParams.get("customLayoutRow3") : DEFAULT_LAYOUT_STRINGS.row3,
@@ -228,6 +232,7 @@ export class UrlManager {
             mousepadtextureopacity: params.get("mousepadtextureopacity") || "1",
             showmousedistance: params.get("showmousedistance") === "1",
             mousedistancedpi: params.get("mousedistancedpi") || "400",
+            resetmousedistanceafterfade: params.get("resetmousedistanceafterfade") === "1",
             customLayoutRow1: params.has("customLayoutRow1") ? params.get("customLayoutRow1") : DEFAULT_LAYOUT_STRINGS.row1,
             customLayoutRow2: params.has("customLayoutRow2") ? params.get("customLayoutRow2") : DEFAULT_LAYOUT_STRINGS.row2,
             customLayoutRow3: params.has("customLayoutRow3") ? params.get("customLayoutRow3") : DEFAULT_LAYOUT_STRINGS.row3,

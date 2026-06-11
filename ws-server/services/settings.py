@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import threading
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QSize, QTimer, Qt, pyqtSignal
@@ -31,13 +32,19 @@ from services.consts import (
     WS_SERVER_VERSION,
 )
 
+_EVDEV_AVAILABLE = False
+_EvdevInputListener = None
+
 if sys.platform == "win32":
-    from services.pynput_input import PynputInputListener
-    _PYNPUT_AVAILABLE = True
-else:
-    _PYNPUT_AVAILABLE = False
     try:
-        from services.evdev_input import EvdevInputListener as _EvdevInputListener
+        from services.windows.input_rawinputbuffer import RawInputBuffer as _RawInputListener
+        _RAWINPUT_AVAILABLE = True
+    except Exception:
+        _RAWINPUT_AVAILABLE = False
+else:
+    _RAWINPUT_AVAILABLE = False
+    try:
+        from services.linux.input_keys import EvdevInputListener as _EvdevInputListener
         _EVDEV_AVAILABLE = True
     except ImportError:
         _EVDEV_AVAILABLE = False
@@ -97,7 +104,7 @@ class CS16DisabledCheckBox(InstantTooltipCheckBox):
             painter.end()
         else:
             super().paintEvent(event)
-from services.utils import get_resource_path, is_autostart_enabled, set_autostart
+from services.utils import CONFIG_DEFAULTS, get_resource_path, is_autostart_enabled, load_or_create_config, set_autostart
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +130,7 @@ def _get_analogsense_version() -> str:
 class InputSignals(QObject):
     key_detected   = pyqtSignal(str)
     stop_listening = pyqtSignal()
+    devices_ready  = pyqtSignal(list)
 
 class SettingsEditor(QMainWindow):
     def __init__(self, config_path: str) -> None:
@@ -142,6 +150,7 @@ class SettingsEditor(QMainWindow):
 
         self.signals.key_detected.connect(self.on_key_detected)
         self.signals.stop_listening.connect(self.stop_listening)
+        self.signals.devices_ready.connect(self._on_devices_ready)
 
         self.load_config()
         self.setup_ui()
@@ -149,7 +158,7 @@ class SettingsEditor(QMainWindow):
 
         self._update_checker = UpdateChecker()
         self._update_checker.update_available.connect(self._on_update_available)
-        self._update_checker.check(self.dismissed_versions)
+        self._update_checker.check()
 
     def load_config(self) -> None:
         try:
@@ -159,40 +168,23 @@ class SettingsEditor(QMainWindow):
                 logger.debug("settings: removed old restart.flag on open")
         except Exception:
             pass
-        try:
-            with open(self.config_path, "r") as f:
-                config = json.load(f)
-            self.temp_whitelist          = list(config.get("key_whitelist", []))
-            self.host                    = config.get("host", "0.0.0.0")
-            self.port                    = config.get("port", 8080)
-            self._original_host          = self.host
-            self._original_port          = self.port
-            self.http_enabled            = config.get("http_enabled", False)
-            self.http_port               = config.get("http_port", 4456)
-            self.auth_token              = config.get("auth_token", "")
-            self.analog_enabled          = config.get("analog_enabled", False)
-            self.analog_device           = config.get("analog_device", None)
-            self.balloon_enabled         = config.get("balloon_notifications", True)
-            self.raw_mouse_enabled       = config.get("raw_mouse_enabled", False)
-            self.linux_raw_mouse_device  = config.get("linux_raw_mouse_device", "")
-            self.autostart_enabled       = is_autostart_enabled()
-            self.dismissed_versions      = config.get("dismissed_versions", [])
-        except Exception:
-            self.temp_whitelist          = []
-            self.host                    = "0.0.0.0"
-            self.port                    = 8080
-            self._original_host          = self.host
-            self._original_port          = self.port
-            self.http_enabled            = False
-            self.http_port               = 4456
-            self.auth_token              = ""
-            self.analog_enabled          = False
-            self.analog_device           = None
-            self.balloon_enabled         = True
-            self.raw_mouse_enabled       = False
-            self.linux_raw_mouse_device  = ""
-            self.autostart_enabled       = is_autostart_enabled()
-            self.dismissed_versions      = []
+        config = load_or_create_config(self.config_path)
+        self.temp_whitelist          = list(config.get("key_whitelist",          CONFIG_DEFAULTS["key_whitelist"]))
+        self.host                    = config.get("host",                         CONFIG_DEFAULTS["host"])
+        self.port                    = config.get("port",                         CONFIG_DEFAULTS["port"])
+        self._original_host          = self.host
+        self._original_port          = self.port
+        self.http_enabled            = config.get("http_enabled",                CONFIG_DEFAULTS["http_enabled"])
+        self.http_port               = config.get("http_port",                   CONFIG_DEFAULTS["http_port"])
+        self.auth_token              = config.get("auth_token",                  CONFIG_DEFAULTS["auth_token"])
+        self.analog_enabled          = config.get("analog_enabled",              CONFIG_DEFAULTS["analog_enabled"])
+        self.analog_device           = config.get("analog_device",               CONFIG_DEFAULTS["analog_device"])
+        self.balloon_enabled         = config.get("balloon_notifications",       CONFIG_DEFAULTS["balloon_notifications"])
+        self.linux_raw_mouse_device         = config.get("linux_raw_mouse_device",      CONFIG_DEFAULTS["linux_raw_mouse_device"])
+        self.linux_evdev_keyboard_device    = config.get("linux_evdev_keyboard_device", CONFIG_DEFAULTS["linux_evdev_keyboard_device"])
+        self.send_mouse_move         = config.get("send_mouse_move",             CONFIG_DEFAULTS["send_mouse_move"])
+        self.autostart_enabled       = is_autostart_enabled()
+        self.dismissed_versions      = config.get("dismissed_versions",          CONFIG_DEFAULTS["dismissed_versions"])
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -217,10 +209,10 @@ class SettingsEditor(QMainWindow):
             config["analog_enabled"]        = self.analog_checkbox.isChecked()
             config["balloon_notifications"] = self.balloon_checkbox.isChecked()
             config["dismissed_versions"]    = self.dismissed_versions
-            if sys.platform == "win32":
-                config["raw_mouse_enabled"] = self.raw_mouse_checkbox.isChecked()
-            else:
-                config["linux_raw_mouse_device"] = self.linux_mouse_combo.currentData() or ""
+            config["send_mouse_move"] = self.send_mouse_move_checkbox.isChecked()
+            if sys.platform != "win32":
+                config["linux_raw_mouse_device"]      = self.linux_mouse_combo.currentData() or ""
+                config["linux_evdev_keyboard_device"] = self.linux_kbd_combo.currentData() or ""
             if self.device_combo.currentData():
                 config["analog_device"] = self.device_combo.currentData()
 
@@ -242,7 +234,7 @@ class SettingsEditor(QMainWindow):
 
     def setup_ui(self) -> None:
         self.setWindowTitle("SETTINGS")
-        self.setFixedSize(1000, 840)
+        self.setFixedSize(1000, 900)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -255,7 +247,7 @@ class SettingsEditor(QMainWindow):
 
         if sys.platform == "win32" and not _is_admin():
             admin_warning = QLabel(
-                "[!] Not running as admin! You might also run into port issues.\n[!] Both keys and RawInputBuffer might not work correctly when tabbed into apps that run with admin elevations themselves.\n[!] Consider restarting as admin. Setting `Start with Windows` will automatically start the ws server with admin rights on the next boot."
+                "⚠ Not running as admin! Port binding issues may occur.\n⚠ Windows wont post WM_INPUT messages to a non-admin process while an admin app is in focus,\n⚠ so the overlay might not work when tabbed into a admin elevated app or game.\n⚠ Consider restarting as admin. Setting `Start with Windows` will automatically start the ws server with admin rights on the next boot."
             )
             admin_warning.setWordWrap(True)
             admin_warning.setContentsMargins(10, 6, 10, 6)
@@ -347,14 +339,9 @@ class SettingsEditor(QMainWindow):
         analog_layout.addWidget(device_lbl)
 
         self.device_combo = InstantTooltipComboBox()
-        self.device_combo.addItem("No device selected", None)
-        for dev in self.get_analog_devices():
-            self.device_combo.addItem(dev["name"], dev["id"])
-        if self.analog_device:
-            idx = self.device_combo.findData(self.analog_device)
-            if idx >= 0:
-                self.device_combo.setCurrentIndex(idx)
-        self.device_combo.setEnabled(self.analog_enabled)
+        self.device_combo.addItem("Scanning...", None)
+        self.device_combo.setEnabled(False)
+        threading.Thread(target=self._scan_devices_bg, daemon=True).start()
 
         device_row = QHBoxLayout()
         device_row.setSpacing(4)
@@ -383,13 +370,30 @@ class SettingsEditor(QMainWindow):
             self.autostart_checkbox.setToolTip("Admin startup is needed in order to create/remove the Scheduled Task")
         app_layout.addWidget(self.autostart_checkbox)
 
-        if sys.platform == "win32":
-            self.raw_mouse_checkbox = InstantTooltipCheckBox("Enable RawInputBuffer reads from the Windows API\n(mouse movement for mouse_pad element)")
-            self.raw_mouse_checkbox.setToolTip("[!] Requires the ws server to run with admin privileges depending on foreground window privileges\n[!] Also make sure your bindows is up to date, preferably Windows 11 25H2 or higher\n[!] (older versions may limit your `polling rate` when using RawInputBuffer from the background)")
-            self.raw_mouse_checkbox.setChecked(self.raw_mouse_enabled)
-            app_layout.addWidget(self.raw_mouse_checkbox)
-        else:
-            raw_mouse_lbl = QLabel("Raw Mouse Device\n(mouse movement for mouse_pad element):")
+        if sys.platform != "win32":
+            kbd_lbl = QLabel("Keyboard Device:")
+            kbd_lbl.setStyleSheet("color: #a0aa95; font-weight: normal; margin-top: 4px;")
+            app_layout.addWidget(kbd_lbl)
+
+            kbd_row = QHBoxLayout()
+            kbd_row.setSpacing(4)
+
+            self.linux_kbd_combo = InstantTooltipComboBox()
+            self.linux_kbd_combo.setToolTip(
+                "Select the evdev keyboard device for key press/release events.\n"
+                "Leave on Auto-detect to use all detected keyboards."
+            )
+            self._populate_linux_kbd_combo()
+
+            refresh_kbd_btn = QPushButton("REFRESH")
+            refresh_kbd_btn.setFixedWidth(80)
+            refresh_kbd_btn.clicked.connect(self._refresh_linux_evdev_devices)
+
+            kbd_row.addWidget(self.linux_kbd_combo, 1)
+            kbd_row.addWidget(refresh_kbd_btn)
+            app_layout.addLayout(kbd_row)
+
+            raw_mouse_lbl = QLabel("Mouse Device\n(clicks, scroll & mouse_pad movement):")
             raw_mouse_lbl.setStyleSheet("color: #a0aa95; font-weight: normal; margin-top: 4px;")
             app_layout.addWidget(raw_mouse_lbl)
 
@@ -398,9 +402,9 @@ class SettingsEditor(QMainWindow):
 
             self.linux_mouse_combo = InstantTooltipComboBox()
             self.linux_mouse_combo.setToolTip(
-                "Select a raw evdev mouse device for the mouse_pad element\n"
-                "Linux has no RawInputBuffer API... this reads directly from /dev/input\n"
-                "Pick the specific hardware device to avoid double counting.\n"
+                "Select the evdev mouse device for clicks, scroll, and mouse_pad movement.\n"
+                "Linux has no RawInputBuffer API — this reads directly from /dev/input.\n"
+                "Pick the specific hardware device to avoid double counting."
             )
             self._populate_linux_mouse_combo()
 
@@ -482,6 +486,11 @@ class SettingsEditor(QMainWindow):
         self.scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.scroll_area.setWidget(self.scroll_content)
         whitelist_layout.addWidget(self.scroll_area)
+
+        self.send_mouse_move_checkbox = InstantTooltipCheckBox("Enable mouse movement")
+        self.send_mouse_move_checkbox.setToolTip("Broadcast mouse movement deltas to connected overlay clients.\nDisable if you don't use the mouse_pad element.")
+        self.send_mouse_move_checkbox.setChecked(self.send_mouse_move)
+        whitelist_layout.addWidget(self.send_mouse_move_checkbox)
 
         whitelist_group.setLayout(whitelist_layout)
         right_column.addWidget(whitelist_group)
@@ -641,22 +650,84 @@ class SettingsEditor(QMainWindow):
         self.device_combo.setEnabled(state == Qt.CheckState.Checked.value)
 
     def refresh_devices(self) -> None:
+        self.device_combo.setEnabled(False)
+        self.device_combo.clear()
+        self.device_combo.addItem("Scanning...", None)
+        threading.Thread(target=self._scan_devices_bg, daemon=True).start()
+
+    def _scan_devices_bg(self) -> None:
+        result: list = []
+        done = threading.Event()
+
+        def _do():
+            result.extend(self.get_analog_devices())
+            done.set()
+
+        t = threading.Thread(target=_do, daemon=True)
+        t.start()
+        finished = done.wait(timeout=8.0)
+        if not finished:
+            logger.warning("analog scan pooped itself because it took too long... a device might be in a bad state try reconnecting it...")
+        self.signals.devices_ready.emit(result)
+
+    def _on_devices_ready(self, devices: list) -> None:
         current = self.device_combo.currentData()
         self.device_combo.clear()
         self.device_combo.addItem("No device selected", None)
-        for dev in self.get_analog_devices():
+        for dev in devices:
             self.device_combo.addItem(dev["name"], dev["id"])
-        if current:
+        if self.analog_device:
+            idx = self.device_combo.findData(self.analog_device)
+            if idx >= 0:
+                self.device_combo.setCurrentIndex(idx)
+        elif current:
             idx = self.device_combo.findData(current)
             if idx >= 0:
                 self.device_combo.setCurrentIndex(idx)
+        self.device_combo.setEnabled(self.analog_checkbox.isChecked())
+
+    def _populate_linux_kbd_combo(self) -> None:
+        if sys.platform == "win32":
+            return
+        try:
+            from services.linux.input_keys import enum_evdev_keyboards
+            kbd_devs = enum_evdev_keyboards()
+        except Exception:
+            kbd_devs = []
+
+        self.linux_kbd_combo.clear()
+        self.linux_kbd_combo.addItem("Disabled", "")
+        for dev in kbd_devs:
+            label = f"{dev['name']}  [{dev['path']}]"
+            self.linux_kbd_combo.addItem(label, dev["path"])
+
+        if self.linux_evdev_keyboard_device:
+            idx = self.linux_kbd_combo.findData(self.linux_evdev_keyboard_device)
+            if idx >= 0:
+                self.linux_kbd_combo.setCurrentIndex(idx)
+
+    def _refresh_linux_evdev_devices(self) -> None:
+        if sys.platform == "win32":
+            return
+        current_kbd = self.linux_kbd_combo.currentData()
+        self._populate_linux_kbd_combo()
+        if current_kbd:
+            idx = self.linux_kbd_combo.findData(current_kbd)
+            if idx >= 0:
+                self.linux_kbd_combo.setCurrentIndex(idx)
 
     def _populate_linux_mouse_combo(self) -> None:
         if sys.platform == "win32":
             return
         try:
-            from services.rawinput_linux import enum_raw_mouse_devices
-            mouse_devs = enum_raw_mouse_devices()
+            from services.linux.input_keys import enum_evdev_mice
+            from services.linux.input_mouse_move import enum_raw_mouse_devices
+            seen: set = set()
+            mouse_devs: list = []
+            for dev in [*enum_evdev_mice(), *enum_raw_mouse_devices()]:
+                if dev["path"] not in seen:
+                    seen.add(dev["path"])
+                    mouse_devs.append(dev)
         except Exception:
             mouse_devs = []
 
@@ -691,15 +762,15 @@ class SettingsEditor(QMainWindow):
         self.is_listening = True
         self.add_btn.setText("LISTENING... [ESC TO CANCEL]")
 
-        if _PYNPUT_AVAILABLE:
-            self._start_listening_pynput()
+        if _RAWINPUT_AVAILABLE:
+            self._start_listening_rawinput()
         elif _EVDEV_AVAILABLE:
             self._start_listening_evdev()
         else:
             logger.warning("no input backend there for getting keys")
             self.stop_listening()
 
-    def _start_listening_pynput(self) -> None:
+    def _start_listening_rawinput(self) -> None:
         _ESC_VK = 27
 
         def on_key_press(rawcode: int):
@@ -725,7 +796,7 @@ class SettingsEditor(QMainWindow):
             self.signals.key_detected.emit("mouse_wheel")
             self.signals.stop_listening.emit()
 
-        self._capture_listener = PynputInputListener(
+        self._capture_listener = _RawInputListener(
             on_key_press=on_key_press,
             on_key_release=on_key_release,
             on_mouse_click=on_mouse_click,
@@ -764,6 +835,7 @@ class SettingsEditor(QMainWindow):
             on_key_release=on_key_release,
             on_mouse_click=on_mouse_click,
             on_mouse_scroll=on_mouse_scroll,
+            capture_all=True,
         )
         self._capture_listener.start()
 

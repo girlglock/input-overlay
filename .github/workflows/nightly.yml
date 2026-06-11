@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - ws-server-rinb
 
 permissions:
   contents: read
@@ -17,4 +18,4 @@ jobs:
     with:
       windows-artifact-name: input-overlay-ws-windows
       linux-artifact-name: input-overlay-ws-linux
-      retention-days: 90
+      retention-days: 60

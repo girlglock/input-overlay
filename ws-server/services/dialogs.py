@@ -45,6 +45,11 @@ GITHUB_API_URL      = "https://api.github.com/repos/girlglock/input-overlay/rele
 GITHUB_ASSET_NAME   = "input-overlay-ws-windows.zip"
 GITHUB_EXE_NAME     = "input-overlay-ws.exe"
 
+
+def _open_url(url: str) -> None:
+    import webbrowser
+    webbrowser.open(url)
+
 class _SegmentedProgressBar(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -680,7 +685,7 @@ class UpdateChecker(QObject):
     update_available = pyqtSignal(str, str)   # latest_version, release_body
     check_done       = pyqtSignal()
 
-    def check(self, dismissed: list) -> None:
+    def check(self) -> None:
         def _run():
             try:
                 req = urllib.request.Request(GITHUB_API_URL, headers={"User-Agent": "input-overlay-ws"})
@@ -688,7 +693,9 @@ class UpdateChecker(QObject):
                     data = json.loads(resp.read().decode())
                 latest = data.get("tag_name", "").lstrip("v")
                 body   = data.get("body", "").strip()
-                if latest and latest != WS_SERVER_VERSION and latest not in dismissed:
+                def _ver(v): return tuple(int(x) for x in v.split("."))
+                if (latest and not WS_SERVER_VERSION.startswith("nightly-")
+                        and _ver(latest) > _ver(WS_SERVER_VERSION)):
                     self.update_available.emit(latest, body)
             except Exception as e:
                 logger.debug("update check failed: %s", e)
@@ -804,7 +811,7 @@ class UpdateDialog(_SharpCornersMixin, QDialog):
 
     def _on_download(self) -> None:
         if sys.platform != "win32":
-            QDesktopServices.openUrl(QUrl(GITHUB_RELEASES_URL))
+            _open_url(GITHUB_RELEASES_URL)
             self.accept()
             return
 
@@ -837,7 +844,7 @@ class UpdateDialog(_SharpCornersMixin, QDialog):
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(1200, self.accept)
         elif error == "_open_browser":
-            QDesktopServices.openUrl(QUrl(GITHUB_RELEASES_URL))
+            _open_url(GITHUB_RELEASES_URL)
             self.accept()
         else:
             self._download_btn.setEnabled(True)
@@ -872,7 +879,8 @@ def check_for_updates_on_startup(config_path: str = "config.json",
                 data = json.loads(resp.read().decode())
             latest = data.get("tag_name", "").lstrip("v")
             body   = data.get("body", "").strip()
-            if latest and latest != WS_SERVER_VERSION and latest not in dismissed:
+            def _ver(v): return tuple(int(x) for x in v.split("."))
+            if (latest and latest not in dismissed and _ver(latest) > _ver(WS_SERVER_VERSION)):
                 env = os.environ.copy()
                 env["IOV_UPDATE_BODY"] = body
                 proc = spawn_subprocess("--update-popup", latest, config_path, env=env)
@@ -1002,7 +1010,7 @@ class LinuxPermsDialog(_SharpCornersMixin, QDialog):
         layout.addWidget(inner)
 
     def _on_instructions(self) -> None:
-        QDesktopServices.openUrl(QUrl(GITHUB_RELEASES_URL))
+        _open_url(GITHUB_RELEASES_URL)
 
     def _on_exit(self) -> None:
         self.accept()

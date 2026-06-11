@@ -8,7 +8,7 @@ import sys
 import threading
 
 from services.logger import flush_log, setup_crash_handler, setup_signal_handlers
-from services.utils import get_resource_path, spawn_subprocess
+from services.utils import CONFIG_DEFAULTS, get_resource_path, spawn_subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -417,19 +417,20 @@ def main(server_class=None) -> None:
     server = server_class()
     config = server.load_config()
 
-    server.host                   = config.get("host", "localhost")
-    server.port                   = config.get("port", 4455)
-    server.http_enabled           = config.get("http_enabled", False)
-    server.http_host              = config.get("http_host", config.get("host", "localhost"))
-    server.http_port              = config.get("http_port", 4456)
-    server.auth_token             = config.get("auth_token", "")
-    server.analog_enabled         = config.get("analog_enabled", False)
-    server.analog_device          = config.get("analog_device", None)
-    server.key_whitelist          = config.get("key_whitelist", [])
-    server.balloon_notifications  = config.get("balloon_notifications", True)
-    server.raw_mouse_enabled      = config.get("raw_mouse_enabled", False)
-    server.raw_mouse_min_delta    = config.get("raw_mouse_min_delta", 0)
-    server.linux_raw_mouse_device = config.get("linux_raw_mouse_device", "")
+    server.host                   = config.get("host",                  CONFIG_DEFAULTS["host"])
+    server.port                   = config.get("port",                  CONFIG_DEFAULTS["port"])
+    server.http_enabled           = config.get("http_enabled",          CONFIG_DEFAULTS["http_enabled"])
+    server.http_host              = config.get("http_host",             config.get("host", CONFIG_DEFAULTS["host"]))
+    server.http_port              = config.get("http_port",             CONFIG_DEFAULTS["http_port"])
+    server.auth_token             = config.get("auth_token",            CONFIG_DEFAULTS["auth_token"])
+    server.analog_enabled         = config.get("analog_enabled",        CONFIG_DEFAULTS["analog_enabled"])
+    server.analog_device          = config.get("analog_device",         CONFIG_DEFAULTS["analog_device"])
+    server.key_whitelist          = config.get("key_whitelist",         CONFIG_DEFAULTS["key_whitelist"])
+    server.balloon_notifications  = config.get("balloon_notifications", CONFIG_DEFAULTS["balloon_notifications"])
+    server.raw_mouse_min_delta    = config.get("raw_mouse_min_delta",   CONFIG_DEFAULTS["raw_mouse_min_delta"])
+    server.linux_raw_mouse_device      = config.get("linux_raw_mouse_device",      CONFIG_DEFAULTS["linux_raw_mouse_device"])
+    server.linux_evdev_keyboard_device = config.get("linux_evdev_keyboard_device", CONFIG_DEFAULTS["linux_evdev_keyboard_device"])
+    server.send_mouse_move             = config.get("send_mouse_move",             CONFIG_DEFAULTS["send_mouse_move"])
 
     if sys.platform == "win32":
         _apply_cpu_affinity(config.get("cpu_affinity", [0, 1]))

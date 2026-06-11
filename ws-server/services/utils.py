@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import subprocess
 import sys
@@ -7,6 +8,44 @@ from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+CONFIG_DEFAULTS: dict = {
+    "host":                   "localhost",
+    "port":                   4455,
+    "http_enabled":           False,
+    "http_host":              "localhost",
+    "http_port":              4456,
+    "auth_token":             "",
+    "analog_enabled":         False,
+    "analog_device":          None,
+    "key_whitelist":          [],
+    "balloon_notifications":  True,
+    "raw_mouse_min_delta":         0,
+    "linux_raw_mouse_device":      "",
+    "linux_evdev_keyboard_device": "",
+    "send_mouse_move":             True,
+    "dismissed_versions":     [],
+    "cpu_affinity":           [0, 1],
+}
+
+
+def load_or_create_config(path: "Path | str", creation_overrides: dict | None = None) -> dict:
+    path = Path(path)
+    if path.exists():
+        try:
+            with open(path, "r") as f:
+                return json.load(f)
+        except Exception:
+            logger.exception("error reading config %s ... reverting to default", path)
+            return {**CONFIG_DEFAULTS, **(creation_overrides or {})}
+    config = {**CONFIG_DEFAULTS, **(creation_overrides or {})}
+    try:
+        with open(path, "w") as f:
+            json.dump(config, f, indent=4)
+        logger.info("created default config at %s", path)
+    except Exception:
+        logger.exception("error creating config %s", path)
+    return config
 
 def get_resource_path(relative_path: str) -> Path:
     try:

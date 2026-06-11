@@ -12,6 +12,7 @@ export class ConfiguratorMode {
     constructor(utils, urlManager, layoutParser, visualizer) {
         this.utils = utils;
         this.urlManager = urlManager;
+        this.layoutParser = layoutParser;
         this.visualizer = visualizer;
         this.pickrInstances = {};
         this.urlDebounceTimer = null;
@@ -29,13 +30,15 @@ export class ConfiguratorMode {
         setTimeout(() => COLOR_PICKERS.forEach(cp => this.initPickrColorInput(cp.id, cp.defaultColor)), 25);
 
         const urlParams = new URLSearchParams(window.location.search);
-        const hasParams = urlParams.has("cfg") || Array.from(urlParams.keys()).some(k => k !== "ws");
+        const DEV_PARAMS = /^(vscode-|_ijt$)/; //for when im too lazy to disable the arg on a fresh install
+        const hasParams = urlParams.has("cfg") || Array.from(urlParams.keys()).some(k => k !== "ws" && !DEV_PARAMS.test(k));
 
         if (hasParams) this.loadSettingsFromLink(true);
         else this.applyDefaultSettings();
 
         this.setupConfigInputs();
         this.setupKeyAddButtons();
+        this.setupTagContainers();
         this.setupPreviewInputListeners();
         this.setupAnalogSense();
         this.updateState();
@@ -75,6 +78,7 @@ export class ConfiguratorMode {
             mousepadtextureopacity: "1",
             showmousedistance: false,
             mousedistancedpi: "400",
+            resetmousedistanceafterfade: false,
         });
     }
 
@@ -132,6 +136,7 @@ export class ConfiguratorMode {
             mousepadtextureopacity: val("mousepadtextureopacity") || "1",
             showmousedistance: chk("showmousedistance"),
             mousedistancedpi: val("mousedistancedpi") || "400",
+            resetmousedistanceafterfade: chk("resetmousedistanceafterfade"),
         };
     }
 
@@ -226,11 +231,13 @@ export class ConfiguratorMode {
         applyValue("mousepadtextureopacity", settings.mousepadtextureopacity ?? "1");
         applyValue("showmousedistance", settings.showmousedistance ?? false);
         applyValue("mousedistancedpi", settings.mousedistancedpi ?? "400");
+        applyValue("resetmousedistanceafterfade", settings.resetmousedistanceafterfade ?? false);
     }
 
     updateState(settings = null) {
         if (!settings) settings = this.getCurrentSettings();
         this.visualizer.applyStyles(settings, true);
+        this.renderAllTags();
 
         const THROTTLE_MS = 100;
         const now = performance.now();
@@ -380,18 +387,35 @@ export class ConfiguratorMode {
             });
         }
 
+        const layoutRowIds = ["customLayoutRow1", "customLayoutRow2", "customLayoutRow3", "customLayoutRow4", "customLayoutRow5", "customLayoutMouse"];
+        for (const id of layoutRowIds) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            el.addEventListener("blur", () => {
+                if (!el.value.trim()) {
+                    el.value = "dummy";
+                    el.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+            });
+        }
+
         const wsauthEl = document.getElementById("wsauth");
         const savedAuth = localStorage.getItem("overlay_wsauth");
         if (savedAuth && !wsauthEl.value) wsauthEl.value = savedAuth;
         wsauthEl.addEventListener("input", () => localStorage.setItem("overlay_wsauth", wsauthEl.value));
 
         const distanceCheckbox = document.getElementById("showmousedistance");
+        const distanceResetCheckbox = document.getElementById("resetmousedistanceafterfade");
+        const distanceResetLabel = document.getElementById("resetmousedistanceafterfadelabel");
         const dpiSlider = document.getElementById("mousedistancedpi");
         const dpiLabel = document.getElementById("mousedistancedpivalue");
         const syncDpiState = () => {
             const enabled = distanceCheckbox?.checked ?? false;
             if (dpiSlider) { dpiSlider.disabled = !enabled; dpiSlider.style.opacity = enabled ? "1" : "0.5"; }
             if (dpiLabel) dpiLabel.style.opacity = enabled ? "1" : "0.4";
+
+            if (distanceResetCheckbox) { distanceResetCheckbox.disabled = !enabled; distanceResetCheckbox.style.opacity = enabled ? "1" : "0.5"; }
+            if (distanceResetLabel) distanceResetLabel.style.opacity = enabled ? "1" : "0.4";
         };
         distanceCheckbox?.addEventListener("change", syncDpiState);
         syncDpiState();
@@ -651,11 +675,53 @@ export class ConfiguratorMode {
         const addBtn = document.getElementById("popupAddBtn");
         const cancelBtn = document.getElementById("popupCancelBtn");
         const scrollerLabels = document.getElementById("popupScrollerLabels");
+        const scrollUpDownLabels = document.getElementById("popupScrollUpDownLabels");
         const mouseSideLabels = document.getElementById("popupMouseSideLabels");
         const anchorField = document.getElementById("popupAnchorField");
         const anchorSelect = document.getElementById("popupAnchorSelect");
 
+        const pipeKeySelect = document.getElementById("popupPipeKeySelect");
+        const pipeTagsContainer = document.getElementById("popupPipeTags");
+        const pipeSection = document.getElementById("popupPipeSection");
+        const PIPE_EXCLUDED_GROUPS = new Set(["Special", "Gamepad Joysticks"]);
+        const PIPE_UNSUPPORTED = new Set(["br", "dummy", "invisible", "mouse_pad", "mouse_side", "gp_ls", "gp_rs", "scroll_updown"]);
+
+        for (const optgroup of keySelect.querySelectorAll("optgroup")) {
+            if (PIPE_EXCLUDED_GROUPS.has(optgroup.label)) continue;
+            pipeKeySelect.appendChild(optgroup.cloneNode(true));
+        }
+
         let currentTargetRow = null, originalValue = "", isUpdating = false;
+        let editingIndex = null, editingParts = [];
+        let pipeKeys = [];
+
+        const renderPipeTags = () => {
+            pipeTagsContainer.innerHTML = "";
+            if (pipeKeys.length === 0) {
+                const ph = document.createElement("span");
+                ph.className = "cfg-tags-placeholder";
+                ph.textContent = "none";
+                pipeTagsContainer.appendChild(ph);
+                return;
+            }
+            pipeKeys.forEach((key, i) => {
+                const tag = document.createElement("span");
+                tag.className = "cfg-tag";
+                const lbl = document.createElement("span");
+                lbl.className = "cfg-tag-label";
+                const opt = pipeKeySelect.querySelector(`option[value="${key}"]`);
+                lbl.textContent = opt ? opt.text : key;
+                const x = document.createElement("button");
+                x.className = "cfg-tag-remove";
+                x.textContent = "×";
+                x.addEventListener("click", () => { pipeKeys.splice(i, 1); renderPipeTags(); updateKeyString(); });
+                tag.appendChild(lbl);
+                tag.appendChild(x);
+                pipeTagsContainer.appendChild(tag);
+            });
+        };
+
+        renderPipeTags();
 
         const updateKeyString = () => {
             if (isUpdating) return;
@@ -663,37 +729,78 @@ export class ConfiguratorMode {
             let keyString;
             const widthClass = this.getWidthClass(parseInt(widthSlider.value));
 
-            if (keyName === "scroller") {
-                const def = document.getElementById("popupScrollerDefault").value || "M3";
-                const up = document.getElementById("popupScrollerUp").value || "🡅";
-                const down = document.getElementById("popupScrollerDown").value || "🡇";
-                keyString = widthClass
-                    ? `scroller:"${def}":"${up}":"${down}":${widthClass}`
-                    : `scroller:"${def}":"${up}":"${down}"`;
-            } else if (keyName === "mouse_side") {
-                const m5 = document.getElementById("popupMouseSideM5").value || "M5";
-                const m4 = document.getElementById("popupMouseSideM4").value || "M4";
-                keyString = widthClass ? `mouse_side:"${m5}":"${m4}":${widthClass}` : `mouse_side:"${m5}":"${m4}"`;
-            } else if (keyName === "mouse_pad") {
-                const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
-                const anchor = anchorSelect.value;
-                keyString = `mouse_pad:${widthClass || "u1"}:${hClass}:${anchor}`;
-            } else if (keyName === "gp_ls" || keyName === "gp_rs") {
-                const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
-                const anchor = anchorSelect.value;
-                keyString = `gp_joystick:${keyName}:${widthClass || "u3"}:${hClass}:${anchor}`;
-            } else if (keyName === "br") {
-                keyString = "br";
-            } else if (keyName === "invisible" || keyName === "dummy") {
-                keyString = widthClass ? `$none:"invis":${widthClass}` : keyName;
-            } else {
-                const label = labelInput.value || keyName.split("_")[1].toUpperCase();
-                keyString = widthClass ? `${keyName}:"${label}":${widthClass}` : `${keyName}:"${label}"`;
+            switch (keyName) {
+                case "scroller": {
+                    const def = document.getElementById("popupScrollerDefault").value || "M3";
+                    const up = document.getElementById("popupScrollerUp").value || "🡅";
+                    const down = document.getElementById("popupScrollerDown").value || "🡇";
+                    keyString = widthClass
+                        ? `scroller:"${def}":"${up}":"${down}":${widthClass}`
+                        : `scroller:"${def}":"${up}":"${down}"`;
+                    break;
+                }
+                case "scroll_updown": {
+                    const up = document.getElementById("popupScrollUpDownUp").value || "🡅";
+                    const down = document.getElementById("popupScrollUpDownDown").value || "🡇";
+                    keyString = widthClass
+                        ? `scroll_updown:"${up}":"${down}":${widthClass}`
+                        : `scroll_updown:"${up}":"${down}"`;
+                    break;
+                }
+                case "scroll_up": {
+                    const label = labelInput.value || "🡅";
+                    keyString = widthClass ? `scroll_up:"${label}":${widthClass}` : `scroll_up:"${label}"`;
+                    break;
+                }
+                case "scroll_down": {
+                    const label = labelInput.value || "🡇";
+                    keyString = widthClass ? `scroll_down:"${label}":${widthClass}` : `scroll_down:"${label}"`;
+                    break;
+                }
+                case "mouse_side": {
+                    const m5 = document.getElementById("popupMouseSideM5").value || "M5";
+                    const m4 = document.getElementById("popupMouseSideM4").value || "M4";
+                    keyString = widthClass ? `mouse_side:"${m5}":"${m4}":${widthClass}` : `mouse_side:"${m5}":"${m4}"`;
+                    break;
+                }
+                case "mouse_pad": {
+                    const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
+                    const anchor = anchorSelect.value;
+                    keyString = `mouse_pad:${widthClass || "u1"}:${hClass}:${anchor}`;
+                    break;
+                }
+                case "gp_ls":
+                case "gp_rs": {
+                    const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
+                    const anchor = anchorSelect.value;
+                    keyString = `gp_joystick:${keyName}:${widthClass || "u3"}:${hClass}:${anchor}`;
+                    break;
+                }
+                case "br":
+                    keyString = "br";
+                    break;
+                case "invisible":
+                case "dummy":
+                    keyString = widthClass ? `$none:"invis":${widthClass}` : keyName;
+                    break;
+                default: {
+                    const label = labelInput.value || keyName.split("_")[1].toUpperCase();
+                    keyString = widthClass ? `${keyName}:"${label}":${widthClass}` : `${keyName}:"${label}"`;
+                }
             }
+
+            if (!PIPE_UNSUPPORTED.has(keyName) && pipeKeys.length > 0)
+                keyString = pipeKeys.join("|") + "|" + keyString;
 
             const targetInput = document.getElementById(`customLayout${currentTargetRow}`);
             if (targetInput) {
-                targetInput.value = originalValue ? `${originalValue}, ${keyString}` : keyString;
+                if (editingIndex !== null) {
+                    const newParts = [...editingParts];
+                    newParts[editingIndex] = keyString;
+                    targetInput.value = newParts.join(", ");
+                } else {
+                    targetInput.value = originalValue ? `${originalValue}, ${keyString}` : keyString;
+                }
                 targetInput.dispatchEvent(new Event("input", { bubbles: true }));
             }
         };
@@ -708,48 +815,95 @@ export class ConfiguratorMode {
         keySelect.addEventListener("change", () => {
             const key = keySelect.value;
             scrollerLabels.style.display = "none";
+            scrollUpDownLabels.style.display = "none";
             mouseSideLabels.style.display = "none";
             anchorField.style.display = "none";
             heightField.style.display = "none";
             labelInput.parentElement.style.display = "block";
+            pipeSection.style.display = PIPE_UNSUPPORTED.has(key) ? "none" : "";
 
-            if (key === "scroller") {
-                labelInput.parentElement.style.display = "none";
-                scrollerLabels.style.display = "block";
-                document.getElementById("popupScrollerDefault").value = "M3";
-                document.getElementById("popupScrollerUp").value = "🡅";
-                document.getElementById("popupScrollerDown").value = "🡇";
-            } else if (key === "mouse_side") {
-                labelInput.parentElement.style.display = "none";
-                mouseSideLabels.style.display = "block";
-                document.getElementById("popupMouseSideM5").value = "M5";
-                document.getElementById("popupMouseSideM4").value = "M4";
-            } else if (key === "mouse_pad") {
-                labelInput.parentElement.style.display = "none";
-                heightField.style.display = "block";
-                anchorField.style.display = "block";
-                widthSlider.value = 500; widthValue.textContent = "5.00u";
-                heightSlider.value = 300; heightValue.textContent = "3.00u";
-            } else if (key === "gp_ls" || key === "gp_rs") {
-                labelInput.parentElement.style.display = "none";
-                heightField.style.display = "block";
-                anchorField.style.display = "block";
-                widthSlider.value = 300; widthValue.textContent = "3.00u";
-                heightSlider.value = 300; heightValue.textContent = "3.00u";
-            } else if (key === "br") {
-                labelInput.parentElement.style.display = "none";
-            } else if (key === "invisible" || key === "dummy") {
-                labelInput.value = "invisible";
-            } else {
-                labelInput.value = keySelect.options[keySelect.selectedIndex].text;
+            switch (key) {
+                case "scroller":
+                    labelInput.parentElement.style.display = "none";
+                    scrollerLabels.style.display = "block";
+                    document.getElementById("popupScrollerDefault").value = "M3";
+                    document.getElementById("popupScrollerUp").value = "🡅";
+                    document.getElementById("popupScrollerDown").value = "🡇";
+                    break;
+                case "scroll_updown":
+                    labelInput.parentElement.style.display = "none";
+                    scrollUpDownLabels.style.display = "block";
+                    document.getElementById("popupScrollUpDownUp").value = "🡅";
+                    document.getElementById("popupScrollUpDownDown").value = "🡇";
+                    break;
+                case "scroll_up":
+                    labelInput.value = "🡅";
+                    break;
+                case "scroll_down":
+                    labelInput.value = "🡇";
+                    break;
+                case "mouse_left":
+                    labelInput.value = "M1";
+                    break;
+                case "mouse_right":
+                    labelInput.value = "M2";
+                    break;
+                case "mouse_middle":
+                    labelInput.value = "M3";
+                    break;
+                case "mouse_4":
+                    labelInput.value = "M4";
+                    break;
+                case "mouse_5":
+                    labelInput.value = "M5";
+                    break;
+                case "mouse_side":
+                    labelInput.parentElement.style.display = "none";
+                    mouseSideLabels.style.display = "block";
+                    document.getElementById("popupMouseSideM5").value = "M5";
+                    document.getElementById("popupMouseSideM4").value = "M4";
+                    break;
+                case "mouse_pad":
+                    labelInput.parentElement.style.display = "none";
+                    heightField.style.display = "block";
+                    anchorField.style.display = "block";
+                    widthSlider.value = 500; widthValue.textContent = "5.00u";
+                    heightSlider.value = 300; heightValue.textContent = "3.00u";
+                    break;
+                case "gp_ls":
+                case "gp_rs":
+                    labelInput.parentElement.style.display = "none";
+                    heightField.style.display = "block";
+                    anchorField.style.display = "block";
+                    widthSlider.value = 300; widthValue.textContent = "3.00u";
+                    heightSlider.value = 300; heightValue.textContent = "3.00u";
+                    break;
+                case "br":
+                    labelInput.parentElement.style.display = "none";
+                    break;
+                case "invisible":
+                case "dummy":
+                    labelInput.value = "invisible";
+                    break;
+                default:
+                    labelInput.value = keySelect.options[keySelect.selectedIndex].text;
             }
             updateKeyString();
         });
 
         labelInput.addEventListener("input", updateKeyString);
         anchorSelect.addEventListener("change", updateKeyString);
-        for (const id of ["popupScrollerDefault", "popupScrollerUp", "popupScrollerDown", "popupMouseSideM5", "popupMouseSideM4"])
+        for (const id of ["popupScrollerDefault", "popupScrollerUp", "popupScrollerDown", "popupMouseSideM5", "popupMouseSideM4", "popupScrollUpDownUp", "popupScrollUpDownDown"])
             document.getElementById(id).addEventListener("input", updateKeyString);
+
+        document.getElementById("popupPipeAddBtn").addEventListener("click", () => {
+            const key = pipeKeySelect.value;
+            if (key && !pipeKeys.includes(key) && key !== keySelect.value) {
+                pipeKeys.push(key);
+                renderPipeTags();
+                updateKeyString();
+            }
+        });
 
         const rowMappings = [
             ["addKey1", "Row1"], ["addKey2", "Row2"], ["addKey3", "Row3"],
@@ -760,12 +914,16 @@ export class ConfiguratorMode {
             const btn = document.getElementById(buttonId);
             if (!btn) continue;
             btn.addEventListener("click", () => {
+                editingIndex = null;
+                editingParts = [];
+                pipeKeys = [];
+                addBtn.textContent = "add key";
                 isUpdating = false;
                 currentTargetRow = rowId;
                 originalValue = (document.getElementById(`customLayout${rowId}`)?.value || "").trim();
 
                 const rect = btn.getBoundingClientRect();
-                const pw = 340, ph = 400;
+                const pw = 340, ph = 500;
                 let left = rect.left - pw, top = rect.top;
                 if (left < 10) left = rect.right + 10;
                 if (left + pw > window.innerWidth - 10) left = Math.max(10, (window.innerWidth - pw) / 2);
@@ -779,24 +937,259 @@ export class ConfiguratorMode {
                 heightSlider.value = 100; heightValue.textContent = "1.00u";
                 heightField.style.display = "none";
                 scrollerLabels.style.display = "none";
+                scrollUpDownLabels.style.display = "none";
                 mouseSideLabels.style.display = "none";
                 anchorField.style.display = "none";
                 anchorSelect.value = "a-tl";
                 labelInput.parentElement.style.display = "block";
+                pipeSection.style.display = "";
+                renderPipeTags();
                 updateKeyString();
             });
         }
 
+        const prefillFromRaw = (raw) => {
+            const item = this.layoutParser.parseElementDef(raw.trim());
+            if (!item) return;
+            isUpdating = true;
+
+            if (item.keys && item.keys.length > 1) {
+                pipeKeys = item.type === "scroller"
+                    ? item.keys.filter(k => k !== "scroller")
+                    : item.keys.slice(1);
+            } else {
+                pipeKeys = [];
+            }
+            renderPipeTags();
+
+            const setType = (val) => { keySelect.value = val; keySelect.dispatchEvent(new Event("change")); };
+
+            switch (item.type) {
+                case "scroller":
+                    setType("scroller");
+                    document.getElementById("popupScrollerDefault").value = item.labels?.[0] || "M3";
+                    document.getElementById("popupScrollerUp").value = item.labels?.[1] || "🡅";
+                    document.getElementById("popupScrollerDown").value = item.labels?.[2] || "🡇";
+                    break;
+                case "scroll_updown":
+                    setType("scroll_updown");
+                    document.getElementById("popupScrollUpDownUp").value = item.labels?.[0] || "🡅";
+                    document.getElementById("popupScrollUpDownDown").value = item.labels?.[1] || "🡇";
+                    break;
+                case "scroll_up":
+                    setType("scroll_up");
+                    labelInput.value = item.label || "🡅";
+                    break;
+                case "scroll_down":
+                    setType("scroll_down");
+                    labelInput.value = item.label || "🡇";
+                    break;
+                case "mouse_side":
+                    setType("mouse_side");
+                    document.getElementById("popupMouseSideM5").value = item.labels?.[0] || "M5";
+                    document.getElementById("popupMouseSideM4").value = item.labels?.[1] || "M4";
+                    break;
+                case "mouse_pad":
+                    setType("mouse_pad");
+                    widthSlider.value = this.widthClassToSlider(item.widthClass);
+                    heightSlider.value = this.widthClassToSlider(item.heightClass);
+                    anchorSelect.value = item.anchor || "a-tl";
+                    widthValue.textContent = `${(parseInt(widthSlider.value) / 100).toFixed(2)}u`;
+                    heightValue.textContent = `${(parseInt(heightSlider.value) / 100).toFixed(2)}u`;
+                    break;
+                case "gp_joystick":
+                    setType(item.stickId);
+                    widthSlider.value = this.widthClassToSlider(item.widthClass);
+                    heightSlider.value = this.widthClassToSlider(item.heightClass);
+                    anchorSelect.value = item.anchor || "a-tl";
+                    widthValue.textContent = `${(parseInt(widthSlider.value) / 100).toFixed(2)}u`;
+                    heightValue.textContent = `${(parseInt(heightSlider.value) / 100).toFixed(2)}u`;
+                    break;
+                case "dummy":
+                    setType("dummy");
+                    break;
+                case "br":
+                    setType("br");
+                    break;
+                default: {
+                    if (item.class?.includes("invisible") && !item.key) { setType("invisible"); break; }
+                    const keyVal = item.key || "key_a";
+                    setType(keyVal);
+                    labelInput.value = item.label || "";
+                    const wcls = (item.class || "").split(" ").find(c => /^u[\d-]+$/.test(c)) || "";
+                    widthSlider.value = this.widthClassToSlider(wcls);
+                    widthValue.textContent = `${(parseInt(widthSlider.value) / 100).toFixed(2)}u`;
+                }
+            }
+
+            isUpdating = false;
+        };
+
+        const openPopupForEdit = (rowId, idx, parts, raw) => {
+            editingIndex = idx;
+            editingParts = [...parts];
+            currentTargetRow = rowId;
+            originalValue = document.getElementById(`customLayout${rowId}`)?.value || "";
+            addBtn.textContent = "update key";
+
+            const ROW_TO_BTN = { Row1: "addKey1", Row2: "addKey2", Row3: "addKey3", Row4: "addKey4", Row5: "addKey5", Mouse: "addKeyMouse" };
+            const triggerBtn = document.getElementById(ROW_TO_BTN[rowId]);
+            const rect = triggerBtn?.getBoundingClientRect() || { left: 100, right: 110, top: 100 };
+            const pw = 340, ph = 500;
+            let left = rect.left - pw, top = rect.top;
+            if (left < 10) left = rect.right + 10;
+            if (left + pw > window.innerWidth - 10) left = Math.max(10, (window.innerWidth - pw) / 2);
+            if (top + ph > window.innerHeight - 10) top = Math.max(10, window.innerHeight - ph - 10);
+            if (top < 10) top = 10;
+
+            popup.style.cssText = `display:block;left:${left}px;top:${top}px;`;
+            scrollerLabels.style.display = "none";
+            scrollUpDownLabels.style.display = "none";
+            mouseSideLabels.style.display = "none";
+            anchorField.style.display = "none";
+            heightField.style.display = "none";
+            labelInput.parentElement.style.display = "block";
+            prefillFromRaw(raw);
+        };
+
+        this._openPopupForEdit = openPopupForEdit;
+
         const cancelPopup = () => {
+            editingIndex = null;
+            editingParts = [];
+            pipeKeys = [];
+            addBtn.textContent = "add key";
             isUpdating = true;
             const inp = document.getElementById(`customLayout${currentTargetRow}`);
             if (inp) { inp.value = originalValue; inp.dispatchEvent(new Event("input", { bubbles: true })); }
             popup.style.display = "none";
         };
 
-        addBtn.addEventListener("click", () => { popup.style.display = "none"; });
+        addBtn.addEventListener("click", () => {
+            editingIndex = null;
+            editingParts = [];
+            pipeKeys = [];
+            addBtn.textContent = "add key";
+            popup.style.display = "none";
+        });
         cancelBtn.addEventListener("click", cancelPopup);
         popup.addEventListener("click", (e) => { if (e.target === popup) cancelPopup(); });
+    }
+
+    widthClassToSlider(cls) {
+        if (!cls) return 100;
+        const m = /^u(\d+)(?:-(\d+))?$/.exec(cls);
+        if (!m) return 100;
+        const intPart = parseInt(m[1]);
+        if (!m[2]) return intPart * 100;
+        const decVal = m[2].length === 1 ? parseInt(m[2]) * 10 : parseInt(m[2]);
+        return intPart * 100 + decVal;
+    }
+
+    getTagLabel(item) {
+        if (!item) return "?";
+        switch (item.type) {
+            case "dummy": return "dummy";
+            case "br": return "↵ br";
+            case "scroller": return `scroller`;
+            case "scroll_updown": return `${item.labels?.[0] || "↑"}/${item.labels?.[1] || "↓"}`;
+            case "scroll_up": return item.label || "↑";
+            case "scroll_down": return item.label || "↓";
+            case "mouse_side": return `M4/M5`;
+            case "mouse_pad": return "mouse pad";
+            case "gp_joystick": return item.stickId === "gp_ls" ? "L stick" : "R stick";
+            default: return item.label || item.key || "?";
+        }
+    }
+
+    setupTagContainers() {
+        const rows = ["Row1", "Row2", "Row3", "Row4", "Row5", "Mouse"];
+        for (const rowId of rows) {
+            const textarea = document.getElementById(`customLayout${rowId}`);
+            if (!textarea) continue;
+
+            const container = document.createElement("div");
+            container.className = "cfg-tags-container";
+            container.dataset.rowId = rowId;
+            textarea.parentElement.insertBefore(container, textarea);
+            textarea.style.display = "none";
+
+            const toggleBtn = document.createElement("button");
+            toggleBtn.className = "cfg-addbtn cfg-raw-toggle";
+            toggleBtn.title = "edit raw syntax";
+            toggleBtn.textContent = "✎";
+            textarea.parentElement.appendChild(toggleBtn);
+
+            toggleBtn.addEventListener("click", () => {
+                const isRaw = textarea.style.display !== "none";
+                if (isRaw) {
+                    textarea.style.display = "none";
+                    container.style.display = "";
+                    toggleBtn.classList.remove("is-raw");
+                    toggleBtn.title = "edit raw syntax";
+                } else {
+                    textarea.style.display = "";
+                    container.style.display = "none";
+                    toggleBtn.classList.add("is-raw");
+                    toggleBtn.title = "show tags";
+                    textarea.focus();
+                }
+            });
+        }
+    }
+
+    renderTags(rowId) {
+        const textarea = document.getElementById(`customLayout${rowId}`);
+        const container = document.querySelector(`.cfg-tags-container[data-row-id="${rowId}"]`);
+        if (!textarea || !container) return;
+
+        const rawValue = textarea.value.trim();
+        const parts = rawValue ? rawValue.split(/\s*,\s*/) : [];
+        const items = parts.map(p => this.layoutParser.parseElementDef(p));
+
+        container.innerHTML = "";
+
+        if (!parts.length) {
+            const placeholder = document.createElement("span");
+            placeholder.className = "cfg-tags-placeholder";
+            placeholder.textContent = "empty";
+            container.appendChild(placeholder);
+            return;
+        }
+
+        parts.forEach((raw, idx) => {
+            const item = items[idx];
+
+            const tag = document.createElement("span");
+            tag.className = "cfg-tag";
+
+            const labelEl = document.createElement("span");
+            labelEl.className = "cfg-tag-label";
+            labelEl.textContent = item ? this.getTagLabel(item) : raw;
+            labelEl.title = raw;
+            labelEl.addEventListener("click", () => {
+                if (this._openPopupForEdit) this._openPopupForEdit(rowId, idx, parts, raw);
+            });
+
+            const removeBtn = document.createElement("button");
+            removeBtn.className = "cfg-tag-remove";
+            removeBtn.textContent = "×";
+            removeBtn.title = "Remove";
+            removeBtn.addEventListener("click", () => {
+                const newParts = parts.filter((_, i) => i !== idx);
+                textarea.value = newParts.join(", ") || "dummy";
+                textarea.dispatchEvent(new Event("input", { bubbles: true }));
+            });
+
+            tag.appendChild(labelEl);
+            tag.appendChild(removeBtn);
+            container.appendChild(tag);
+        });
+    }
+
+    renderAllTags() {
+        for (const rowId of ["Row1", "Row2", "Row3", "Row4", "Row5", "Mouse"])
+            this.renderTags(rowId);
     }
 
     getWidthClass(value) {

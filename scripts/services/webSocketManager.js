@@ -290,7 +290,7 @@ export class WebSocketManager {
             scrollDisplays.forEach((display, i) => {
                 display.classList.remove("active");
                 viz.activeElements.delete(display);
-                scrollArrows[i].textContent = display.dataset.defaultLabel || "-";
+                scrollArrows[i].textContent = display.dataset.defaultLabel || "";
                 scrollCounts[i].textContent = "";
             });
         }
