@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Update Available</title>
-  <link rel="stylesheet" href="lib/cs16.min.css" />
+  <link rel="stylesheet" href="lib/XP.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="lib/marked.min.js"></script>
   <script type="module" src="/update.js" defer></script>
@@ -13,38 +13,40 @@
 
 <body>
   <div class="window">
-    <div id="title-bar" data-tauri-drag-region>
-      <span id="title-label" data-tauri-drag-region>UPDATE AVAILABLE</span>
-      <div class="title-btns">
-        <button class="title-btn close-btn" id="close-btn">X</button>
+    <div class="title-bar" data-tauri-drag-region>
+      <div class="title-bar-text" data-tauri-drag-region>
+        <img src="assets/icon.png" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;" draggable="false" />Update Available
+      </div>
+      <div class="title-bar-controls">
+        <button aria-label="Close" id="close-btn"></button>
       </div>
     </div>
-
-    <div class="update-popup-content">
+    <div class="window-body update-popup-content">
       <div class="update-header">
         <img src="assets/update.gif" style="max-width: 64px;" />
         <p id="update-version-text" class="update-popup-version"></p>
       </div>
-
-      <fieldset class="cs-group update-notes-group">
-        <legend>WHAT'S NEW</legend>
+      <fieldset class="update-notes-group">
+        <legend>What's New</legend>
         <div id="update-notes" class="update-notes"></div>
       </fieldset>
-
-      <div class="update-popup-footer">
-        <button class="cs-btn" id="update-now-btn">UPDATE NOW</button>
-        <button class="cs-btn" id="update-skip-btn">SKIP VERSION</button>
-        <button class="cs-btn" id="update-later-btn">LATER</button>
-        <a class="accent-link" id="update-notes-link" href="#">VIEW RELEASE</a>
+      <div class="field-row update-popup-footer">
+        <button id="update-now-btn">Update Now</button>
+        <button id="update-skip-btn">Skip Version</button>
+        <button id="update-later-btn">Later</button>
+        <a class="accent-link" id="update-notes-link" href="#">View Release</a>
       </div>
     </div>
+  </div>
 
-    <div id="update-progress-modal" class="modal-overlay" hidden>
-      <div class="modal-box">
-        <p class="modal-msg" id="update-progress-status">starting...</p>
-        <div class="update-progress-track">
-          <div class="update-progress-fill" id="update-progress-fill"></div>
-        </div>
+  <div id="update-progress-modal" class="modal-overlay" hidden>
+    <div class="window" style="min-width: 260px;">
+      <div class="title-bar">
+        <div class="title-bar-text">Updating...</div>
+      </div>
+      <div class="window-body">
+        <p id="update-progress-status">starting...</p>
+        <progress id="update-progress-fill" max="100" value="0" style="width: 100%;"></progress>
       </div>
     </div>
   </div>

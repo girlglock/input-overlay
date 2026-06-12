@@ -1,5 +1,14 @@
 document.addEventListener('contextmenu', e => e.preventDefault());
 
+document.querySelectorAll('menu[role=tablist] button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('menu[role=tablist] button').forEach(b => b.setAttribute('aria-selected', 'false'));
+    document.querySelectorAll('[role=tabpanel]').forEach(p => { p.hidden = true; });
+    btn.setAttribute('aria-selected', 'true');
+    document.getElementById(btn.getAttribute('aria-controls')).hidden = false;
+  });
+});
+
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 const { getVersion } = window.__TAURI__.app;
@@ -21,7 +30,12 @@ const adminWarning = document.getElementById("admin-warning");
 const addKeyBtn = document.getElementById("add-key-btn");
 const keyList = document.getElementById("key-list");
 const mouseMove = document.getElementById("send-mouse-move");
+const clientsCount = document.getElementById("clients-count");
 const clientsList = document.getElementById("clients-list");
+const clientsModal = document.getElementById("clients-modal");
+document.getElementById("clients-modal-close").addEventListener("click", () => clientsModal.hidden = true);
+document.getElementById("clients-modal-ok").addEventListener("click", () => clientsModal.hidden = true);
+clientsCount.addEventListener("click", () => { if (clientsList.children.length) clientsModal.hidden = false; });
 const saveBtn = document.getElementById("save-btn");
 const cancelBtn = document.getElementById("cancel-btn");
 const saveMsg = document.getElementById("save-msg");
@@ -48,13 +62,13 @@ function markDirty() {
   if (dirty) return;
   dirty = true;
   saveBtn.classList.add("dirty");
-  saveBtn.textContent = "● SAVE";
+  saveBtn.textContent = "● Save";
   if (!_saveMsgTimer) showDirtyMsg();
 }
 function markClean() {
   dirty = false;
   saveBtn.classList.remove("dirty");
-  saveBtn.textContent = "SAVE";
+  saveBtn.textContent = "Save";
   if (!_saveMsgTimer) {
     saveMsg.textContent = "";
     saveMsg.classList.remove("dirty-msg");
@@ -124,14 +138,16 @@ function applyStatus(s) {
 function renderClients(clients) {
   clientsList.innerHTML = "";
   if (clients.length === 0) {
-    clientsList.innerHTML = `<span class="dim-lbl">no clients connected</span>`;
+    clientsCount.textContent = "no clients connected";
+    clientsCount.style.cursor = "";
     return;
   }
+  clientsCount.textContent = `${clients.length} client${clients.length === 1 ? "" : "s"} connected`;
+  clientsCount.style.cursor = "pointer";
   clients.forEach((addr) => {
-    const item = document.createElement("div");
-    item.className = "client-item";
-    item.textContent = addr;
-    clientsList.appendChild(item);
+    const li = document.createElement("li");
+    li.textContent = addr;
+    clientsList.appendChild(li);
   });
 }
 
@@ -179,29 +195,22 @@ function renderKeyList() {
   keyList.innerHTML = "";
   if (whitelist.length === 0) {
     const el = document.createElement("span");
-    el.className = "dim-lbl";
-    el.style.fontSize = "13px";
+    el.style.cssText = "font-size:11px;color:#555;padding:2px 4px;";
     el.textContent = "all keys allowed";
     keyList.appendChild(el);
     return;
   }
   for (const key of whitelist) {
-    const item = document.createElement("div");
-    item.className = "key-item";
-    const nameEl = document.createElement("span");
-    nameEl.className = "key-item-name";
-    nameEl.textContent = key.toUpperCase();
-    const removeBtn = document.createElement("button");
-    removeBtn.className = "cs-btn";
-    removeBtn.textContent = "X";
-    removeBtn.addEventListener("click", () => {
+    const btn = document.createElement("button");
+    btn.className = "key-tag";
+    btn.textContent = key.toUpperCase();
+    btn.title = "Click to remove";
+    btn.addEventListener("click", () => {
       whitelist = whitelist.filter(k => k !== key);
       renderKeyList();
       markDirty();
     });
-    item.appendChild(nameEl);
-    item.appendChild(removeBtn);
-    keyList.appendChild(item);
+    keyList.appendChild(btn);
   }
 }
 
@@ -217,12 +226,11 @@ let _kl = null, _ml = null, _wl = null;
 
 function startListening() {
   isListening = true;
-  addKeyBtn.textContent = "LISTENING... [ESC TO CANCEL]";
+  addKeyBtn.textContent = "LISTENING...";
   addKeyBtn.classList.add("listening");
 
   _kl = (e) => {
     e.preventDefault(); e.stopPropagation();
-    if (e.code === "Escape") { stopListening(); return; }
     const name = CODE_TO_KEY[e.code];
     if (name) addToWhitelist(name);
     stopListening();
@@ -333,7 +341,7 @@ for (const [id, url] of Object.entries(LINKS)) {
 function showMsg(text, isError = false) {
   saveMsg.classList.remove("dirty-msg");
   saveMsg.textContent = text;
-  saveMsg.style.color = isError ? "#bf5e5e" : "var(--accent)";
+  saveMsg.style.color = isError ? "#bf5e5e" : "#003c74";
   if (_saveMsgTimer) clearTimeout(_saveMsgTimer);
   _saveMsgTimer = setTimeout(() => {
     _saveMsgTimer = null;
@@ -403,11 +411,11 @@ updateNowBtn.addEventListener("click", async () => {
   if (!_updateInfo) return;
   updateProgressModal.hidden = false;
   updateProgressStatus.textContent = "starting...";
-  updateProgressFill.style.width = "0%";
+  updateProgressFill.value = 0;
 
   const unlisten = await listen("update-progress", (event) => {
     const { percent, status } = event.payload;
-    updateProgressFill.style.width = `${percent}%`;
+    updateProgressFill.value = percent;
     updateProgressStatus.textContent = status;
   });
 
@@ -420,9 +428,7 @@ updateNowBtn.addEventListener("click", async () => {
   }
 });
 
-updateLaterBtn.addEventListener("click", async () => {
-  if (!_updateInfo) return;
-  try { await invoke("dismiss_update", { version: _updateInfo.version }); } catch (_) { }
+updateLaterBtn.addEventListener("click", () => {
   updateBar.hidden = true;
   _updateInfo = null;
 });

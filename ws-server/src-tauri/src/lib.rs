@@ -543,6 +543,8 @@ fn open_update_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     .title("Update Available")
     .inner_size(560.0, 600.0)
     .decorations(false)
+    .transparent(true)
+    .shadow(false)
     .resizable(false)
     .center()
     .focused(true);
@@ -562,9 +564,11 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
         tauri::WebviewUrl::App("index.html".into()),
     )
     .title("Input Overlay WS - Settings")
-    .inner_size(920.0, 920.0)
+    .inner_size(600.0, 600.0)
     .resizable(false)
     .decorations(false)
+    .transparent(true)
+    .shadow(false)
     .skip_taskbar(false)
     .center();
 

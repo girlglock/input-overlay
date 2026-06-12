@@ -34,11 +34,11 @@ updateNowBtn.addEventListener("click", async () => {
   if (!updateInfo) return;
   progressModal.hidden = false;
   progressStatus.textContent = "starting...";
-  progressFill.style.width = "0%";
+  progressFill.value = 0;
 
   const unlisten = await listen("update-progress", (event) => {
     const { percent, status } = event.payload;
-    progressFill.style.width = `${percent}%`;
+    progressFill.value = percent;
     progressStatus.textContent = status;
   });
 

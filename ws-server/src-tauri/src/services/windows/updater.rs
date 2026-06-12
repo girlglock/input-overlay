@@ -139,7 +139,7 @@ pub async fn download_and_schedule(
     emit(90, "scheduling update...");
     schedule_replace(current_exe, &new_exe)?;
 
-    emit(100, "done — restarting...");
+    emit(100, "restarting...");
     Ok(())
 }
 
