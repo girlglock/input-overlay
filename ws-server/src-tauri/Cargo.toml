@@ -27,6 +27,7 @@ tracing-appender = "0.2"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 rust-embed = { version = "8", features = ["interpolate-folder-path"] }
 rand = "0.8"
+time = "=0.3.36"
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 hidapi = "2"
