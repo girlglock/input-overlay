@@ -565,7 +565,7 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     )
     .title("Input Overlay WS - Settings")
     .inner_size(600.0, 600.0)
-    .resizable(false)
+    .resizable(true)
     .decorations(false)
     .transparent(true)
     .shadow(false)

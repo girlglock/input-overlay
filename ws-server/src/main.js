@@ -486,6 +486,7 @@ async function init() {
     const vl = document.getElementById("version-label");
     vl.dataset.version = version;
     vl.innerHTML = `Input-Overlay WebSocket Server | Version: ${version}<br>(latest)`;
+    document.getElementById("status-version").textContent = `v${version}`;
     applyConfig(cfg);
     applyStatus(status);
     autostartEl.checked = autostart;

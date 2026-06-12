@@ -1,5 +1,8 @@
 [hidden] { display: none !important; }
 
+.status-bar { box-shadow: none !important; border-top: 2px solid grey;}
+#status-version { flex-grow: 0; }
+
 html, body {
   height: 100%;
   overflow: hidden;
@@ -64,6 +67,17 @@ fieldset > legend + .field-row-stacked {
   margin: 0;
   white-space: pre-wrap;
 }
+.warn-line {
+  display: flex;
+  gap: 1ch;
+  align-items: baseline;
+}
+
+@keyframes warn-flash {
+  0%, 100% { color: #c00000; }
+  50% { color: transparent; }
+}
+.warn-icon { animation: warn-flash 1s ease-in-out infinite; }
 
 .about-gif { width: 96px; height: 96px; image-rendering: pixelated; }
 .accent-link { color: #003c74; text-decoration: none; cursor: pointer; }
@@ -137,3 +151,17 @@ fieldset > legend + .field-row-stacked {
 .update-notes blockquote { border-left: 3px solid #dfdfdf; margin: 3px 0; padding-left: 6px; color: #555; }
 .update-notes hr { border: none; border-top: 1px solid #dfdfdf; margin: 6px 0; }
 .update-popup-footer { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+
+@media (prefers-color-scheme: dark) {
+  .status-bar-field { background-color: #252329 !important; }
+  .accent-link { color: #c55815; }
+  #save-msg { color: #c55815; }
+  .update-popup-version { color: #c55815; }
+  .update-notes a { color: #c55815; }
+  .update-notes h1, .update-notes h2, .update-notes h3 { color: #c55815; }
+  .status-bar { border-top-color: #3a3840; }
+  .key-list { background: #252329; border-color: #3a3840 #252329 #252329 #3a3840; }
+  .key-tag:hover { color: #c55815; }
+  .update-notes code { background: #38363e; }
+  .update-notes pre { background: #38363e; }
+}

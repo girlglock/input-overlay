@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Settings</title>
   <link rel="stylesheet" href="lib/XP.css" />
+  <link rel="stylesheet" href="lib/XP-ZUNE.css" media="(prefers-color-scheme: dark)" />
   <link rel="stylesheet" href="styles.css" />
   <script type="module" src="/main.js" defer></script>
 </head>
@@ -33,7 +34,7 @@
         </div>
       </div>
 
-      <pre id="admin-warning" hidden style="font-size: 11px;">&#9888; Not running as admin! Port binding issues may occur.<br>&#9888; Windows won't post WM_INPUT messages to a non-admin process while an admin app is in<br>focus,so the overlay might not work when tabbed into an elevated app or game.<br>&#9888; Consider restarting as admin. Setting "Start with Windows" will automatically start with admin rights on next boot.</pre>
+      <pre id="admin-warning" hidden style="font-size: 11px;"><span class="warn-line"><span class="warn-icon">&#9888;</span>Not running as admin! Port binding issues may occur.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Windows won't post WM_INPUT messages to a non-admin process while an admin app is in focus, so the overlay might not work when tabbed into an elevated app or game.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Consider restarting as admin. Setting "Start with Windows" will automatically start with admin rights on next boot.</span></pre>
 
       <menu role="tablist">
         <button role="tab" aria-selected="true" aria-controls="tab-server">Server</button>
@@ -169,6 +170,7 @@
     </div>
     <div class="status-bar">
       <p class="status-bar-field clients-count" id="clients-count">no clients connected</p>
+      <p class="status-bar-field" id="status-version"></p>
     </div>
 
   </div>
