@@ -73,31 +73,24 @@
 > [!NOTE]
 > released binaries are already built via GitHub Actions, you only need this if you want to build from source yourself
 
-**1. install dependencies**
+**1. install prerequisites**
+
+- [Rust stable toolchain](https://rustup.rs)
+- Tauri CLI: `cargo install tauri-cli --version "^2"`
+
+<details>
+<summary><b>linux additional dependencies</b></summary>
 
 ```bash
-python -m pip install --upgrade pip
-pip install pyinstaller -r ws-server/requirements.txt
+sudo apt install libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 ```
+
+</details>
 
 **2. build** (run from the `ws-server/` directory)
 
-<details>
-<summary><b>windows</b></summary>
-
 ```bash
-python -m PyInstaller --onefile --windowed --add-data "assets;assets" --add-data "services;services" --add-data "../index.html;web" --add-data "../style.css;web" --add-data "../scripts;web/scripts" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=services.rawinput --hidden-import=winotify --hidden-import=certifi --hidden-import=markdown --manifest admin.manifest input-overlay-ws.py
+cargo tauri build
 ```
 
-</details>
-
-<details>
-<summary><b>linux</b></summary>
-
-```bash
-python -m PyInstaller --onefile --windowed --add-data "assets:assets" --add-data "services:services" --add-data "../index.html:web" --add-data "../style.css:web" --add-data "../scripts:web/scripts" --icon="assets/icon.ico" --name="input-overlay-ws" --hidden-import=services.analog --hidden-import=services.consts --hidden-import=services.logger --hidden-import=services.utils --hidden-import=services.dialogs --hidden-import=services.settings --hidden-import=services.tray --hidden-import=certifi --hidden-import=markdown input-overlay-ws.py
-```
-
-</details>
-
-output will be inside `dist/input-overlay-ws/`
+output binary will be at `src-tauri/target/release/input-overlay-ws`
