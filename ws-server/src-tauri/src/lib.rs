@@ -571,7 +571,7 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
         tauri::WebviewUrl::App("index.html".into()),
     )
     .title("Input Overlay WS - Settings")
-    .inner_size(600.0, 600.0)
+    .inner_size(420.0, 580.0)
     .resizable(true)
     .decorations(false)
     .transparent(true)
