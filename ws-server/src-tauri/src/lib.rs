@@ -196,6 +196,13 @@ fn is_admin() -> bool {
 }
 
 #[tauri::command]
+async fn set_theme(theme: Option<String>, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut cfg = state.config.write().await;
+    cfg.theme = theme;
+    services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn open_url(url: String) {
     #[cfg(windows)]
     {
@@ -457,14 +464,14 @@ pub fn run() {
             { tauri::generate_handler![
                 get_config, save_config, get_status,
                 get_autostart, set_autostart, toggle_http,
-                minimize_window, close_window, open_url, is_admin,
+                minimize_window, close_window, open_url, is_admin, set_theme,
                 can_auto_update, check_update, dismiss_update, apply_update,
             ] }
             #[cfg(target_os = "linux")]
             { tauri::generate_handler![
                 get_config, save_config, get_status,
                 get_autostart, set_autostart, toggle_http,
-                minimize_window, close_window, open_url, is_admin,
+                minimize_window, close_window, open_url, is_admin, set_theme,
                 can_auto_update, check_update, dismiss_update,
                 enum_keyboards, enum_mice, check_linux_perms,
             ] }
@@ -472,7 +479,7 @@ pub fn run() {
             { tauri::generate_handler![
                 get_config, save_config, get_status,
                 get_autostart, set_autostart, toggle_http,
-                minimize_window, close_window, open_url, is_admin,
+                minimize_window, close_window, open_url, is_admin, set_theme,
                 can_auto_update,
             ] }
         })

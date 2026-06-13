@@ -153,12 +153,28 @@ fieldset > legend + .field-row-stacked {
 .update-popup-footer { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
 
 @media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    .status-bar-field { background-color: #252329 !important; }
+    .accent-link { color: #c55815; }
+    #save-msg { color: #c55815; }
+    .update-popup-version { color: #c55815; }
+    .update-notes a { color: #c55815; }
+    .update-notes :is(h1, h2, h3) { color: #c55815; }
+    .status-bar { border-top-color: #3a3840; }
+    .key-list { background: #252329; border-color: #3a3840 #252329 #252329 #3a3840; }
+    .key-tag:hover { color: #c55815; }
+    .update-notes code { background: #38363e; }
+    .update-notes pre { background: #38363e; }
+  }
+}
+
+:root[data-theme="dark"] {
   .status-bar-field { background-color: #252329 !important; }
   .accent-link { color: #c55815; }
   #save-msg { color: #c55815; }
   .update-popup-version { color: #c55815; }
   .update-notes a { color: #c55815; }
-  .update-notes h1, .update-notes h2, .update-notes h3 { color: #c55815; }
+  .update-notes :is(h1, h2, h3) { color: #c55815; }
   .status-bar { border-top-color: #3a3840; }
   .key-list { background: #252329; border-color: #3a3840 #252329 #252329 #3a3840; }
   .key-tag:hover { color: #c55815; }

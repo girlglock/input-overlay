@@ -43,6 +43,23 @@ const discardModal = document.getElementById("discard-modal");
 const modalKeepBtn = document.getElementById("modal-keep-btn");
 const modalDiscardBtn = document.getElementById("modal-discard-btn");
 
+const themeToggle = document.getElementById("theme-toggle");
+const zuneLink = document.querySelector('link[href*="XP-ZUNE"]');
+let themeMode = 'light';
+function applyThemeMode(mode) {
+  themeMode = mode;
+  document.documentElement.setAttribute('data-theme', mode);
+  zuneLink.media = mode === 'dark' ? 'all' : 'not all';
+  themeToggle.textContent = mode === 'dark' ? 'dark' : 'light';
+  themeToggle.title = `toggle ${mode === 'dark' ? 'light' : 'dark'} mode`;
+}
+themeToggle.addEventListener('click', () => {
+  const next = themeMode === 'dark' ? 'light' : 'dark';
+  applyThemeMode(next);
+  invoke('set_theme', { theme: next }).catch(() => {});
+});
+applyThemeMode(themeMode);
+
 const updateBar = document.getElementById("update-bar");
 const updateText = document.getElementById("update-text");
 const updateNowBtn = document.getElementById("update-now-btn");
@@ -487,6 +504,7 @@ async function init() {
     vl.dataset.version = version;
     vl.innerHTML = `Input-Overlay WebSocket Server | Version: ${version}<br>(latest)`;
     document.getElementById("status-version").textContent = `v${version}`;
+    applyThemeMode(cfg.theme || 'light');
     applyConfig(cfg);
     applyStatus(status);
     autostartEl.checked = autostart;

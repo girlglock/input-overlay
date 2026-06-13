@@ -17,6 +17,7 @@ pub struct Config {
     pub linux_evdev_keyboard_device: String,
     pub linux_raw_mouse_device: String,
     pub dismissed_update_versions: Vec<String>,
+    pub theme: Option<String>,
 }
 
 impl Default for Config {
@@ -35,6 +36,7 @@ impl Default for Config {
             linux_evdev_keyboard_device: String::new(),
             linux_raw_mouse_device: String::new(),
             dismissed_update_versions: Vec::new(),
+            theme: None,
         }
     }
 }
