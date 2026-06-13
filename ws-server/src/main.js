@@ -206,7 +206,7 @@ function readConfig() {
     linux_evdev_keyboard_device: kbdEl ? kbdEl.value : (originalConfig?.linux_evdev_keyboard_device ?? ""),
     linux_raw_mouse_device: mouseDevEl ? mouseDevEl.value : (originalConfig?.linux_raw_mouse_device ?? ""),
     dismissed_update_versions: originalConfig?.dismissed_update_versions ?? [],
-    theme: originalConfig?.theme ?? null,
+    theme: themeMode,
   };
 }
 
