@@ -26,7 +26,8 @@
 <table>
   <tr>
     <td><img src="https://files.catbox.moe/qzqhnc.avif" width="400"/></td>
-    <td><img src="https://femboy.beauty/Ce9G3v" width="400"/></td>
+    <td><img src="https://femboy.beauty/AvwAox.png" width="400"/></td>
+    <td><img src="https://femboy.beauty/B2tyyA.png" width="400"/></td>
   </tr>
 </table>
 
