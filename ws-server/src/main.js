@@ -485,7 +485,9 @@ async function initLinuxDevices(cfg) {
 
     if (perms.length > 0) {
       const warn = document.getElementById("linux-perm-warning");
-      warn.textContent = perms.join(" ");
+      warn.innerHTML = perms.map(msg =>
+        `<span class="warn-line"><span class="warn-icon">&#9888;</span>${msg}</span>`
+      ).join("");
       warn.hidden = false;
     }
   } catch (_) {

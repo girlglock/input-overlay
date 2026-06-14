@@ -169,10 +169,10 @@ pub fn enum_mice() -> Vec<(String, String)> {
 pub fn check_permissions() -> Vec<String> {
     let mut missing = Vec::new();
     if !is_in_input_group() {
-        missing.push(
-            "not in 'input' group... run: sudo usermod -aG input $USER  (then log out/in or reboot)"
-                .to_string(),
-        );
+        missing.push("you are not in the 'input' group".to_string());
+        missing.push("keyboard and mouse capture won't work".to_string());
+        missing.push("run: sudo usermod -aG input $USER (then reboot)".to_string());
+        missing.push("see gh release page for more info".to_string());
     }
     missing
 }

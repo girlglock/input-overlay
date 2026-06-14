@@ -35,6 +35,7 @@
       </div>
 
       <pre id="admin-warning" hidden style="font-size: 11px;"><span class="warn-line"><span class="warn-icon">&#9888;</span>Not running as admin! Port binding issues may occur.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Windows won't post WM_INPUT messages to a non-admin process while an admin app is in focus, so the overlay might not work when tabbed into an elevated app or game.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Consider restarting as admin. Setting "Start with Windows" will automatically start with admin rights on next boot.</span></pre>
+      <pre id="linux-perm-warning" hidden style="font-size: 11px;"></pre>
 
       <menu role="tablist">
         <button role="tab" aria-selected="true" aria-controls="tab-server">Server</button>
@@ -115,7 +116,6 @@
         </fieldset>
         <fieldset id="linux-devices" hidden>
           <legend>Input Devices</legend>
-          <div id="linux-perm-warning" class="error-lbl" hidden></div>
           <div class="field-row-stacked" style="width: 100%; margin-top: 6px;">
             <label for="kbd-device">Keyboard device</label>
             <select id="kbd-device" style="width: 100%;">
