@@ -144,9 +144,9 @@ fieldset > legend + .field-row-stacked {
 .update-notes p { margin: 3px 0; line-height: 1.5; }
 .update-notes ul, .update-notes ol { margin: 3px 0; padding-left: 16px; }
 .update-notes li { margin: 2px 0; }
-.update-notes code { background: #f0f0f0; padding: 1px 3px; font-size: 10px; }
-.update-notes pre { background: #f0f0f0; padding: 4px 6px; margin: 3px 0; overflow-x: auto; }
-.update-notes pre code { background: none; padding: 0; }
+.update-notes code { background: #000; color: silver; font-family: "Perfect DOS VGA 437 Win", monospace; padding: 1px 4px; font-size: 10px; }
+.update-notes pre { padding: 4px 8px; margin: 3px 0; overflow-x: auto; }
+.update-notes pre code { background: none; color: inherit; padding: 0; }
 .update-notes a { color: #003c74; }
 .update-notes blockquote { border-left: 3px solid #dfdfdf; margin: 3px 0; padding-left: 6px; color: #555; }
 .update-notes hr { border: none; border-top: 1px solid #dfdfdf; margin: 6px 0; }
@@ -158,13 +158,14 @@ fieldset > legend + .field-row-stacked {
     .accent-link { color: #c55815; }
     #save-msg { color: #c55815; }
     .update-popup-version { color: #c55815; }
+    .update-notes { color: #e8e6ea; }
     .update-notes a { color: #c55815; }
     .update-notes :is(h1, h2, h3) { color: #c55815; }
+    .update-notes blockquote { color: #9e9ca2; border-left-color: #3a3840; }
+    .update-bar { background: #2a2416; border-bottom-color: #5a4200; }
     .status-bar { border-top-color: #3a3840; }
     .key-list { background: #252329; border-color: #3a3840 #252329 #252329 #3a3840; }
     .key-tag:hover { color: #c55815; }
-    .update-notes code { background: #38363e; }
-    .update-notes pre { background: #38363e; }
   }
 }
 
@@ -173,11 +174,12 @@ fieldset > legend + .field-row-stacked {
   .accent-link { color: #c55815; }
   #save-msg { color: #c55815; }
   .update-popup-version { color: #c55815; }
+  .update-notes { color: #e8e6ea; }
   .update-notes a { color: #c55815; }
   .update-notes :is(h1, h2, h3) { color: #c55815; }
+  .update-notes blockquote { color: #9e9ca2; border-left-color: #3a3840; }
+  .update-bar { background: #2a2416; border-bottom-color: #5a4200; }
   .status-bar { border-top-color: #3a3840; }
   .key-list { background: #252329; border-color: #3a3840 #252329 #252329 #3a3840; }
   .key-tag:hover { color: #c55815; }
-  .update-notes code { background: #38363e; }
-  .update-notes pre { background: #38363e; }
 }

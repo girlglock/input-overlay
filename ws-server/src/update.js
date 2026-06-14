@@ -3,6 +3,14 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+const zuneLink = document.querySelector('link[href*="XP-ZUNE"]');
+const systemTheme = () => window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+function applyThemeMode(mode) {
+  document.documentElement.setAttribute('data-theme', mode);
+  zuneLink.media = mode === 'dark' ? 'all' : 'not all';
+}
+applyThemeMode(systemTheme());
+
 let updateInfo = null;
 
 const versionText = document.getElementById("update-version-text");
@@ -55,10 +63,12 @@ updateNowBtn.addEventListener("click", async () => {
 
 async function init() {
   try {
-    const [info, canUpdate] = await Promise.all([
+    const [info, canUpdate, cfg] = await Promise.all([
       invoke("check_update"),
       invoke("can_auto_update").catch(() => false),
+      invoke("get_config").catch(() => null),
     ]);
+    applyThemeMode(cfg?.theme ?? systemTheme());
     if (!info) { invoke("close_window"); return; }
     updateInfo = info;
     versionText.textContent = `v${info.version} is now available`;
