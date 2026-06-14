@@ -40,22 +40,16 @@ jobs:
         working-directory: ws-server/src-tauri
         run: cargo build --release
 
-      - name: create windows zip
-        run: |
-          mkdir windows-release
-          copy ws-server\src-tauri\target\release\input-overlay-ws.exe windows-release\
-          powershell Compress-Archive -Path windows-release\* -DestinationPath input-overlay-ws-windows.zip
-
       - name: attest windows build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: input-overlay-ws-windows.zip
+          subject-path: ws-server/src-tauri/target/release/input-overlay-ws.exe
 
       - name: upload windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.windows-artifact-name }}
-          path: input-overlay-ws-windows.zip
+          path: ws-server/src-tauri/target/release/input-overlay-ws.exe
           retention-days: ${{ inputs.retention-days }}
 
   build-linux:
@@ -89,20 +83,14 @@ jobs:
         working-directory: ws-server/src-tauri
         run: cargo build --release
 
-      - name: create linux zip
-        run: |
-          mkdir linux-release
-          cp ws-server/src-tauri/target/release/input-overlay-ws linux-release/
-          cd linux-release && zip -r ../input-overlay-ws-linux.zip .
-
       - name: attest linux build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: input-overlay-ws-linux.zip
+          subject-path: ws-server/src-tauri/target/release/input-overlay-ws
 
       - name: upload linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.linux-artifact-name }}
-          path: input-overlay-ws-linux.zip
+          path: ws-server/src-tauri/target/release/input-overlay-ws
           retention-days: ${{ inputs.retention-days }}
