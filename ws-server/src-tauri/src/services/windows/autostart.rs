@@ -1,6 +1,7 @@
 #[cfg(windows)]
 const TASK_NAME: &str = "InputOverlayWS";
 
+#[cfg(windows)]
 pub fn is_enabled() -> bool {
     #[cfg(windows)]
     {
@@ -15,6 +16,7 @@ pub fn is_enabled() -> bool {
     false
 }
 
+#[cfg(windows)]
 pub fn set_enabled(enabled: bool, exe_path: &std::path::Path) -> bool {
     #[cfg(windows)]
     {

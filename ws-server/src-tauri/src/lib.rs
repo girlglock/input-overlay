@@ -106,7 +106,7 @@ async fn save_config(
         );
         *state._evdev.lock().unwrap() = Some(new_thread);
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     let _ = need_evdev_restart;
 
     Ok(())
@@ -140,7 +140,7 @@ async fn get_status(state: tauri::State<'_, AppState>) -> Result<ServerStatus, S
 fn get_autostart() -> bool {
     #[cfg(target_os = "linux")]
     { return services::linux::autostart::is_enabled(); }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     services::windows::autostart::is_enabled()
 }
 
@@ -149,7 +149,7 @@ fn set_autostart(enabled: bool) -> bool {
     let exe = std::env::current_exe().unwrap_or_default();
     #[cfg(target_os = "linux")]
     { return services::linux::autostart::set_enabled(enabled, &exe); }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     services::windows::autostart::set_enabled(enabled, &exe)
 }
 
@@ -561,7 +561,7 @@ fn open_update_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     .center()
     .focused(true);
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     {
         builder = builder.transparent(true).shadow(false);
     }
@@ -587,7 +587,7 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     .skip_taskbar(false)
     .center();
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     {
         builder = builder.transparent(true).shadow(false);
     }
