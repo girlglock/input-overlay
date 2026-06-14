@@ -550,11 +550,14 @@ fn open_update_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     .title("Update Available")
     .inner_size(560.0, 600.0)
     .decorations(false)
-    .transparent(true)
-    .shadow(false)
     .resizable(false)
     .center()
     .focused(true);
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        builder = builder.transparent(true).shadow(false);
+    }
 
     if let Some(icon) = app.default_window_icon() {
         builder = builder.icon(icon.clone())?;
@@ -574,10 +577,13 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     .inner_size(420.0, 580.0)
     .resizable(true)
     .decorations(false)
-    .transparent(true)
-    .shadow(false)
     .skip_taskbar(false)
     .center();
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        builder = builder.transparent(true).shadow(false);
+    }
 
     if let Some(icon) = app.default_window_icon() {
         builder = builder.icon(icon.clone())?;
