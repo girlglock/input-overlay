@@ -79,7 +79,7 @@ fieldset > legend + .field-row-stacked {
 }
 .warn-icon { animation: warn-flash 1s ease-in-out infinite; }
 
-.about-gif { width: 96px; height: 96px; image-rendering: pixelated; }
+.about-gif { width: 96px; height: 96px; }
 .accent-link { color: #003c74; text-decoration: none; cursor: pointer; }
 .accent-link:hover { text-decoration: underline; }
 
