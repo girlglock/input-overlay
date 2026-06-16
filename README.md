@@ -2,7 +2,7 @@
 
 # input-overlay
 
-**a keyboard/input overlay for OBS and other broadcast software**
+**Input overlay for OBS using RawInputBuffer with analog keyboard support**
 
 [![releases](https://img.shields.io/github/v/release/girlglock/input-overlay?style=flat-square&color=c9a0dc&label=release)](https://github.com/girlglock/input-overlay/releases)
 [![nightly](https://img.shields.io/badge/nightly-available-6a9fb5?style=flat-square)](https://nightly.link/girlglock/input-overlay/workflows/nightly/main)
@@ -18,7 +18,7 @@
 ## features
 
 - **websocket connection with authentication** with support to stream your inputs to a secondary PC (e.g. a dedicated streaming PC)
-- **hall effect keyboard support** via the [AnalogSense SDK py port](https://github.com/girlglock/AnalogSense-Python-SDK)
+- **hall effect keyboard support** via the [AnalogSense SDK ported to rust](https://github.com/AnalogSense/JavaScript-SDK)
 - **mouse movement tracking** via the RawInputBuffer windows api to keep track while tabbed into games
 - **customizable layouts and labels** (labels support html `img src` tags, not officially though)
 - **dual PC support** (e.g. gaming PC to dedicated streaming PC)
