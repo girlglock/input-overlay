@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Update Complete</title>
+  <link rel="stylesheet" href="lib/XP.css" />
+  <link rel="stylesheet" href="lib/XP-ZUNE.css" media="not all" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="module" src="/post-update.js" defer></script>
+</head>
+
+<body>
+  <div class="window">
+    <div class="title-bar" data-tauri-drag-region>
+      <div class="title-bar-text" data-tauri-drag-region>
+        <img src="assets/icon.png" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"
+          draggable="false" />Update finished :3c
+      </div>
+      <div class="title-bar-controls">
+        <button aria-label="Close" id="close-btn"></button>
+      </div>
+    </div>
+    <div class="window-body">
+      <div style="flex:1;display:flex;align-items:center;position:relative;min-height:0;">
+        <img src="assets/dansi.gif"
+          style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:48px;height:auto;pointer-events:none;"
+          draggable="false" />
+        <p id="update-done-text" style="margin:0;text-align:center;width:100%;"></p>
+      </div>
+      <div style="display:flex;justify-content:center;padding-bottom:10px;">
+        <button id="ok-btn">OK</button>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

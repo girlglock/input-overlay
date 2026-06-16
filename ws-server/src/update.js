@@ -51,7 +51,7 @@ updateNowBtn.addEventListener("click", async () => {
   });
 
   try {
-    await invoke("apply_update", { downloadUrl: updateInfo.download_url });
+    await invoke("apply_update", { downloadUrl: updateInfo.download_url, version: updateInfo.version });
   } catch (e) {
     unlisten();
     progressModal.hidden = true;
@@ -63,9 +63,8 @@ updateNowBtn.addEventListener("click", async () => {
 
 async function init() {
   try {
-    const [info, canUpdate, cfg] = await Promise.all([
+    const [info, cfg] = await Promise.all([
       invoke("check_update"),
-      invoke("can_auto_update").catch(() => false),
       invoke("get_config").catch(() => null),
     ]);
     applyThemeMode(cfg?.theme ?? systemTheme());
@@ -74,7 +73,6 @@ async function init() {
     versionText.textContent = `v${info.version} is now available`;
     const md = info.body?.trim() || "(no release notes)";
     notesEl.innerHTML = marked.parse(md);
-    if (!canUpdate) updateNowBtn.hidden = true;
   } catch (e) {
     console.error("update popup init:", e);
     invoke("close_window");

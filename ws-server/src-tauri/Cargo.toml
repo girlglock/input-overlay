@@ -29,9 +29,6 @@ rust-embed = { version = "8", features = ["interpolate-folder-path"] }
 rand = "0.8"
 time = "=0.3.36"
 
-[target.'cfg(not(target_os = "linux"))'.dependencies]
-hidapi = "2"
-
 [target.'cfg(target_os = "linux")'.dependencies]
 hidapi = { version = "2", features = ["linux-static-hidraw"] }
 evdev = "0.12"
@@ -40,6 +37,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [target.'cfg(windows)'.dependencies]
+hidapi = "2"
 reqwest = { version = "0.12", features = ["json", "stream"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 windows = { version = "0.58", features = [

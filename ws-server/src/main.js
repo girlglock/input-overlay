@@ -399,12 +399,11 @@ modalDiscardBtn.addEventListener("click", async () => {
 
 let _updateInfo = null;
 
-function applyUpdateInfo(info, canUpdate = true) {
+function applyUpdateInfo(info) {
   if (!info || _updateInfo?.version === info.version) return;
   _updateInfo = info;
   updateText.textContent = `update available: v${info.version}`;
   updateNotesLink.onclick = (e) => { e.preventDefault(); invoke("open_url", { url: info.release_url }); };
-  updateNowBtn.hidden = !canUpdate;
   updateBar.hidden = false;
 
   const vl = document.getElementById("version-label");
@@ -416,15 +415,6 @@ function applyUpdateInfo(info, canUpdate = true) {
   });
 }
 
-async function checkForUpdate() {
-  try {
-    const [info, canUpdate] = await Promise.all([
-      invoke("check_update"),
-      invoke("can_auto_update").catch(() => false),
-    ]);
-    if (info) applyUpdateInfo(info, canUpdate);
-  } catch (_) { }
-}
 
 updateNowBtn.addEventListener("click", async () => {
   if (!_updateInfo) return;
@@ -439,7 +429,7 @@ updateNowBtn.addEventListener("click", async () => {
   });
 
   try {
-    await invoke("apply_update", { downloadUrl: _updateInfo.download_url });
+    await invoke("apply_update", { downloadUrl: _updateInfo.download_url, version: _updateInfo.version });
   } catch (e) {
     unlisten();
     updateProgressModal.hidden = true;
@@ -522,12 +512,9 @@ async function init() {
     console.error("init error:", e);
   }
 
-  await listen("status-update", (event) => applyStatus(event.payload));
-  await listen("update-available", async (event) => {
-    const canUpdate = await invoke("can_auto_update").catch(() => false);
-    applyUpdateInfo(event.payload, canUpdate);
-  });
-  checkForUpdate();
+  listen("status-update", (e) => applyStatus(e.payload));
+  listen("update-available", (e) => applyUpdateInfo(e.payload));
+  invoke("check_update").then((info) => { if (info) applyUpdateInfo(info); }).catch(() => {});
 }
 
 window.addEventListener("DOMContentLoaded", init);
