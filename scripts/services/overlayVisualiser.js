@@ -962,9 +962,9 @@ export class OverlayVisualiser {
             return;
         }
 
-        const REF_W = 300, REF_H = 200;
-        const scaleX = W / REF_W;
-        const scaleY = H / REF_H;
+        const scale = Math.sqrt((W * H) / (300 * 200));
+        const scaleX = scale;
+        const scaleY = scale;
         const BASE_SENSITIVITY = 0.05 * this.MOUSEPAD_SENSITIVITY;
         const now = performance.now();
         const m1Active = this.MOUSEPAD_M1_HIGHLIGHT && this.activeMouseButtons.has("mouse_left");
