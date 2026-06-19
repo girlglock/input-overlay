@@ -61,12 +61,13 @@ export class UrlManager {
             }
         });
 
-        addParam("glow", settings.glowradius);
-        addParam("radius", settings.borderradius);
-        addParam("pressscale", settings.pressscale);
-        addParam("speed", settings.animationspeed);
-        addParam("scale", settings.scale);
-        addParam("opacity", settings.opacity);
+        if (settings.glowradius && settings.glowradius !== "24") addParam("glow", settings.glowradius);
+        if (settings.borderradius && settings.borderradius !== "8") addParam("radius", settings.borderradius);
+        if (settings.pressedradius && settings.pressedradius !== (settings.borderradius || "8")) addParam("pressedradius", settings.pressedradius);
+        if (settings.pressscale && settings.pressscale !== "105") addParam("pressscale", settings.pressscale);
+        if (settings.animationspeed && settings.animationspeed !== "100") addParam("speed", settings.animationspeed);
+        if (settings.scale && settings.scale !== "100") addParam("scale", settings.scale);
+        if (settings.opacity && settings.opacity !== "100") addParam("opacity", settings.opacity);
 
         if (settings.keylegendmode && settings.keylegendmode !== "fading") {
             addParam("keylegendmode", settings.keylegendmode);
@@ -75,8 +76,8 @@ export class UrlManager {
             params.push("forcedisableanalog=1");
         }
 
-        addParam("outlinescalepressed", settings.outlinescalepressed);
-        addParam("outlinescaleunpressed", settings.outlinescaleunpressed);
+        if (settings.outlinescalepressed && settings.outlinescalepressed !== "2") addParam("outlinescalepressed", settings.outlinescalepressed);
+        if (settings.outlinescaleunpressed && settings.outlinescaleunpressed !== "2") addParam("outlinescaleunpressed", settings.outlinescaleunpressed);
 
         if (settings.fontfamily && settings.fontfamily.trim() !== "") {
             addParam("fontfamily", settings.fontfamily.replace(/ /g, "+"));
@@ -88,7 +89,8 @@ export class UrlManager {
 
         if (settings.hidemouse === true || settings.hidemouse === "true" || settings.hidemouse === "1") {
             params.push("hidemouse=1");
-        } if (settings.hidescrollcombo === true || settings.hidescrollcombo === "true" || settings.hidescrollcombo === "1") {
+        }
+        if (settings.hidescrollcombo === true || settings.hidescrollcombo === "true" || settings.hidescrollcombo === "1") {
             params.push("hidescrollcombo=1");
         }
 
@@ -127,7 +129,7 @@ export class UrlManager {
         }
 
         if (settings.keyLayout) {
-            params.push(`keyLayout=${encodeURIComponent(settings.keyLayout)}`);
+            params.push(`keyLayout=${settings.keyLayout}`);
         }
 
         return params.join("&");
@@ -145,6 +147,7 @@ export class UrlManager {
 
             if (decompressed) {
                 const decompressedParams = new URLSearchParams(decompressed);
+                const rad = decompressedParams.get("radius");
                 return {
                     activecolor: this.utils.normalizeColorValue(decompressedParams.get("activecolor")) || "#8b5cf6",
                     inactivecolor: this.utils.normalizeColorValue(decompressedParams.get("inactivecolor")) || "#808080",
@@ -153,7 +156,8 @@ export class UrlManager {
                     outlinecolor: this.utils.normalizeColorValue(decompressedParams.get("outlinecolor")) || "#4f4f4f",
                     fontcolor: this.utils.normalizeColorValue(decompressedParams.get("fontcolor")) || "#ffffff",
                     glowradius: decompressedParams.get("glow") || "24",
-                    borderradius: decompressedParams.get("radius") || "8",
+                    borderradius: rad || "8",
+                    pressedradius: decompressedParams.get("pressedradius") || rad || "8",
                     pressscale: decompressedParams.get("pressscale") || "105",
                     animationspeed: decompressedParams.get("speed") || "100",
                     scale: decompressedParams.get("scale") || "100",
@@ -173,14 +177,11 @@ export class UrlManager {
                     showmousedistance: decompressedParams.get("showmousedistance") === "1",
                     mousedistancedpi: decompressedParams.get("mousedistancedpi") || "400",
                     resetmousedistanceafterfade: decompressedParams.get("resetmousedistanceafterfade") === "1",
-
                     gapmodifier: decompressedParams.get("gapmodifier") || "100",
                     outlinescalepressed: decompressedParams.get("outlinescalepressed") || "2",
                     outlinescaleunpressed: decompressedParams.get("outlinescaleunpressed") || "2",
-
                     keylegendmode: decompressedParams.get("keylegendmode") || "fading",
                     forcedisableanalog: decompressedParams.get("forcedisableanalog") === "1",
-
                     wsauth: decompressedParams.get("wsauth") || "",
                     keyLayout: decompressedParams.get("keyLayout") || this.urlParams.get("keyLayout") || null,
                     customLayoutRow1: decompressedParams.get("customLayoutRow1") || null,
@@ -193,6 +194,7 @@ export class UrlManager {
             }
         }
 
+        const rad = params.get("radius");
         return {
             activecolor: this.utils.normalizeColorValue(params.get("activecolor")) || "#8b5cf6",
             inactivecolor: this.utils.normalizeColorValue(params.get("inactivecolor")) || "#808080",
@@ -201,7 +203,8 @@ export class UrlManager {
             outlinecolor: this.utils.normalizeColorValue(params.get("outlinecolor")) || "#4f4f4f",
             fontcolor: this.utils.normalizeColorValue(params.get("fontcolor")) || "#ffffff",
             glowradius: params.get("glow") || "24",
-            borderradius: params.get("radius") || "8",
+            borderradius: rad || "8",
+            pressedradius: params.get("pressedradius") || rad || "8",
             pressscale: params.get("pressscale") || "105",
             animationspeed: params.get("speed") || "100",
             scale: params.get("scale") || "100",
@@ -221,15 +224,11 @@ export class UrlManager {
             showmousedistance: params.get("showmousedistance") === "1",
             mousedistancedpi: params.get("mousedistancedpi") || "400",
             resetmousedistanceafterfade: params.get("resetmousedistanceafterfade") === "1",
-
             gapmodifier: params.get("gapmodifier") || "100",
-
             outlinescalepressed: params.get("outlinescalepressed") || "2",
             outlinescaleunpressed: params.get("outlinescaleunpressed") || "2",
-
             keylegendmode: params.get("keylegendmode") || "fading",
             forcedisableanalog: params.get("forcedisableanalog") === "1",
-
             wsauth: params.get("wsauth") || "",
             keyLayout: this.urlParams.get("keyLayout") || null,
             customLayoutRow1: params.get("customLayoutRow1") || null,

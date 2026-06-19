@@ -226,25 +226,34 @@
                             </div>
                         </div>
                         <div class="cfg-slider-pair">
-                            <div class="cfg-slider-field">
+                            <div class="cfg-slider-field" style="grid-column: 1 / -1;">
                                 <div class="cfg-slider-header">
-                                    <label class="cfg-label" for="glowradius">glow radius</label>
+                                    <label class="cfg-label" for="glowradius">glow radius (pressed)</label>
                                     <span class="cfg-slider-val" id="glowradiusvalue">24px</span>
                                 </div>
                                 <input id="glowradius" class="cfg-range config-input" type="range" max="80" min="0" step="2" value="24">
-                            </div>
-                            <div class="cfg-slider-field">
-                                <div class="cfg-slider-header">
-                                    <label class="cfg-label" for="borderradius">border radius</label>
-                                    <span class="cfg-slider-val" id="borderradiusvalue">8px</span>
-                                </div>
-                                <input id="borderradius" class="cfg-range config-input" type="range" max="40" min="0" step="1" value="8">
                             </div>
                         </div>
                         <div class="cfg-slider-pair">
                             <div class="cfg-slider-field">
                                 <div class="cfg-slider-header">
-                                    <label class="cfg-label" for="outlinescaleunpressed">outline (unpressed)</label>
+                                    <label class="cfg-label" for="borderradius">border radius (idle)</label>
+                                    <span class="cfg-slider-val" id="borderradiusvalue">8px</span>
+                                </div>
+                                <input id="borderradius" class="cfg-range config-input" type="range" max="40" min="0" step="1" value="8">
+                            </div>
+                            <div class="cfg-slider-field">
+                                <div class="cfg-slider-header">
+                                    <label class="cfg-label" for="pressedradius">border radius (pressed)</label>
+                                    <span class="cfg-slider-val" id="pressedradiusvalue">8px</span>
+                                </div>
+                                <input id="pressedradius" class="cfg-range config-input" type="range" max="40" min="0" step="1" value="8">
+                            </div>
+                        </div>
+                        <div class="cfg-slider-pair">
+                            <div class="cfg-slider-field">
+                                <div class="cfg-slider-header">
+                                    <label class="cfg-label" for="outlinescaleunpressed">outline (idle)</label>
                                     <span class="cfg-slider-val" id="outlinescaleunpressedvalue">2px</span>
                                 </div>
                                 <input id="outlinescaleunpressed" class="cfg-range config-input" type="range" max="10" min="0" step="0.25" value="2">

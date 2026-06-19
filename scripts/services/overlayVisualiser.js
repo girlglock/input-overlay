@@ -63,7 +63,6 @@ export class OverlayVisualiser {
 
             el.classList.add("active");
             this.activeElements.add(el);
-            el.style.zIndex = (++this.Z_INDEX_COUNTER).toString();
 
             if (this.analogMode && (keyName.startsWith("key_") || keyName === "gp_lt" || keyName === "gp_rt")) {
                 el.classList.add("analog-key");
@@ -140,6 +139,8 @@ export class OverlayVisualiser {
         this.fontColor = opts.fontcolor;
         this.outlineScalePressed = parseFloat(opts.outlinescalepressed ?? opts.outlineScalePressed ?? 1);
         this.outlineScaleUnpressed = parseFloat(opts.outlinescaleunpressed ?? opts.outlineScaleUnpressed ?? 1);
+        this.borderRadius = parseFloat(opts.borderradius ?? 8);
+        this.pressedRadius = parseFloat(opts.pressedradius ?? opts.borderradius ?? 8);
         this.keyLegendMode = opts.keylegendmode || "fading";
         this.forceDisableAnalog = opts.forcedisableanalog === true || opts.forcedisableanalog === "true" || opts.forcedisableanalog === "1";
 
@@ -272,6 +273,7 @@ export class OverlayVisualiser {
                 z-index: 3;
             }
             .key.active, .mouse-btn.active, .scroll-display.active {
+                border-radius: ${opts.pressedradius ?? opts.borderradius}px !important;
                 color: ${opts.fontcolor} !important;
                 transform: ${activeTransform} !important;
                 border-color: ${opts.activecolor} !important;
@@ -396,9 +398,11 @@ export class OverlayVisualiser {
 
         const U = 50;
         let maxRight = 0, maxBottom = 0;
+        let zIdx = 0;
 
         for (const item of defs) {
             if (item.type === "$") continue;
+            const zi = ++zIdx;
 
             const widthPx = item.w * U;
             const heightPx = item.h * U;
@@ -511,6 +515,7 @@ export class OverlayVisualiser {
                     break;
                 }
             }
+            container.lastElementChild.style.zIndex = String(zi);
         }
 
         container.style.minWidth = `${maxRight}px`;
@@ -625,7 +630,6 @@ export class OverlayVisualiser {
             const elements = elementMap.get(name);
             if (!elements?.length) continue;
             for (const el of elements) {
-                el.style.zIndex = (++this.Z_INDEX_COUNTER).toString();
                 this.updateElementState(el, name, true, currentActive);
             }
         }
@@ -679,7 +683,6 @@ export class OverlayVisualiser {
             arrow.style.transform = `scale(${scale})`;
 
             if (!display.classList.contains("active")) {
-                display.style.zIndex = (++this.Z_INDEX_COUNTER).toString();
                 if (this.analogMode) {
                     display.style.setProperty("transition", `color ${animDur} cubic-bezier(0.4,0,0.2,1), background ${animDur} cubic-bezier(0.4,0,0.2,1), border-color ${animDur} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDur} cubic-bezier(0.4,0,0.2,1), transform 0.05s cubic-bezier(0.4,0,0.2,1)`, "important");
                     const scaleY = this.pressScaleValue || 1.05;
@@ -790,12 +793,14 @@ export class OverlayVisualiser {
             const scaleY = 1 + (maxScaleY - 1) * effectiveDepth;
             el.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
 
+            const radius = this.borderRadius + (this.pressedRadius - this.borderRadius) * effectiveDepth;
+            el.style.setProperty("border-radius", `${radius.toFixed(2)}px`, "important");
+
             const isDigitallyPressed = this.activeKeys.has(keyName) || this.activeGamepadButtons?.has(keyName);
             const fillHeight = effectiveDepth * 100;
             const borderWidth = isDigitallyPressed
                 ? unpressedWidth + (pressedWidth - unpressedWidth) * Math.min(1, depth * 3)
                 : unpressedWidth;
-            const outerGlow = isDigitallyPressed && effectiveDepth > 0 ? `0 2px ${glowRadius} ${this.activeColor}` : "none";
 
             el.style.setProperty("border-width", `${borderWidth}px`, "important");
 
@@ -808,8 +813,8 @@ export class OverlayVisualiser {
                 el.style.removeProperty("background-image");
             }
             if (!el.classList.contains("scroll-display")) {
-                el.style.setProperty("border-color", isDigitallyPressed ? this.activeColor : "", "important");
-                el.style.setProperty("box-shadow", outerGlow !== "none" ? outerGlow : "", "important");
+                el.style.removeProperty("border-color");
+                el.style.removeProperty("box-shadow");
             }
 
             const primary = el.querySelector(".key-label-primary");

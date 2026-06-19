@@ -192,7 +192,7 @@ export class ConfiguratorMode {
             activecolor: "#5cf67d", inactivecolor: "#808080",
             backgroundcolor: "#1a1a1ad1", activebgcolor: "#47bd61",
             outlinecolor: "#4f4f4f", fontcolor: "#ffffff",
-            glowradius: "24", borderradius: "10",
+            glowradius: "24", borderradius: "10", pressedradius: "10",
             pressscale: "110", animationspeed: "300",
             fontfamily: "ArialPixel",
             hidemouse: false, hidescrollcombo: false, boldfont: true,
@@ -235,6 +235,7 @@ export class ConfiguratorMode {
             fontcolor: val("fontcolorhex"),
             glowradius: val("glowradius"),
             borderradius: val("borderradius"),
+            pressedradius: val("pressedradius"),
             pressscale: val("pressscale"),
             animationspeed: val("animationspeed"),
             fontfamily: val("fontfamily"),
@@ -333,6 +334,7 @@ export class ConfiguratorMode {
         applyValue("fontcolorhex", settings.fontcolor);
         applyValue("glowradius", settings.glow || settings.glowradius);
         applyValue("borderradius", settings.radius || settings.borderradius);
+        applyValue("pressedradius", settings.pressedradius ?? settings.radius ?? settings.borderradius);
         applyValue("pressscale", settings.pressscale);
         applyValue("animationspeed", settings.speed || settings.animationspeed);
         applyValue("fontfamily", settings.fontfamily);
@@ -1649,18 +1651,9 @@ export class ConfiguratorMode {
 
         //save open state before clearing
         const openItems = new Set();
-        const closedGroups = new Set();
         list.querySelectorAll('.kl-tree-node[data-kl-idx]').forEach(node => {
             const det = node.querySelector(':scope > details');
             if (det?.open) openItems.add(node.dataset.klIdx);
-        });
-        list.querySelectorAll('.tree-view > li > details').forEach(d => {
-            if (!d.open) {
-                const summary = d.querySelector(':scope > summary');
-                const text = summary ? Array.from(summary.childNodes)
-                    .filter(n => n.nodeType === 3).map(n => n.textContent.trim()).join('') : '';
-                if (text) closedGroups.add(text);
-            }
         });
 
         list.innerHTML = "";
@@ -1680,28 +1673,22 @@ export class ConfiguratorMode {
             }
             return def.type.replace(/^key_/, "").replace(/^mouse_/, "").replace(/^gp_/, "").replace(/_/g, " ").toUpperCase();
         };
-        const getGroupKey = (def) => {
-            if (def.type === "$") return "special";
-            if (def.type.startsWith("key_")) return "keyboard";
-            if (def.type === "mouse_pad") return "mouse pad";
-            if (def.type.startsWith("mouse_") || def.type === "scroller" || def.type.startsWith("scroll_")) return "mouse";
-            if (def.type.startsWith("gp_")) return "gamepad";
-            return "special";
-        };
 
         const numFmt = (n) => Number(n).toFixed(2).replace(/\.?0+$/, "");
+        let dragSrcIdx = -1;
 
-        const GROUP_ORDER = ["keyboard", "mouse", "mouse pad", "gamepad", "special"];
-        const grouped = {};
-        GROUP_ORDER.forEach(g => { grouped[g] = []; });
-        this.keyLayoutDefs.forEach((def, idx) => grouped[getGroupKey(def)].push({ def, idx }));
+        const clearDropIndicators = () => {
+            root.querySelectorAll(".kl-drop-before, .kl-drop-after").forEach(n => {
+                n.classList.remove("kl-drop-before", "kl-drop-after");
+            });
+        };
 
         const canvas = document.getElementById("preview-keyboard");
         const makeNode = (def, idx) => {
             const node = document.createElement("li");
             node.className = "kl-tree-node";
+            node.dataset.klIdx = String(idx);
             if (def.type !== "$") {
-                node.dataset.klIdx = String(idx);
                 node.addEventListener("mouseenter", () => {
                     const cEl = canvas?.querySelector(`[data-kl-idx="${idx}"]`);
                     if (cEl) { cEl.classList.add("kl-hover-highlight"); cEl.scrollIntoView({ block: "nearest", inline: "nearest" }); }
@@ -1713,12 +1700,16 @@ export class ConfiguratorMode {
 
             const itemDetails = document.createElement("details");
             const summary = document.createElement("summary");
+            const handle = document.createElement("span");
+            handle.className = "kl-drag-handle";
+            handle.textContent = "⠿";
+            handle.title = "drag to reorder";
 
             const nameEl = document.createElement("span");
             nameEl.className = "kl-tree-name";
             nameEl.textContent = getShortName(def);
 
-            const posEl = document.createElement("span");
+const posEl = document.createElement("span");
             posEl.className = "kl-tree-pos";
             posEl.textContent = `${numFmt(def.x - LAYOUT_ORIGIN.x)},${numFmt(def.y - LAYOUT_ORIGIN.y)}`;
 
@@ -1733,7 +1724,7 @@ export class ConfiguratorMode {
                 this._commitKeyLayoutDefs();
             });
 
-            summary.append(delBtn, posEl, nameEl);
+            summary.append(handle, delBtn, posEl, nameEl);
             itemDetails.appendChild(summary);
 
             const attrList = document.createElement("ul");
@@ -1784,37 +1775,60 @@ export class ConfiguratorMode {
 
             itemDetails.appendChild(attrList);
             node.appendChild(itemDetails);
+            node.draggable = true;
+            node.addEventListener("dragstart", (e) => {
+                dragSrcIdx = idx;
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", String(idx));
+                const ghost = node.cloneNode(true);
+                ghost.style.cssText += ";position:fixed;top:-9999px;left:-9999px;width:" + node.offsetWidth + "px;pointer-events:none;";
+                document.body.appendChild(ghost);
+                const rect = node.getBoundingClientRect();
+                e.dataTransfer.setDragImage(ghost, e.clientX - rect.left, e.clientY - rect.top);
+                requestAnimationFrame(() => { node.classList.add("kl-dragging"); ghost.remove(); });
+            });
+
+            node.addEventListener("dragend", () => {
+                node.classList.remove("kl-dragging");
+                clearDropIndicators();
+                dragSrcIdx = -1;
+            });
+
+            node.addEventListener("dragover", (e) => {
+                if (dragSrcIdx < 0 || dragSrcIdx === idx) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                clearDropIndicators();
+                const rect = node.getBoundingClientRect();
+                node.classList.add(e.clientY < rect.top + rect.height / 2 ? "kl-drop-before" : "kl-drop-after");
+            });
+
+            node.addEventListener("drop", (e) => {
+                e.preventDefault();
+                if (dragSrcIdx < 0 || dragSrcIdx === idx) return;
+                const rect = node.getBoundingClientRect();
+                const above = e.clientY < rect.top + rect.height / 2;
+                const tgtIdx = idx;
+
+                const [item] = this.keyLayoutDefs.splice(dragSrcIdx, 1);
+                const adjTgt = dragSrcIdx < tgtIdx ? tgtIdx - 1 : tgtIdx;
+                this.keyLayoutDefs.splice(above ? adjTgt + 1 : adjTgt, 0, item);
+                this._commitKeyLayoutDefs();
+            });
+
             return node;
         };
 
         const root = document.createElement("ul");
         root.className = "tree-view";
 
-        for (const groupKey of GROUP_ORDER) {
-            const items = grouped[groupKey];
-            if (!items.length) continue;
-
-            const groupLi = document.createElement("li");
-
-            const groupDetails = document.createElement("details");
-            groupDetails.open = true;
-
-            const groupSummary = document.createElement("summary");
-            const countSpan = document.createElement("span");
-            countSpan.className = "kl-tree-count";
-            countSpan.textContent = items.length;
-            groupSummary.append(groupKey, countSpan);
-            groupDetails.appendChild(groupSummary);
-
-            const itemsUl = document.createElement("ul");
-            for (const { def, idx } of items) {
-                itemsUl.appendChild(makeNode(def, idx));
-            }
-
-            groupDetails.appendChild(itemsUl);
-            groupLi.appendChild(groupDetails);
-            root.appendChild(groupLi);
+        for (let i = this.keyLayoutDefs.length - 1; i >= 0; i--) {
+            root.appendChild(makeNode(this.keyLayoutDefs[i], i));
         }
+
+        root.addEventListener("dragleave", (e) => {
+            if (!root.contains(e.relatedTarget)) clearDropIndicators();
+        });
 
         list.appendChild(root);
 
@@ -1824,12 +1838,6 @@ export class ConfiguratorMode {
                 const det = node.querySelector(':scope > details');
                 if (det) det.open = true;
             }
-        });
-        list.querySelectorAll('.tree-view > li > details').forEach(d => {
-            const summary = d.querySelector(':scope > summary');
-            const text = summary ? Array.from(summary.childNodes)
-                .filter(n => n.nodeType === 3).map(n => n.textContent.trim()).join('') : '';
-            if (text && closedGroups.has(text)) d.open = false;
         });
     }
 
