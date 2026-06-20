@@ -112,6 +112,10 @@ fieldset > legend + .field-row-stacked {
               inset -2px -2px #dfdfdf, inset 2px 2px grey !important;
 }
 
+#http-host { opacity: 0.5; cursor: default; }
+#theme-toggle { opacity: 0.5; }
+:root[data-theme="dark"] #theme-toggle { opacity: 1; }
+
 .error-lbl { color: #c00000; font-size: 11px; display: block; margin-top: 4px; }
 
 .modal-overlay {
