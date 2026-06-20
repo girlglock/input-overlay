@@ -111,7 +111,7 @@
                     <ol>
                         <li>open the input-overlay-ws server settings and enable the http server<br><small>(run
                                 the ws server on your gaming pc)</small></li>
-                        <li>change the address in to the address of your gaming pc
+                        <li>change the host of the ws server to the address of your gaming pc
                             <br><small>run <code>ipconfig</code> in cmd and copy the local IPv4
                                 address (usually 192.168.0.1 or 192.168.X.X with X being 0-255)</small>
                         </li>
@@ -124,6 +124,19 @@
                             hosted configurator and add it as a browser source in your OBS running on the
                             streaming pc</li>
                     </ol>
+                    <blockquote class="note note--purple">
+                        <strong>cant connect from another pc?</strong><br>
+                        Windows Firewall might block inbound connections by default. Run this in PowerShell
+                        <strong>as Administrator</strong> on your gaming pc to allow the ws server ports:
+                        <div class="fw-code-block">
+                            <pre
+                                id="fwCmdPre"><span class="pwsh-cmd">New-NetFirewallRule</span> <span class="pwsh-param">-DisplayName</span> <span class="pwsh-str">"input-overlay WS"</span> <span class="pwsh-param">-Direction</span> Inbound <span class="pwsh-param">-Protocol</span> TCP <span class="pwsh-param">-LocalPort</span> <span class="pwsh-num">4455</span> <span class="pwsh-param">-Action</span> Allow
+
+<span class="pwsh-cmd">New-NetFirewallRule</span> <span class="pwsh-param">-DisplayName</span> <span class="pwsh-str">"input-overlay HTTP"</span> <span class="pwsh-param">-Direction</span> Inbound <span class="pwsh-param">-Protocol</span> TCP <span class="pwsh-param">-LocalPort</span> <span class="pwsh-num">4456</span> <span class="pwsh-param">-Action</span> Allow</pre>
+                            <button class="cfg-btn" id="fwCopyBtn">⎘ copy</button>
+                        </div>
+                        <small>adjust the port numbers if you changed them from the defaults</small>
+                    </blockquote>
                 </div>
             </div>
         </aside>
@@ -185,43 +198,61 @@
                             <div class="cfg-field">
                                 <label class="cfg-label" for="activebgcolorhex">active key bg</label>
                                 <div class="color-input-group">
-                                    <div id="activebgcolor" class="config-input pickr-target" data-initial-color="#202020"></div>
-                                    <input id="activebgcolorhex" class="cfg-input cfg-input--color config-input color-hex-input" type="text" maxlength="9" value="#202020">
+                                    <div id="activebgcolor" class="config-input pickr-target"
+                                        data-initial-color="#202020"></div>
+                                    <input id="activebgcolorhex"
+                                        class="cfg-input cfg-input--color config-input color-hex-input" type="text"
+                                        maxlength="9" value="#202020">
                                 </div>
                             </div>
                             <div class="cfg-field">
                                 <label class="cfg-label" for="fontcolorhex">active font color</label>
                                 <div class="color-input-group">
-                                    <div id="fontcolor" class="config-input pickr-target" data-initial-color="#ffffff"></div>
-                                    <input id="fontcolorhex" class="cfg-input cfg-input--color config-input color-hex-input" type="text" maxlength="9" value="#ffffff">
+                                    <div id="fontcolor" class="config-input pickr-target" data-initial-color="#ffffff">
+                                    </div>
+                                    <input id="fontcolorhex"
+                                        class="cfg-input cfg-input--color config-input color-hex-input" type="text"
+                                        maxlength="9" value="#ffffff">
                                 </div>
                             </div>
                             <div class="cfg-field">
                                 <label class="cfg-label" for="activecolorhex">glow color</label>
                                 <div class="color-input-group">
-                                    <div id="activecolor" class="config-input pickr-target" data-initial-color="#8b5cf6"></div>
-                                    <input id="activecolorhex" class="cfg-input cfg-input--color config-input color-hex-input" type="text" maxlength="9" value="#8b5cf6">
+                                    <div id="activecolor" class="config-input pickr-target"
+                                        data-initial-color="#8b5cf6"></div>
+                                    <input id="activecolorhex"
+                                        class="cfg-input cfg-input--color config-input color-hex-input" type="text"
+                                        maxlength="9" value="#8b5cf6">
                                 </div>
                             </div>
                             <div class="cfg-field">
                                 <label class="cfg-label" for="backgroundcolorhex">inactive key bg</label>
                                 <div class="color-input-group">
-                                    <div id="backgroundcolor" class="config-input pickr-target" data-initial-color="#1a1a1ad1"></div>
-                                    <input id="backgroundcolorhex" class="cfg-input cfg-input--color config-input color-hex-input" type="text" maxlength="9" value="#1a1a1ad1">
+                                    <div id="backgroundcolor" class="config-input pickr-target"
+                                        data-initial-color="#1a1a1ad1"></div>
+                                    <input id="backgroundcolorhex"
+                                        class="cfg-input cfg-input--color config-input color-hex-input" type="text"
+                                        maxlength="9" value="#1a1a1ad1">
                                 </div>
                             </div>
                             <div class="cfg-field">
                                 <label class="cfg-label" for="inactivecolorhex">inactive font color</label>
                                 <div class="color-input-group">
-                                    <div id="inactivecolor" class="config-input pickr-target" data-initial-color="#808080"></div>
-                                    <input id="inactivecolorhex" class="cfg-input cfg-input--color config-input color-hex-input" type="text" maxlength="9" value="#808080">
+                                    <div id="inactivecolor" class="config-input pickr-target"
+                                        data-initial-color="#808080"></div>
+                                    <input id="inactivecolorhex"
+                                        class="cfg-input cfg-input--color config-input color-hex-input" type="text"
+                                        maxlength="9" value="#808080">
                                 </div>
                             </div>
                             <div class="cfg-field">
                                 <label class="cfg-label" for="outlinecolorhex">outline color</label>
                                 <div class="color-input-group">
-                                    <div id="outlinecolor" class="config-input pickr-target" data-initial-color="#4f4f4f"></div>
-                                    <input id="outlinecolorhex" class="cfg-input cfg-input--color config-input color-hex-input" type="text" maxlength="9" value="#4f4f4f">
+                                    <div id="outlinecolor" class="config-input pickr-target"
+                                        data-initial-color="#4f4f4f"></div>
+                                    <input id="outlinecolorhex"
+                                        class="cfg-input cfg-input--color config-input color-hex-input" type="text"
+                                        maxlength="9" value="#4f4f4f">
                                 </div>
                             </div>
                         </div>
@@ -231,7 +262,8 @@
                                     <label class="cfg-label" for="glowradius">glow radius (pressed)</label>
                                     <span class="cfg-slider-val" id="glowradiusvalue">24px</span>
                                 </div>
-                                <input id="glowradius" class="cfg-range config-input" type="range" max="80" min="0" step="2" value="24">
+                                <input id="glowradius" class="cfg-range config-input" type="range" max="80" min="0"
+                                    step="2" value="24">
                             </div>
                         </div>
                         <div class="cfg-slider-pair">
@@ -240,14 +272,16 @@
                                     <label class="cfg-label" for="borderradius">border radius (idle)</label>
                                     <span class="cfg-slider-val" id="borderradiusvalue">8px</span>
                                 </div>
-                                <input id="borderradius" class="cfg-range config-input" type="range" max="40" min="0" step="1" value="8">
+                                <input id="borderradius" class="cfg-range config-input" type="range" max="40" min="0"
+                                    step="1" value="8">
                             </div>
                             <div class="cfg-slider-field">
                                 <div class="cfg-slider-header">
                                     <label class="cfg-label" for="pressedradius">border radius (pressed)</label>
                                     <span class="cfg-slider-val" id="pressedradiusvalue">8px</span>
                                 </div>
-                                <input id="pressedradius" class="cfg-range config-input" type="range" max="40" min="0" step="1" value="8">
+                                <input id="pressedradius" class="cfg-range config-input" type="range" max="40" min="0"
+                                    step="1" value="8">
                             </div>
                         </div>
                         <div class="cfg-slider-pair">
@@ -256,14 +290,16 @@
                                     <label class="cfg-label" for="outlinescaleunpressed">outline (idle)</label>
                                     <span class="cfg-slider-val" id="outlinescaleunpressedvalue">2px</span>
                                 </div>
-                                <input id="outlinescaleunpressed" class="cfg-range config-input" type="range" max="10" min="0" step="0.25" value="2">
+                                <input id="outlinescaleunpressed" class="cfg-range config-input" type="range" max="10"
+                                    min="0" step="0.25" value="2">
                             </div>
                             <div class="cfg-slider-field">
                                 <div class="cfg-slider-header">
                                     <label class="cfg-label" for="outlinescalepressed">outline (pressed)</label>
                                     <span class="cfg-slider-val" id="outlinescalepressedvalue">2px</span>
                                 </div>
-                                <input id="outlinescalepressed" class="cfg-range config-input" type="range" max="10" min="0" step="0.25" value="2">
+                                <input id="outlinescalepressed" class="cfg-range config-input" type="range" max="10"
+                                    min="0" step="0.25" value="2">
                             </div>
                         </div>
                         <div class="cfg-slider-pair">
@@ -330,14 +366,16 @@
                                     <label class="cfg-label" for="pressscale">press scale</label>
                                     <span class="cfg-slider-val" id="pressscalevalue">1.05x</span>
                                 </div>
-                                <input id="pressscale" class="cfg-range config-input" type="range" max="300" min="0" step="5" value="100">
+                                <input id="pressscale" class="cfg-range config-input" type="range" max="300" min="0"
+                                    step="5" value="100">
                             </div>
                             <div class="cfg-slider-field">
                                 <div class="cfg-slider-header">
                                     <label class="cfg-label" for="animationspeed">anim speed</label>
                                     <span class="cfg-slider-val" id="animationspeedvalue">1.0x</span>
                                 </div>
-                                <input id="animationspeed" class="cfg-range config-input" type="range" max="1000" min="0" step="10" value="100">
+                                <input id="animationspeed" class="cfg-range config-input" type="range" max="1000"
+                                    min="0" step="10" value="100">
                             </div>
                         </div>
                         <div class="cfg-field">
@@ -386,7 +424,8 @@
                             <label class="cfg-checkbox">
                                 <input type="checkbox" class="config-input" id="resetmousedistanceafterfade">
                                 <span class="cfg-checkbox-box"></span>
-                                <span class="cfg-checkbox-label" id="resetmousedistanceafterfadelabel">reset dist after fadeout</span>
+                                <span class="cfg-checkbox-label" id="resetmousedistanceafterfadelabel">reset dist after
+                                    fadeout</span>
                             </label>
                         </div>
                         <div class="cfg-slider-pair">
@@ -395,14 +434,16 @@
                                     <label class="cfg-label" for="mousetraillength">trail length</label>
                                     <span class="cfg-slider-val" id="mousetraillengthvalue">150pts</span>
                                 </div>
-                                <input id="mousetraillength" class="cfg-range config-input" type="range" min="10" max="1000" step="10" value="150">
+                                <input id="mousetraillength" class="cfg-range config-input" type="range" min="10"
+                                    max="1000" step="10" value="150">
                             </div>
                             <div class="cfg-slider-field">
                                 <div class="cfg-slider-header">
                                     <label class="cfg-label" for="mousetrailfadeout">fade duration</label>
                                     <span class="cfg-slider-val" id="mousetrailfadeoutvalue">600ms</span>
                                 </div>
-                                <input id="mousetrailfadeout" class="cfg-range config-input" type="range" min="0" max="3000" step="50" value="600">
+                                <input id="mousetrailfadeout" class="cfg-range config-input" type="range" min="0"
+                                    max="3000" step="50" value="600">
                             </div>
                         </div>
                         <div class="cfg-slider-pair">
@@ -411,28 +452,34 @@
                                     <label class="cfg-label" for="mousetrailsensitivity">sensitivity</label>
                                     <span class="cfg-slider-val" id="mousetrailsensitivityvalue">1.0x</span>
                                 </div>
-                                <input id="mousetrailsensitivity" class="cfg-range config-input" type="range" min="1" max="5000" step="5" value="100">
+                                <input id="mousetrailsensitivity" class="cfg-range config-input" type="range" min="1"
+                                    max="5000" step="5" value="100">
                             </div>
                             <div class="cfg-slider-field">
                                 <div class="cfg-slider-header">
                                     <label class="cfg-label" for="mousedistancedpi">mouse DPI (dist tracker)</label>
-                                    <span class="cfg-slider-val" id="mousedistancedpivalue" style="opacity:0.4">400 DPI</span>
+                                    <span class="cfg-slider-val" id="mousedistancedpivalue" style="opacity:0.4">400
+                                        DPI</span>
                                 </div>
-                                <input id="mousedistancedpi" class="cfg-range config-input" type="range" min="100" max="32000" step="50" value="400" disabled>
+                                <input id="mousedistancedpi" class="cfg-range config-input" type="range" min="100"
+                                    max="32000" step="50" value="400" disabled>
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px; align-items: flex-end;">
                             <div class="cfg-field" id="mousepadtexture-field" style="flex: 1">
                                 <label class="cfg-label" for="mousepadtexture">background texture url</label>
-                                <input class="cfg-input config-input" id="mousepadtexture" type="text" placeholder="https://... direct image link">
+                                <input class="cfg-input config-input" id="mousepadtexture" type="text"
+                                    placeholder="https://... direct image link">
                             </div>
                             <div class="cfg-field">
                                 <label class="cfg-label" for="mousepadtexturezoom">scale</label>
-                                <input class="cfg-input config-input" id="mousepadtexturezoom" type="number" min="0.1" max="10" step="0.1" value="1" style="width:70px;">
+                                <input class="cfg-input config-input" id="mousepadtexturezoom" type="number" min="0.1"
+                                    max="10" step="0.1" value="1" style="width:70px;">
                             </div>
                             <div class="cfg-field">
                                 <label class="cfg-label" for="mousepadtextureopacity">opacity</label>
-                                <input class="cfg-input config-input" id="mousepadtextureopacity" type="number" min="0" max="1" step="0.05" value="1" style="width:70px;">
+                                <input class="cfg-input config-input" id="mousepadtextureopacity" type="number" min="0"
+                                    max="1" step="0.05" value="1" style="width:70px;">
                             </div>
                         </div>
                     </div>
@@ -769,6 +816,10 @@
                 url.searchParams.delete("ws");
                 window.location.href = url.toString();
             });
+
+            document.getElementById("fwCopyBtn").addEventListener("click", () =>
+                navigator.clipboard.writeText(document.getElementById("fwCmdPre").textContent)
+            );
 
 
         });
