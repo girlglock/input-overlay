@@ -57,7 +57,7 @@ function applyThemeMode(mode) {
 themeToggle.addEventListener('click', () => {
   const next = themeMode === 'dark' ? 'light' : 'dark';
   applyThemeMode(next);
-  invoke('set_theme', { theme: next }).catch(() => {});
+  invoke('set_theme', { theme: next }).catch(() => { });
 });
 applyThemeMode(themeMode);
 
@@ -75,6 +75,19 @@ let isListening = false;
 let originalConfig = null;
 let dirty = false;
 let _saveMsgTimer = null;
+const statusNotify = {
+  _timer: null,
+  _restore: null,
+  show(msg, duration = 5000) {
+    clearTimeout(this._timer);
+    clientsCount.textContent = msg;
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      this._restore?.();
+    }, duration);
+  },
+  active() { return this._timer !== null; },
+};
 
 function markDirty() {
   if (dirty) return;
@@ -155,18 +168,17 @@ function applyStatus(s) {
 
 function renderClients(clients) {
   clientsList.innerHTML = "";
-  if (clients.length === 0) {
-    clientsCount.textContent = "no clients connected";
-    clientsCount.style.cursor = "";
-    return;
-  }
-  clientsCount.textContent = `${clients.length} client${clients.length === 1 ? "" : "s"} connected`;
-  clientsCount.style.cursor = "pointer";
+  const text = clients.length === 0
+    ? "no clients connected"
+    : `${clients.length} client${clients.length === 1 ? "" : "s"} connected`;
+  clientsCount.style.cursor = clients.length ? "pointer" : "";
   clients.forEach((addr) => {
     const li = document.createElement("li");
     li.textContent = addr;
     clientsList.appendChild(li);
   });
+  statusNotify._restore = () => { clientsCount.textContent = text; };
+  if (!statusNotify.active()) clientsCount.textContent = text;
 }
 
 function applyConfig(cfg) {
@@ -309,8 +321,26 @@ function applyHttpEnabled(enabled) {
   openHttpBtn.disabled = !enabled;
 }
 
+function applyBindIfValid(notif) {
+  const host = hostEl.value.trim() || "localhost";
+  const port = parseInt(portEl.value, 10);
+  if (port >= 1 && port <= 65535) {
+    statusNotify.show(notif);
+    invoke("apply_bind", { host, port }).catch(() => { });
+  }
+}
+
 hostEl.addEventListener("input", () => { httpHostEl.value = hostEl.value; markDirty(); });
+hostEl.addEventListener("blur", () => applyBindIfValid(`host changed to: ${hostEl.value.trim() || "localhost"}`));
 portEl.addEventListener("input", () => markDirty());
+portEl.addEventListener("blur", () => applyBindIfValid(`port changed to: ${portEl.value}`));
+httpPortEl.addEventListener("blur", () => {
+  const port = parseInt(httpPortEl.value, 10);
+  if (port >= 1 && port <= 65535) {
+    statusNotify.show(`http port changed to: ${port}`);
+    invoke("toggle_http", { enabled: httpEnabledEl.checked, host: hostEl.value.trim() || "localhost", port }).catch(() => { });
+  }
+});
 authEl.addEventListener("input", () => markDirty());
 mouseMove.addEventListener("change", () => markDirty());
 analogEl.addEventListener("change", () => markDirty());
@@ -393,7 +423,10 @@ modalKeepBtn.addEventListener("click", () => {
 
 modalDiscardBtn.addEventListener("click", async () => {
   discardModal.hidden = true;
-  if (originalConfig) applyConfig(originalConfig);
+  if (originalConfig) {
+    applyConfig(originalConfig);
+    await invoke("apply_bind", { host: originalConfig.host, port: originalConfig.port }).catch(() => { });
+  }
   await invoke("close_window");
 });
 
@@ -514,7 +547,7 @@ async function init() {
 
   listen("status-update", (e) => applyStatus(e.payload));
   listen("update-available", (e) => applyUpdateInfo(e.payload));
-  invoke("check_update").then((info) => { if (info) applyUpdateInfo(info); }).catch(() => {});
+  invoke("check_update").then((info) => { if (info) applyUpdateInfo(info); }).catch(() => { });
 }
 
 window.addEventListener("DOMContentLoaded", init);

@@ -107,6 +107,19 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
 }
 
 #[tauri::command]
+async fn apply_bind(
+    host: String,
+    port: u16,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut cfg = state.config.write().await;
+    cfg.host = host;
+    cfg.port = port;
+    let _ = state.ws_state.rebind_tx.send(());
+    Ok(())
+}
+
+#[tauri::command]
 async fn toggle_http(
     enabled: bool,
     host: String,
@@ -480,6 +493,7 @@ pub fn run() {
                     get_autostart,
                     set_autostart,
                     toggle_http,
+                    apply_bind,
                     minimize_window,
                     close_window,
                     open_url,
@@ -500,6 +514,7 @@ pub fn run() {
                     get_autostart,
                     set_autostart,
                     toggle_http,
+                    apply_bind,
                     minimize_window,
                     close_window,
                     open_url,
