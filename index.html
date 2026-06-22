@@ -378,108 +378,139 @@
                                     min="0" step="10" value="100">
                             </div>
                         </div>
-                        <div class="cfg-field">
-                            <label class="cfg-label" for="keylegendmode">analog legend fill mode</label>
-                            <select class="cfg-select config-input" id="keylegendmode">
-                                <option value="fading">fading</option>
-                                <option value="inverting">inverting</option>
-                                <option value="digital">digital</option>
-                            </select>
-                        </div>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                             <label class="cfg-checkbox">
                                 <input type="checkbox" class="config-input" id="hidescrollcombo">
                                 <span class="cfg-checkbox-box"></span>
                                 <span class="cfg-checkbox-label">hide scroll combo</span>
                             </label>
-                            <label class="cfg-checkbox">
-                                <input type="checkbox" class="config-input" id="forcedisableanalog">
-                                <span class="cfg-checkbox-box"></span>
-                                <span class="cfg-checkbox-label">force disable analog</span>
-                            </label>
                         </div>
-                    </div>
+                        <div class="cfg-sub-tabs cs-tabs">
+                            <input type="radio" class="radiotab" name="cfgBehaviourTab" id="cfgBehaviourTab_analog" checked>
+                            <label class="label" for="cfgBehaviourTab_analog">analog</label>
+                            <div class="panel">
+                                <div class="cfg-field">
+                                    <label class="cfg-label" for="analogdisplaymode">display mode</label>
+                                    <select class="cfg-select config-input" id="analogdisplaymode">
+                                        <option value="fill">fill</option>
+                                        <option value="percent">percent</option>
+                                        <option value="both">both</option>
+                                    </select>
+                                </div>
+                                <div class="cfg-field">
+                                    <label class="cfg-label" for="keylegendmode">legend fill mode</label>
+                                    <select class="cfg-select config-input" id="keylegendmode">
+                                        <option value="fading">fading</option>
+                                        <option value="inverting">inverting</option>
+                                        <option value="digital">digital</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    <label class="cfg-checkbox">
+                                        <input type="checkbox" class="config-input" id="analogsmoothing">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label">smoothing</span>
+                                    </label>
+                                    <label class="cfg-checkbox">
+                                        <input type="checkbox" class="config-input" id="forcedisableanalog">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label">force disable</span>
+                                    </label>
+                                </div>
+                            </div>
 
-                    <input type="radio" class="radiotab" name="cfgMainTab" id="cfgMainTab_mouse">
-                    <label class="label" for="cfgMainTab_mouse">mouse pad</label>
-                    <div class="panel">
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <label class="cfg-label" style="margin-bottom:0;" for="mousetrailmode">mode</label>
-                                <select id="mousetrailmode" class="cfg-select config-input" style="width:120px;">
-                                    <option value="wrap">wrap</option>
-                                    <option value="pan">pan</option>
-                                </select>
-                            </div>
-                            <label class="cfg-checkbox">
-                                <input type="checkbox" class="config-input" id="mousetrailm1highlight">
-                                <span class="cfg-checkbox-box"></span>
-                                <span class="cfg-checkbox-label">highlight m1</span>
-                            </label>
-                            <label class="cfg-checkbox">
-                                <input type="checkbox" class="config-input" id="showmousedistance">
-                                <span class="cfg-checkbox-box"></span>
-                                <span class="cfg-checkbox-label">dist tracker</span>
-                            </label>
-                            <label class="cfg-checkbox">
-                                <input type="checkbox" class="config-input" id="resetmousedistanceafterfade">
-                                <span class="cfg-checkbox-box"></span>
-                                <span class="cfg-checkbox-label" id="resetmousedistanceafterfadelabel">reset dist after
-                                    fadeout</span>
-                            </label>
-                        </div>
-                        <div class="cfg-slider-pair">
-                            <div class="cfg-slider-field">
-                                <div class="cfg-slider-header">
-                                    <label class="cfg-label" for="mousetraillength">trail length</label>
-                                    <span class="cfg-slider-val" id="mousetraillengthvalue">150pts</span>
+                            <input type="radio" class="radiotab" name="cfgBehaviourTab" id="cfgBehaviourTab_mouse">
+                            <label class="label" for="cfgBehaviourTab_mouse">mouse pad</label>
+                            <div class="panel">
+                                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <label class="cfg-label" style="margin-bottom:0;" for="mousetrailmode">mode</label>
+                                        <select id="mousetrailmode" class="cfg-select config-input" style="width:120px;">
+                                            <option value="wrap">wrap</option>
+                                            <option value="pan">pan</option>
+                                        </select>
+                                    </div>
+                                    <label class="cfg-checkbox">
+                                        <input type="checkbox" class="config-input" id="mousetrailm1highlight">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label">highlight m1</span>
+                                    </label>
+                                    <label class="cfg-checkbox">
+                                        <input type="checkbox" class="config-input" id="showmousedistance">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label">dist tracker</span>
+                                    </label>
+                                    <label class="cfg-checkbox">
+                                        <input type="checkbox" class="config-input" id="resetmousedistanceafterfade">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label" id="resetmousedistanceafterfadelabel">reset dist after fadeout</span>
+                                    </label>
                                 </div>
-                                <input id="mousetraillength" class="cfg-range config-input" type="range" min="10"
-                                    max="1000" step="10" value="150">
-                            </div>
-                            <div class="cfg-slider-field">
-                                <div class="cfg-slider-header">
-                                    <label class="cfg-label" for="mousetrailfadeout">fade duration</label>
-                                    <span class="cfg-slider-val" id="mousetrailfadeoutvalue">600ms</span>
+                                <div class="cfg-slider-pair">
+                                    <div class="cfg-slider-field">
+                                        <div class="cfg-slider-header">
+                                            <label class="cfg-label" for="mousetraillength">trail length</label>
+                                            <span class="cfg-slider-val" id="mousetraillengthvalue">150pts</span>
+                                        </div>
+                                        <input id="mousetraillength" class="cfg-range config-input" type="range" min="10"
+                                            max="1000" step="10" value="150">
+                                    </div>
+                                    <div class="cfg-slider-field">
+                                        <div class="cfg-slider-header">
+                                            <label class="cfg-label" for="mousetrailfadeout">fade duration</label>
+                                            <span class="cfg-slider-val" id="mousetrailfadeoutvalue">600ms</span>
+                                        </div>
+                                        <input id="mousetrailfadeout" class="cfg-range config-input" type="range" min="0"
+                                            max="3000" step="50" value="600">
+                                    </div>
                                 </div>
-                                <input id="mousetrailfadeout" class="cfg-range config-input" type="range" min="0"
-                                    max="3000" step="50" value="600">
-                            </div>
-                        </div>
-                        <div class="cfg-slider-pair">
-                            <div class="cfg-slider-field">
-                                <div class="cfg-slider-header">
-                                    <label class="cfg-label" for="mousetrailsensitivity">sensitivity</label>
-                                    <span class="cfg-slider-val" id="mousetrailsensitivityvalue">1.0x</span>
+                                <div class="cfg-slider-pair">
+                                    <div class="cfg-slider-field">
+                                        <div class="cfg-slider-header">
+                                            <label class="cfg-label" for="mousetrailsensitivity">sensitivity</label>
+                                            <span class="cfg-slider-val" id="mousetrailsensitivityvalue">1.0x</span>
+                                        </div>
+                                        <input id="mousetrailsensitivity" class="cfg-range config-input" type="range" min="1"
+                                            max="5000" step="5" value="100">
+                                    </div>
+                                    <div class="cfg-slider-field">
+                                        <div class="cfg-slider-header">
+                                            <label class="cfg-label" for="mousedistancedpi">mouse DPI (dist tracker)</label>
+                                            <span class="cfg-slider-val" id="mousedistancedpivalue" style="opacity:0.4">400 DPI</span>
+                                        </div>
+                                        <input id="mousedistancedpi" class="cfg-range config-input" type="range" min="100"
+                                            max="32000" step="50" value="400" disabled>
+                                    </div>
                                 </div>
-                                <input id="mousetrailsensitivity" class="cfg-range config-input" type="range" min="1"
-                                    max="5000" step="5" value="100">
-                            </div>
-                            <div class="cfg-slider-field">
-                                <div class="cfg-slider-header">
-                                    <label class="cfg-label" for="mousedistancedpi">mouse DPI (dist tracker)</label>
-                                    <span class="cfg-slider-val" id="mousedistancedpivalue" style="opacity:0.4">400
-                                        DPI</span>
+                                <div style="display: flex; gap: 8px; align-items: flex-end;">
+                                    <div class="cfg-field" id="mousepadtexture-field" style="flex: 1">
+                                        <label class="cfg-label" for="mousepadtexture">background texture url</label>
+                                        <input class="cfg-input config-input" id="mousepadtexture" type="text"
+                                            placeholder="https://... direct image link">
+                                    </div>
+                                    <div class="cfg-field">
+                                        <label class="cfg-label" for="mousepadtexturezoom">scale</label>
+                                        <input class="cfg-input config-input" id="mousepadtexturezoom" type="number" min="0.1"
+                                            max="10" step="0.1" value="1" style="width:70px;">
+                                    </div>
+                                    <div class="cfg-field">
+                                        <label class="cfg-label" for="mousepadtextureopacity">opacity</label>
+                                        <input class="cfg-input config-input" id="mousepadtextureopacity" type="number" min="0"
+                                            max="1" step="0.05" value="1" style="width:70px;">
+                                    </div>
                                 </div>
-                                <input id="mousedistancedpi" class="cfg-range config-input" type="range" min="100"
-                                    max="32000" step="50" value="400" disabled>
                             </div>
-                        </div>
-                        <div style="display: flex; gap: 8px; align-items: flex-end;">
-                            <div class="cfg-field" id="mousepadtexture-field" style="flex: 1">
-                                <label class="cfg-label" for="mousepadtexture">background texture url</label>
-                                <input class="cfg-input config-input" id="mousepadtexture" type="text"
-                                    placeholder="https://... direct image link">
-                            </div>
-                            <div class="cfg-field">
-                                <label class="cfg-label" for="mousepadtexturezoom">scale</label>
-                                <input class="cfg-input config-input" id="mousepadtexturezoom" type="number" min="0.1"
-                                    max="10" step="0.1" value="1" style="width:70px;">
-                            </div>
-                            <div class="cfg-field">
-                                <label class="cfg-label" for="mousepadtextureopacity">opacity</label>
-                                <input class="cfg-input config-input" id="mousepadtextureopacity" type="number" min="0"
-                                    max="1" step="0.05" value="1" style="width:70px;">
+
+                            <input type="radio" class="radiotab" name="cfgBehaviourTab" id="cfgBehaviourTab_gamepad">
+                            <label class="label" for="cfgBehaviourTab_gamepad">gamepad</label>
+                            <div class="panel">
+                                <div class="cfg-slider-field">
+                                    <div class="cfg-slider-header">
+                                        <label class="cfg-label" for="gamepaddeadzone">joystick deadzone</label>
+                                        <span class="cfg-slider-val" id="gamepaddeadzonevalue">8%</span>
+                                    </div>
+                                    <input id="gamepaddeadzone" class="cfg-range config-input" type="range" min="0" max="50" step="1" value="3">
+                                </div>
                             </div>
                         </div>
                     </div>

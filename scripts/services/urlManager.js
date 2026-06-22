@@ -69,11 +69,20 @@ export class UrlManager {
         if (settings.scale && settings.scale !== "100") addParam("scale", settings.scale);
         if (settings.opacity && settings.opacity !== "100") addParam("opacity", settings.opacity);
 
+        if (settings.analogdisplaymode && settings.analogdisplaymode !== "fill") {
+            addParam("analogdisplaymode", settings.analogdisplaymode);
+        }
+        if (settings.analogsmoothing === true || settings.analogsmoothing === "true" || settings.analogsmoothing === "1") {
+            params.push("analogsmoothing=1");
+        }
         if (settings.keylegendmode && settings.keylegendmode !== "fading") {
             addParam("keylegendmode", settings.keylegendmode);
         }
         if (settings.forcedisableanalog === true || settings.forcedisableanalog === "true" || settings.forcedisableanalog === "1") {
             params.push("forcedisableanalog=1");
+        }
+        if (settings.gamepaddeadzone && settings.gamepaddeadzone !== "3") {
+            addParam("gamepaddeadzone", settings.gamepaddeadzone);
         }
 
         if (settings.outlinescalepressed && settings.outlinescalepressed !== "2") addParam("outlinescalepressed", settings.outlinescalepressed);
@@ -180,8 +189,11 @@ export class UrlManager {
                     gapmodifier: decompressedParams.get("gapmodifier") || "100",
                     outlinescalepressed: decompressedParams.get("outlinescalepressed") || "2",
                     outlinescaleunpressed: decompressedParams.get("outlinescaleunpressed") || "2",
+                    analogdisplaymode: decompressedParams.get("analogdisplaymode") || "fill",
+                    analogsmoothing: decompressedParams.get("analogsmoothing") === "1",
                     keylegendmode: decompressedParams.get("keylegendmode") || "fading",
                     forcedisableanalog: decompressedParams.get("forcedisableanalog") === "1",
+                    gamepaddeadzone: decompressedParams.get("gamepaddeadzone") || "3",
                     wsauth: decompressedParams.get("wsauth") || "",
                     keyLayout: decompressedParams.get("keyLayout") || this.urlParams.get("keyLayout") || null,
                     customLayoutRow1: decompressedParams.get("customLayoutRow1") || null,
@@ -227,8 +239,11 @@ export class UrlManager {
             gapmodifier: params.get("gapmodifier") || "100",
             outlinescalepressed: params.get("outlinescalepressed") || "2",
             outlinescaleunpressed: params.get("outlinescaleunpressed") || "2",
+            analogdisplaymode: params.get("analogdisplaymode") || "fill",
+            analogsmoothing: params.get("analogsmoothing") === "1",
             keylegendmode: params.get("keylegendmode") || "fading",
             forcedisableanalog: params.get("forcedisableanalog") === "1",
+            gamepaddeadzone: params.get("gamepaddeadzone") || "3",
             wsauth: params.get("wsauth") || "",
             keyLayout: this.urlParams.get("keyLayout") || null,
             customLayoutRow1: params.get("customLayoutRow1") || null,

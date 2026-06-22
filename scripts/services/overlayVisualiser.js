@@ -143,6 +143,9 @@ export class OverlayVisualiser {
         this.pressedRadius = parseFloat(opts.pressedradius ?? opts.borderradius ?? 8);
         this.keyLegendMode = opts.keylegendmode || "fading";
         this.forceDisableAnalog = opts.forcedisableanalog === true || opts.forcedisableanalog === "true" || opts.forcedisableanalog === "1";
+        this.analogDisplayMode = opts.analogdisplaymode || "fill";
+        this.analogSmoothing = opts.analogsmoothing === true || opts.analogsmoothing === "true" || opts.analogsmoothing === "1";
+        this.gamepadDeadzone = parseFloat(opts.gamepaddeadzone) / 100 || 0.03;
 
         this.MOUSEPAD_TRAIL_MS = opts.mousetrailfadeout != null ? parseInt(opts.mousetrailfadeout) : 600;
         this.MOUSEPAD_SENSITIVITY = (parseInt(opts.mousetrailsensitivity) || 100) / 100;
@@ -221,7 +224,7 @@ export class OverlayVisualiser {
         }
 
         const activeTransform = this.analogMode ? "scaleX(1) scaleY(1)" : `scaleX(${pressscalevalue}) scaleY(${pressscalevalue})`;
-        const transitionStyle = this.analogMode
+        const transitionStyle = (this.analogMode && this.analogDisplayMode !== "percent")
             ? `color ${animDuration} cubic-bezier(0.4,0,0.2,1), border-color ${animDuration} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDuration} cubic-bezier(0.4,0,0.2,1)`
             : `transform ${animDuration} cubic-bezier(0.4,0,0.2,1), border-radius ${animDuration} cubic-bezier(0.4,0,0.2,1), color ${animDuration} cubic-bezier(0.4,0,0.2,1), border-color ${animDuration} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDuration} cubic-bezier(0.4,0,0.2,1), background ${animDuration} cubic-bezier(0.4,0,0.2,1), border-width ${animDuration} cubic-bezier(0.4,0,0.2,1)`;
 
@@ -319,6 +322,20 @@ export class OverlayVisualiser {
                 text-shadow: ${textShadow} !important;
             }
             .mouse-section { display: ${opts.hidemouse ? "none" : "flex"} !important; }
+            .analog-depth-pct {
+                position: absolute;
+                bottom: 2px;
+                right: 3px;
+                font-size: 13.5px;
+                line-height: 1;
+                opacity: 0;
+                pointer-events: none;
+                z-index: 4;
+                font-variant-numeric: tabular-nums;
+                color: inherit;
+                transition: opacity 0.15s;
+            }
+            .analog-depth-pct.visible { opacity: 0.8; }
         `;
     }
 
@@ -742,20 +759,25 @@ export class OverlayVisualiser {
         this.analogRafId = null;
         if (!this.previewElements) return;
 
-        const LERP = 0.35, SNAP = 0.001;
-        const alpha = 1 - Math.pow(1 - LERP, dt / 16.667);
+        const SNAP = 0.001;
         let anyActive = false;
 
         for (const keyName of Object.keys(this.analogTargetDepths)) {
             const target = this.analogTargetDepths[keyName];
             let current = this.analogCurrentDepths[keyName] ?? 0;
-            const delta = target - current;
 
-            if (Math.abs(delta) < SNAP) {
+            if (!this.analogSmoothing) {
                 current = target;
             } else {
-                current += delta * alpha;
-                anyActive = true;
+                const delta = target - current;
+                if (Math.abs(delta) < SNAP) {
+                    current = target;
+                } else {
+                    const lerp = delta < 0 ? 0.7 : 0.35;
+                    const alpha = 1 - Math.pow(1 - lerp, dt / 16.667);
+                    current += delta * alpha;
+                    anyActive = true;
+                }
             }
             this.analogCurrentDepths[keyName] = current;
             this._renderAnalogDepth(keyName, current);
@@ -783,35 +805,62 @@ export class OverlayVisualiser {
         const glowRadius = this.glowRadius || "24px";
         const keyLegendMode = this.keyLegendMode || "inverting";
 
+        const showFill = this.analogDisplayMode !== "percent";
+        const showPercent = this.analogDisplayMode === "percent" || this.analogDisplayMode === "both";
+
         for (const el of elements) {
-            if (effectiveDepth > 0) el.classList.add("analog-key");
-            else if (!el.classList.contains("active")) el.classList.remove("analog-key");
+            if (showFill) {
+                if (effectiveDepth > 0) el.classList.add("analog-key");
+                else if (!el.classList.contains("active")) el.classList.remove("analog-key");
 
-            const maxScaleY = this.pressScaleValue || 1.05;
-            const maxScaleX = this.pressScaleValue > 1 ? this._getPressScale(el) : maxScaleY;
-            const scaleX = 1 + (maxScaleX - 1) * effectiveDepth;
-            const scaleY = 1 + (maxScaleY - 1) * effectiveDepth;
-            el.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
+                const maxScaleY = this.pressScaleValue || 1.05;
+                const maxScaleX = this.pressScaleValue > 1 ? this._getPressScale(el) : maxScaleY;
+                const scaleX = 1 + (maxScaleX - 1) * effectiveDepth;
+                const scaleY = 1 + (maxScaleY - 1) * effectiveDepth;
+                el.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
 
-            const radius = this.borderRadius + (this.pressedRadius - this.borderRadius) * effectiveDepth;
-            el.style.setProperty("border-radius", `${radius.toFixed(2)}px`, "important");
+                const radius = this.borderRadius + (this.pressedRadius - this.borderRadius) * effectiveDepth;
+                el.style.setProperty("border-radius", `${radius.toFixed(2)}px`, "important");
 
-            const fillHeight = effectiveDepth * 100;
-            const borderWidth = unpressedWidth + (pressedWidth - unpressedWidth) * effectiveDepth;
+                const fillHeight = effectiveDepth * 100;
+                const borderWidth = unpressedWidth + (pressedWidth - unpressedWidth) * effectiveDepth;
+                el.style.setProperty("border-width", `${borderWidth}px`, "important");
 
-            el.style.setProperty("border-width", `${borderWidth}px`, "important");
-
-            if (effectiveDepth > 0) {
-                const pct = fillHeight.toFixed(1);
-                el.style.setProperty("background-image",
-                    `linear-gradient(to top, ${this.activeBgColor} ${pct}%, transparent ${pct}%)`,
-                    "important");
+                if (effectiveDepth > 0) {
+                    const pct = fillHeight.toFixed(1);
+                    el.style.setProperty("background-image",
+                        `linear-gradient(to top, ${this.activeBgColor} ${pct}%, transparent ${pct}%)`,
+                        "important");
+                } else {
+                    el.style.removeProperty("background-image");
+                }
+                if (!el.classList.contains("scroll-display")) {
+                    el.style.removeProperty("border-color");
+                    el.style.removeProperty("box-shadow");
+                }
             } else {
+                el.classList.remove("analog-key");
+                el.style.removeProperty("transform");
+                el.style.removeProperty("border-radius");
+                el.style.removeProperty("border-width");
                 el.style.removeProperty("background-image");
             }
-            if (!el.classList.contains("scroll-display")) {
-                el.style.removeProperty("border-color");
-                el.style.removeProperty("box-shadow");
+
+            if (showPercent) {
+                let pctEl = el.querySelector(".analog-depth-pct");
+                if (!pctEl) {
+                    pctEl = document.createElement("span");
+                    pctEl.className = "analog-depth-pct";
+                    el.appendChild(pctEl);
+                }
+                if (effectiveDepth > 0) {
+                    pctEl.textContent = `${Math.round(effectiveDepth * 100)}%`;
+                    pctEl.classList.add("visible");
+                } else {
+                    pctEl.classList.remove("visible");
+                }
+            } else {
+                el.querySelector(".analog-depth-pct")?.remove();
             }
 
             const primary = el.querySelector(".key-label-primary");

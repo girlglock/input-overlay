@@ -198,7 +198,8 @@ export class ConfiguratorMode {
             hidemouse: false, hidescrollcombo: false, boldfont: true,
             analogmode: false, gapmodifier: "100",
             outlinescalepressed: "3", outlinescaleunpressed: "2",
-            keylegendmode: "inverting", forcedisableanalog: false,
+            analogdisplaymode: "fill", analogsmoothing: false, keylegendmode: "inverting", forcedisableanalog: false,
+            gamepaddeadzone: "3",
             mousetrailsensitivity: "100",
             mousetrailfadeout: "600",
             mousetrailmode: "wrap",
@@ -246,8 +247,11 @@ export class ConfiguratorMode {
             gapmodifier: val("gapmodifier") || "100",
             outlinescalepressed: val("outlinescalepressed") || "2",
             outlinescaleunpressed: val("outlinescaleunpressed") || "2",
+            analogdisplaymode: val("analogdisplaymode") || "fill",
+            analogsmoothing: chk("analogsmoothing"),
             keylegendmode: val("keylegendmode") || "inverting",
             forcedisableanalog: chk("forcedisableanalog"),
+            gamepaddeadzone: val("gamepaddeadzone") || "3",
             mousetrailsensitivity: val("mousetrailsensitivity") || "100",
             mousetrailfadeout: val("mousetrailfadeout") !== "" ? val("mousetrailfadeout") : "600",
             mousetrailmode: val("mousetrailmode") || "wrap",
@@ -294,7 +298,7 @@ export class ConfiguratorMode {
         let suffix = "", val = input.value;
         if (id.includes("radius")) suffix = "px";
         else if (id.includes("scale")) { suffix = "x"; val = id === "pressscale" ? (val / 100).toFixed(2) : (val / 100).toFixed(1); }
-        else if (id === "opacity" || id.includes("speed") || id.includes("modifier")) suffix = "%";
+        else if (id === "opacity" || id.includes("speed") || id.includes("modifier") || id.includes("deadzone")) suffix = "%";
 
         label.textContent = val + suffix;
     }
@@ -344,8 +348,11 @@ export class ConfiguratorMode {
         applyValue("outlinescalepressed", settings.outlinescalepressed ?? "2");
         applyValue("outlinescaleunpressed", settings.outlinescaleunpressed ?? "2");
         applyValue("gapmodifier", settings.gapmodifier);
+        applyValue("analogdisplaymode", settings.analogdisplaymode ?? "fill");
+        applyValue("analogsmoothing", settings.analogsmoothing ?? false);
         applyValue("keylegendmode", settings.keylegendmode);
         applyValue("forcedisableanalog", settings.forcedisableanalog);
+        applyValue("gamepaddeadzone", settings.gamepaddeadzone ?? "3");
         applyValue("mousetrailsensitivity", settings.mousetrailsensitivity ?? "100");
         applyValue("mousetrailfadeout", settings.mousetrailfadeout ?? "600");
         applyValue("mousetrailmode", settings.mousetrailmode ?? "wrap");

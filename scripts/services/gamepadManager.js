@@ -29,7 +29,6 @@ export const GP_AXIS_MAP = {
 
 const ANALOG_BUTTONS = new Set([6, 7]); //triggers
 
-const DEADZONE = 0.08;
 
 export class GamepadManager {
     constructor(visualizer) {
@@ -117,7 +116,8 @@ export class GamepadManager {
         const axisCount = Math.min(pad.axes.length, 4);
         for (let a = 0; a < axisCount; a++) {
             const raw = pad.axes[a];
-            const val = Math.abs(raw) < DEADZONE ? 0 : raw;
+            const dz = this.visualizer.gamepadDeadzone ?? 0.03;
+            const val = Math.abs(raw) < dz ? 0 : raw;
             const prev = this._prevAxisState[idx][a] ?? 0;
             if (Math.abs(val - prev) > 0.002) {
                 const info = GP_AXIS_MAP[a];
