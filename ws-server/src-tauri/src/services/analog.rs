@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use hidapi::HidApi;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::services::consts::hid_to_vk;
+use crate::services::consts::{hid_to_vk, now_ms};
 use crate::ws_server::InputEvent;
 
 const READ_TIMEOUT_MS: i32 = 200;
@@ -196,7 +196,10 @@ fn device_thread(tx: UnboundedSender<InputEvent>, entry: DeviceEntry, stop: Arc<
                 Protocol::Bytech => run_bytech(&dev, &tx, &stop),
             }
             if !stop.load(Ordering::Relaxed) {
-                tracing::info!("analog: device disconnected, retrying in {}s", backoff.as_secs());
+                tracing::info!(
+                    "analog: device disconnected, retrying in {}s",
+                    backoff.as_secs()
+                );
             }
         }
         if !stop.load(Ordering::Relaxed) {
@@ -235,6 +238,7 @@ fn run_passive(
                     let _ = tx.send(InputEvent::AnalogDepth {
                         rawcode: vk,
                         depth: 0.0,
+                        timestamp: now_ms(),
                     });
                 }
                 prev = current;
@@ -251,6 +255,7 @@ fn run_passive(
 fn parse_wooting_v1(report: &[u8], tx: &UnboundedSender<InputEvent>) -> HashSet<u16> {
     let mut active = HashSet::new();
     let mut i = 0;
+    let timestamp = now_ms();
     while i + 2 < report.len() {
         let scancode = u16::from_be_bytes([report[i], report[i + 1]]);
         if scancode == 0 {
@@ -262,6 +267,7 @@ fn parse_wooting_v1(report: &[u8], tx: &UnboundedSender<InputEvent>) -> HashSet<
             let _ = tx.send(InputEvent::AnalogDepth {
                 rawcode: vk,
                 depth: value as f32 / 255.0,
+                timestamp,
             });
             active.insert(vk);
         }
@@ -273,6 +279,7 @@ fn parse_wooting_v1(report: &[u8], tx: &UnboundedSender<InputEvent>) -> HashSet<
 fn parse_wooting_v2(report: &[u8], tx: &UnboundedSender<InputEvent>) -> HashSet<u16> {
     let mut active = HashSet::new();
     let mut i = 0;
+    let timestamp = now_ms();
     while i + 3 < report.len() {
         let scancode_lo = report[i + 1];
         if scancode_lo == 0 {
@@ -294,6 +301,7 @@ fn parse_wooting_v2(report: &[u8], tx: &UnboundedSender<InputEvent>) -> HashSet<
             let _ = tx.send(InputEvent::AnalogDepth {
                 rawcode: vk,
                 depth: value as f32 / 1023.0,
+                timestamp,
             });
             active.insert(vk);
         }
@@ -307,6 +315,7 @@ fn parse_razer(report: &[u8], tx: &UnboundedSender<InputEvent>, v3: bool) -> Has
     let mut active = HashSet::new();
     let stride = if v3 { 3 } else { 2 };
     let mut i = 0;
+    let timestamp = now_ms();
     while i + stride <= report.len() {
         let scan = report[i];
         if scan == 0 {
@@ -319,6 +328,7 @@ fn parse_razer(report: &[u8], tx: &UnboundedSender<InputEvent>, v3: bool) -> Has
                 let _ = tx.send(InputEvent::AnalogDepth {
                     rawcode: vk,
                     depth: value as f32 / 255.0,
+                    timestamp,
                 });
                 active.insert(vk);
             }
@@ -336,7 +346,7 @@ fn parse_nuphy(report: &[u8], tx: &UnboundedSender<InputEvent>) {
     let value = report[7];
     let depth = value as f32 / 200.0;
     if let Some(hid) = nuphy_to_hid(raw) {
-        emit_hid(tx, hid, depth.min(1.0));
+        emit_hid(tx, hid, depth.min(1.0), now_ms());
     }
 }
 
@@ -353,7 +363,9 @@ fn run_drunkdeer(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop
 
     while !stop.load(Ordering::Relaxed) {
         if last_poll.elapsed() >= Duration::from_millis(8) {
-            if dev.write(&req).is_err() { break; }
+            if dev.write(&req).is_err() {
+                break;
+            }
             last_poll = Instant::now();
         }
 
@@ -372,6 +384,7 @@ fn run_drunkdeer(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop
                     cur_vks.clear();
                 }
 
+                let timestamp = now_ms();
                 for (pos, &value) in buf[(off + 4)..n].iter().enumerate() {
                     if value != 0 {
                         let idx = n_pkt as usize * 59 + pos;
@@ -381,6 +394,7 @@ fn run_drunkdeer(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop
                                     let _ = tx.send(InputEvent::AnalogDepth {
                                         rawcode: vk,
                                         depth: (value as f32 / 40.0).min(1.0),
+                                        timestamp,
                                     });
                                     cur_vks.insert(vk);
                                 }
@@ -394,6 +408,7 @@ fn run_drunkdeer(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop
                         let _ = tx.send(InputEvent::AnalogDepth {
                             rawcode: vk,
                             depth: 0.0,
+                            timestamp,
                         });
                     }
                     prev_vks.clone_from(&cur_vks);
@@ -452,16 +467,23 @@ fn run_keychron(
                 chunk += 1;
                 if chunk == 4 {
                     chunk = 0;
+                    let timestamp = now_ms();
                     for (li, &depth) in depths.iter().enumerate() {
                         let hid = layout[li];
                         if hid != 0 {
                             if let Some(vk) = hid_to_vk(hid) {
-                                let _ = tx.send(InputEvent::AnalogDepth { rawcode: vk, depth });
+                                let _ = tx.send(InputEvent::AnalogDepth {
+                                    rawcode: vk,
+                                    depth,
+                                    timestamp,
+                                });
                             }
                         }
                     }
                     //next
-                    if dev.write(&req).is_err() { break; }
+                    if dev.write(&req).is_err() {
+                        break;
+                    }
                 }
             }
             Ok(0) => {}
@@ -491,6 +513,7 @@ fn run_madlions(
     while !stop.load(Ordering::Relaxed) {
         match dev.read_timeout(&mut buf, READ_TIMEOUT_MS) {
             Ok(n) if n >= 28 => {
+                let timestamp = now_ms();
                 for i in 0..4usize {
                     let li = offset + i;
                     if li >= layout.len() {
@@ -511,7 +534,11 @@ fn run_madlions(
                         } else {
                             0.0
                         };
-                        let _ = tx.send(InputEvent::AnalogDepth { rawcode: vk, depth });
+                        let _ = tx.send(InputEvent::AnalogDepth {
+                            rawcode: vk,
+                            depth,
+                            timestamp,
+                        });
                     }
                 }
                 offset += 4;
@@ -519,7 +546,9 @@ fn run_madlions(
                     offset = 0;
                 }
                 req[7] = offset as u8;
-                if dev.write(&req).is_err() { break; }
+                if dev.write(&req).is_err() {
+                    break;
+                }
             }
             Ok(0) => {}
             Ok(_) => {}
@@ -546,7 +575,9 @@ fn run_bytech(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop: &
 
     while !stop.load(Ordering::Relaxed) {
         if last_poll.elapsed() >= Duration::from_millis(8) {
-            if dev.write(&req).is_err() { break; }
+            if dev.write(&req).is_err() {
+                break;
+            }
             last_poll = Instant::now();
         }
 
@@ -563,6 +594,7 @@ fn run_bytech(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop: &
                     continue;
                 }
 
+                let timestamp = now_ms();
                 let mut cur_vks: HashSet<u16> = HashSet::new();
                 let count = buf[off + 5] as usize;
                 let mut i = 0;
@@ -579,6 +611,7 @@ fn run_bytech(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop: &
                             let _ = tx.send(InputEvent::AnalogDepth {
                                 rawcode: vk,
                                 depth: (dist as f32 / 355.0).min(1.0),
+                                timestamp,
                             });
                             cur_vks.insert(vk);
                         }
@@ -588,6 +621,7 @@ fn run_bytech(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop: &
                     let _ = tx.send(InputEvent::AnalogDepth {
                         rawcode: vk,
                         depth: 0.0,
+                        timestamp,
                     });
                 }
                 prev_vks = cur_vks;
@@ -601,9 +635,13 @@ fn run_bytech(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop: &
 
 //elpers
 #[inline]
-fn emit_hid(tx: &UnboundedSender<InputEvent>, hid: u16, depth: f32) {
+fn emit_hid(tx: &UnboundedSender<InputEvent>, hid: u16, depth: f32, timestamp: u64) {
     if let Some(vk) = hid_to_vk(hid) {
-        let _ = tx.send(InputEvent::AnalogDepth { rawcode: vk, depth });
+        let _ = tx.send(InputEvent::AnalogDepth {
+            rawcode: vk,
+            depth,
+            timestamp,
+        });
     }
 }
 

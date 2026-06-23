@@ -18,6 +18,7 @@ pub struct Config {
     pub linux_raw_mouse_device: String,
     pub dismissed_update_versions: Vec<String>,
     pub theme: Option<String>,
+    pub flush_hz: u32,
 }
 
 impl Default for Config {
@@ -37,6 +38,7 @@ impl Default for Config {
             linux_raw_mouse_device: String::new(),
             dismissed_update_versions: Vec::new(),
             theme: None,
+            flush_hz: 125,
         }
     }
 }

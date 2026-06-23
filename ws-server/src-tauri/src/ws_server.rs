@@ -12,18 +12,37 @@ use tokio_tungstenite::tungstenite::Message;
 use tauri::Emitter;
 
 use crate::services::config::Config;
-use crate::services::consts::{
-    mouse_button_name, mouse_scroll_name, vk_to_key_name, RAW_MOUSE_FLUSH_HZ,
-};
+use crate::services::consts::{mouse_button_name, mouse_scroll_name, vk_to_key_name};
 
 #[derive(Debug, Clone)]
 pub enum InputEvent {
-    KeyPress { rawcode: u16 },
-    KeyRelease { rawcode: u16 },
-    MouseButton { button: u8, pressed: bool },
-    MouseScroll { rotation: i8 },
-    MouseMove { dx: i32, dy: i32 },
-    AnalogDepth { rawcode: u16, depth: f32 },
+    KeyPress {
+        rawcode: u16,
+        timestamp: u64,
+    },
+    KeyRelease {
+        rawcode: u16,
+        timestamp: u64,
+    },
+    MouseButton {
+        button: u8,
+        pressed: bool,
+        timestamp: u64,
+    },
+    MouseScroll {
+        rotation: i8,
+        timestamp: u64,
+    },
+    MouseMove {
+        dx: i32,
+        dy: i32,
+        timestamp: u64,
+    },
+    AnalogDepth {
+        rawcode: u16,
+        depth: f32,
+        timestamp: u64,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -47,46 +66,61 @@ fn is_allowed(event: &InputEvent, cfg: &Config) -> bool {
     }
     match event {
         InputEvent::MouseMove { .. } => cfg.send_mouse_move,
-        InputEvent::MouseScroll { rotation } => {
+        InputEvent::MouseScroll { rotation, .. } => {
             if cfg.key_whitelist.iter().any(|k| k == "mouse_wheel") {
                 return true;
             }
-            mouse_scroll_name(*rotation)
-                .is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
+            mouse_scroll_name(*rotation).is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
         }
-        InputEvent::MouseButton { button, .. } => mouse_button_name(*button)
-            .is_some_and(|n| cfg.key_whitelist.contains(&n.to_string())),
-        InputEvent::KeyPress { rawcode } | InputEvent::KeyRelease { rawcode } => {
-            vk_to_key_name(*rawcode)
-                .is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
+        InputEvent::MouseButton { button, .. } => {
+            mouse_button_name(*button).is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
+        }
+        InputEvent::KeyPress { rawcode, .. } | InputEvent::KeyRelease { rawcode, .. } => {
+            vk_to_key_name(*rawcode).is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
         }
         InputEvent::AnalogDepth { rawcode, .. } => {
-            vk_to_key_name(*rawcode)
-                .is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
+            vk_to_key_name(*rawcode).is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
         }
     }
 }
 
 fn event_to_json(event: &InputEvent) -> Option<String> {
     match event {
-        InputEvent::KeyPress { rawcode } => Some(format!(
-            r#"{{"event_type":"key_pressed","rawcode":{rawcode}}}"#
+        InputEvent::KeyPress { rawcode, timestamp } => Some(format!(
+            r#"{{"event_type":"key_pressed","rawcode":{rawcode},"timestamp":{timestamp}}}"#
         )),
-        InputEvent::KeyRelease { rawcode } => Some(format!(
-            r#"{{"event_type":"key_released","rawcode":{rawcode}}}"#
+        InputEvent::KeyRelease { rawcode, timestamp } => Some(format!(
+            r#"{{"event_type":"key_released","rawcode":{rawcode},"timestamp":{timestamp}}}"#
         )),
-        InputEvent::MouseButton { button, pressed } => {
-            let event_type = if *pressed { "mouse_pressed" } else { "mouse_released" };
-            Some(format!(r#"{{"event_type":"{event_type}","button":{button}}}"#))
+        InputEvent::MouseButton {
+            button,
+            pressed,
+            timestamp,
+        } => {
+            let event_type = if *pressed {
+                "mouse_pressed"
+            } else {
+                "mouse_released"
+            };
+            Some(format!(
+                r#"{{"event_type":"{event_type}","button":{button},"timestamp":{timestamp}}}"#
+            ))
         }
-        InputEvent::MouseScroll { rotation } => Some(format!(
-            r#"{{"event_type":"mouse_wheel","rotation":{rotation}}}"#
+        InputEvent::MouseScroll {
+            rotation,
+            timestamp,
+        } => Some(format!(
+            r#"{{"event_type":"mouse_wheel","rotation":{rotation},"timestamp":{timestamp}}}"#
         )),
-        InputEvent::MouseMove { dx, dy } => Some(format!(
-            r#"{{"event_type":"mouse_moved","dx":{dx},"dy":{dy}}}"#
+        InputEvent::MouseMove { dx, dy, timestamp } => Some(format!(
+            r#"{{"event_type":"mouse_moved","dx":{dx},"dy":{dy},"timestamp":{timestamp}}}"#
         )),
-        InputEvent::AnalogDepth { rawcode, depth } => Some(format!(
-            r#"{{"event_type":"analog_depth","rawcode":{rawcode},"depth":{depth:.4}}}"#
+        InputEvent::AnalogDepth {
+            rawcode,
+            depth,
+            timestamp,
+        } => Some(format!(
+            r#"{{"event_type":"analog_depth","rawcode":{rawcode},"depth":{depth:.4},"timestamp":{timestamp}}}"#
         )),
     }
 }
@@ -96,10 +130,14 @@ async fn distributor(
     bcast_tx: Arc<broadcast::Sender<Arc<str>>>,
     config: Arc<RwLock<Config>>,
 ) {
-    let flush_interval = Duration::from_micros(1_000_000 / RAW_MOUSE_FLUSH_HZ as u64);
+    let flush_interval = {
+        let hz = config.read().await.flush_hz.max(1);
+        Duration::from_micros(1_000_000 / hz as u64)
+    };
     let mut last_flush = Instant::now();
     let mut pending_dx = 0i32;
     let mut pending_dy = 0i32;
+    let mut pending_move_ts: u64 = 0;
     let mut pending: Vec<String> = Vec::new();
 
     loop {
@@ -111,7 +149,10 @@ async fn distributor(
                         continue;
                     }
                     match event {
-                        InputEvent::MouseMove { dx, dy } => {
+                        InputEvent::MouseMove { dx, dy, timestamp } => {
+                            if pending_dx == 0 && pending_dy == 0 {
+                                pending_move_ts = timestamp;
+                            }
                             pending_dx += dx;
                             pending_dy += dy;
                         }
@@ -133,11 +174,12 @@ async fn distributor(
             }
             if pending_dx != 0 || pending_dy != 0 {
                 let json = format!(
-                    r#"{{"event_type":"mouse_moved","dx":{pending_dx},"dy":{pending_dy}}}"#
+                    r#"{{"event_type":"mouse_moved","dx":{pending_dx},"dy":{pending_dy},"timestamp":{pending_move_ts}}}"#
                 );
                 let _ = bcast_tx.send(Arc::from(json.as_str()));
                 pending_dx = 0;
                 pending_dy = 0;
+                pending_move_ts = 0;
             }
             last_flush = Instant::now();
         }
@@ -180,19 +222,25 @@ async fn handle_connection(
                         let token = m.token.unwrap_or_default();
                         if token.is_empty() {
                             let _ = write
-                                .send(Message::Text(r#"{"type":"auth_response","status":"failed"}"#.into()))
+                                .send(Message::Text(
+                                    r#"{"type":"auth_response","status":"failed"}"#.into(),
+                                ))
                                 .await;
                             tracing::warn!("auth rejected from {addr}: no token");
                             break false;
                         } else if auth_token.is_empty() || token == auth_token {
                             let _ = write
-                                .send(Message::Text(r#"{"type":"auth_response","status":"success"}"#.into()))
+                                .send(Message::Text(
+                                    r#"{"type":"auth_response","status":"success"}"#.into(),
+                                ))
                                 .await;
                             tracing::info!("client authenticated from {addr}");
                             break true;
                         } else {
                             let _ = write
-                                .send(Message::Text(r#"{"type":"auth_response","status":"failed"}"#.into()))
+                                .send(Message::Text(
+                                    r#"{"type":"auth_response","status":"failed"}"#.into(),
+                                ))
                                 .await;
                             tracing::warn!("auth rejected from {addr}: bad token");
                             break false;
@@ -291,7 +339,9 @@ pub async fn run(
                     s.host = host.clone();
                     s.port = port;
                 }
-                app_handle.emit("status-update", status.lock().unwrap().clone()).ok();
+                app_handle
+                    .emit("status-update", status.lock().unwrap().clone())
+                    .ok();
                 tracing::info!("ws server listening on ws://{bind_addr}");
 
                 loop {
@@ -324,7 +374,9 @@ pub async fn run(
                     s.host = host;
                     s.port = port;
                 }
-                app_handle.emit("status-update", status.lock().unwrap().clone()).ok();
+                app_handle
+                    .emit("status-update", status.lock().unwrap().clone())
+                    .ok();
                 //wait for rebind
                 let _ = rebind_rx.changed().await;
             }

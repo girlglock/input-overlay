@@ -38,7 +38,7 @@ async fn get_config(state: tauri::State<'_, AppState>) -> Result<Config, String>
 
 #[tauri::command]
 async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let (need_rebind, need_analog_restart, need_http_restart, need_evdev_restart) = {
+    let (need_rebind, need_analog_restart, need_http_restart, need_evdev_restart, need_raw_restart, need_affinity) = {
         let old = state.config.read().await;
         (
             old.host != new_cfg.host || old.port != new_cfg.port,
@@ -47,7 +47,10 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
                 || old.http_port != new_cfg.http_port
                 || old.host != new_cfg.host,
             old.linux_evdev_keyboard_device != new_cfg.linux_evdev_keyboard_device
-                || old.linux_raw_mouse_device != new_cfg.linux_raw_mouse_device,
+                || old.linux_raw_mouse_device != new_cfg.linux_raw_mouse_device
+                || old.flush_hz != new_cfg.flush_hz,
+            old.flush_hz != new_cfg.flush_hz,
+            old.cpu_affinity != new_cfg.cpu_affinity,
         )
     };
 
@@ -58,12 +61,20 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     let new_http_port = new_cfg.http_port;
     let new_http_on = new_cfg.http_enabled;
     #[cfg(target_os = "linux")]
-    let (new_kbd_dev, new_mouse_dev, new_min_delta) = (
+    let (new_kbd_dev, new_mouse_dev, new_min_delta, new_flush_hz) = (
         new_cfg.linux_evdev_keyboard_device.clone(),
         new_cfg.linux_raw_mouse_device.clone(),
         new_cfg.raw_mouse_min_delta,
+        new_cfg.flush_hz,
     );
+    #[cfg(windows)]
+    let (new_min_delta, new_flush_hz, new_affinity) = (new_cfg.raw_mouse_min_delta, new_cfg.flush_hz, new_cfg.cpu_affinity.clone());
     *state.config.write().await = new_cfg;
+
+    if need_affinity {
+        #[cfg(windows)]
+        apply_cpu_affinity(&new_affinity);
+    }
 
     if need_rebind {
         let _ = state.ws_state.rebind_tx.send(());
@@ -97,11 +108,24 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
             &new_kbd_dev,
             &new_mouse_dev,
             new_min_delta,
+            new_flush_hz,
         );
         *state._evdev.lock().unwrap() = Some(new_thread);
     }
     #[cfg(windows)]
-    let _ = need_evdev_restart;
+    {
+        let _ = need_evdev_restart;
+        if need_raw_restart {
+            let new_thread = services::windows::raw_input::RawInputThread::start(
+                state.ws_state.input_tx.clone(),
+                new_min_delta,
+                new_flush_hz,
+            );
+            *state._raw_input.lock().unwrap() = Some(new_thread);
+        }
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    let _ = (need_evdev_restart, need_raw_restart);
 
     Ok(())
 }
@@ -412,23 +436,28 @@ pub fn run() {
 
             #[cfg(windows)]
             let raw_input_handle = {
-                let min_delta = config
+                let (min_delta, flush_hz) = config
                     .try_read()
-                    .map(|c| c.raw_mouse_min_delta)
-                    .unwrap_or(0);
+                    .map(|c| (c.raw_mouse_min_delta, c.flush_hz))
+                    .unwrap_or((0, 125));
                 Some(services::windows::raw_input::RawInputThread::start(
                     input_tx.clone(),
                     min_delta,
+                    flush_hz,
                 ))
             };
 
             #[cfg(target_os = "linux")]
-            let evdev_handle = Some(services::linux::evdev_input::EvdevInputThread::start(
-                input_tx.clone(),
-                &evdev_kbd,
-                &evdev_mouse,
-                evdev_min_delta,
-            ));
+            let evdev_handle = {
+                let flush_hz = config.try_read().map(|c| c.flush_hz).unwrap_or(125);
+                Some(services::linux::evdev_input::EvdevInputThread::start(
+                    input_tx.clone(),
+                    &evdev_kbd,
+                    &evdev_mouse,
+                    evdev_min_delta,
+                    flush_hz,
+                ))
+            };
 
             let analog_handle = if !analog_kb.is_empty() {
                 Some(services::analog::AnalogThread::start(input_tx, &analog_kb))

@@ -40,6 +40,7 @@
       <menu role="tablist">
         <button role="tab" aria-selected="true" aria-controls="tab-server">Server</button>
         <button role="tab" aria-controls="tab-input">Input</button>
+        <button role="tab" aria-controls="tab-advanced">Advanced</button>
         <button role="tab" aria-controls="tab-about">About</button>
       </menu>
 
@@ -144,6 +145,17 @@
             <label for="send-mouse-move">Enable mouse movement</label>
           </div>
         </fieldset>
+      </article>
+
+      <article role="tabpanel" hidden id="tab-advanced">
+        <div class="field-row-stacked" style="width: 100%; margin-top: 8px;">
+          <label for="flush-hz">Input flush rate (Hz)</label>
+          <input type="text" id="flush-hz" inputmode="numeric" pattern="[0-9]*" style="width: 100%;" />
+        </div>
+        <div class="field-row-stacked" id="cpu-affinity-row" hidden style="width: 100%; margin-top: 8px;">
+          <label for="cpu-affinity">CPU core affinity (comma-separated, empty = all)</label>
+          <input type="text" id="cpu-affinity" style="width: 100%;" />
+        </div>
       </article>
 
       <article role="tabpanel" hidden id="tab-about">

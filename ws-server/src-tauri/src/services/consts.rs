@@ -1,4 +1,9 @@
-pub const RAW_MOUSE_FLUSH_HZ: u32 = 125;
+pub fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
 
 pub fn vk_to_key_name(vk: u16) -> Option<&'static str> {
     match vk {

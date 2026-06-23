@@ -30,6 +30,8 @@ const adminWarning = document.getElementById("admin-warning");
 const addKeyBtn = document.getElementById("add-key-btn");
 const keyList = document.getElementById("key-list");
 const mouseMove = document.getElementById("send-mouse-move");
+const flushHzEl = document.getElementById("flush-hz");
+const cpuAffinityEl = document.getElementById("cpu-affinity");
 const clientsCount = document.getElementById("clients-count");
 const clientsList = document.getElementById("clients-list");
 const clientsModal = document.getElementById("clients-modal");
@@ -187,6 +189,8 @@ function applyConfig(cfg) {
   portEl.value = cfg.port ?? 4455;
   authEl.value = cfg.auth_token ?? "";
   mouseMove.checked = cfg.send_mouse_move ?? true;
+  flushHzEl.value = cfg.flush_hz ?? 125;
+  cpuAffinityEl.value = (cfg.cpu_affinity ?? []).join(", ");
   analogEl.value = cfg.analog_keyboard ?? "";
   httpEnabledEl.checked = cfg.http_enabled ?? false;
   httpHostEl.value = cfg.host ?? "localhost";
@@ -213,8 +217,11 @@ function readConfig() {
     analog_keyboard: analogEl.value,
     http_enabled: httpEnabledEl.checked,
     http_port: parseInt(httpPortEl.value, 10) || 4456,
+    flush_hz: parseInt(flushHzEl.value, 10) || 125,
+    cpu_affinity: cpuAffinityEl.value.trim()
+      ? cpuAffinityEl.value.split(",").map(s => parseInt(s.trim(), 10)).filter(n => Number.isInteger(n) && n >= 0)
+      : [],
     raw_mouse_min_delta: originalConfig?.raw_mouse_min_delta ?? 0,
-    cpu_affinity: originalConfig?.cpu_affinity ?? [0, 1],
     linux_evdev_keyboard_device: kbdEl ? kbdEl.value : (originalConfig?.linux_evdev_keyboard_device ?? ""),
     linux_raw_mouse_device: mouseDevEl ? mouseDevEl.value : (originalConfig?.linux_raw_mouse_device ?? ""),
     dismissed_update_versions: originalConfig?.dismissed_update_versions ?? [],
@@ -343,6 +350,8 @@ httpPortEl.addEventListener("blur", () => {
 });
 authEl.addEventListener("input", () => markDirty());
 mouseMove.addEventListener("change", () => markDirty());
+flushHzEl.addEventListener("input", () => markDirty());
+cpuAffinityEl.addEventListener("input", () => markDirty());
 analogEl.addEventListener("change", () => markDirty());
 httpPortEl.addEventListener("input", () => markDirty());
 
@@ -535,6 +544,9 @@ async function init() {
     applyConfig(cfg);
     applyStatus(status);
     autostartEl.checked = autostart;
+    if (navigator.userAgent.includes("Windows")) {
+      document.getElementById("cpu-affinity-row").hidden = false;
+    }
     if (!admin) {
       adminWarning.hidden = false;
       autostartEl.disabled = true;
