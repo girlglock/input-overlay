@@ -61,11 +61,9 @@ pub struct WsState {
 }
 
 fn is_allowed(event: &InputEvent, cfg: &Config) -> bool {
-    if cfg.key_whitelist.is_empty() {
-        return true;
-    }
     match event {
         InputEvent::MouseMove { .. } => cfg.send_mouse_move,
+        _ if cfg.key_whitelist.is_empty() => true,
         InputEvent::MouseScroll { rotation, .. } => {
             if cfg.key_whitelist.iter().any(|k| k == "mouse_wheel") {
                 return true;
