@@ -17,6 +17,7 @@ jobs:
     with:
       windows-artifact-name: windows-zip
       linux-artifact-name: linux-zip
+      linux-appimage-artifact-name: linux-appimage
 
   release:
     runs-on: ubuntu-latest
@@ -38,10 +39,16 @@ jobs:
         with:
           name: linux-zip
 
+      - name: download linux appimage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-appimage
+
       - name: create release zips
         run: |
           zip input-overlay-ws-windows.zip input-overlay-ws.exe
           zip input-overlay-ws-linux.zip input-overlay-ws
+          mv input-overlay-ws_*.AppImage input-overlay-ws-linux.AppImage
 
       - name: get previous tag
         id: prev_tag
@@ -52,11 +59,13 @@ jobs:
       - name: generate checksums
         id: checksums
         run: |
-          sha256sum input-overlay-ws-windows.zip input-overlay-ws-linux.zip | tee checksums.sha256
-          win=$(sha256sum input-overlay-ws-windows.zip | awk '{print $1}')
-          lin=$(sha256sum input-overlay-ws-linux.zip  | awk '{print $1}')
-          echo "windows=$win" >> "$GITHUB_OUTPUT"
-          echo "linux=$lin"   >> "$GITHUB_OUTPUT"
+          sha256sum input-overlay-ws-windows.zip input-overlay-ws-linux.zip input-overlay-ws-linux.AppImage | tee checksums.sha256
+          win=$(sha256sum input-overlay-ws-windows.zip        | awk '{print $1}')
+          lin=$(sha256sum input-overlay-ws-linux.zip          | awk '{print $1}')
+          app=$(sha256sum input-overlay-ws-linux.AppImage     | awk '{print $1}')
+          echo "windows=$win"  >> "$GITHUB_OUTPUT"
+          echo "linux=$lin"    >> "$GITHUB_OUTPUT"
+          echo "appimage=$app" >> "$GITHUB_OUTPUT"
 
       - name: make release
         uses: softprops/action-gh-release@v2
@@ -64,6 +73,7 @@ jobs:
           files: |
             input-overlay-ws-windows.zip
             input-overlay-ws-linux.zip
+            input-overlay-ws-linux.AppImage
             checksums.sha256
           body: |
             ## input-overlay websocket server ${{ github.ref_name }}
@@ -91,7 +101,22 @@ jobs:
             <summary><b>linux setup (experimental)</b></summary>
             <br>
 
-            download `input-overlay-ws-linux.zip` and unzip it, then follow the steps below.
+            **option A — AppImage (no system deps needed)**
+
+            download `input-overlay-ws-linux.AppImage`, make it executable, and run it:
+
+            ```bash
+            chmod +x input-overlay-ws-linux.AppImage
+            ./input-overlay-ws-linux.AppImage
+            ```
+
+            skip to step 2 below for the input group setup.
+
+            ---
+
+            **option B — standalone binary**
+
+            download `input-overlay-ws-linux.zip` and unzip it, then follow all steps below.
 
             **1. install runtime dependency (WebKitGTK 4.1)**
 
@@ -152,6 +177,7 @@ jobs:
             |------|--------|
             | `input-overlay-ws-windows.zip` | `${{ steps.checksums.outputs.windows }}` |
             | `input-overlay-ws-linux.zip` | `${{ steps.checksums.outputs.linux }}` |
+            | `input-overlay-ws-linux.AppImage` | `${{ steps.checksums.outputs.appimage }}` |
 
             a `checksums.sha256` file is also attached to this release. verify with:
 

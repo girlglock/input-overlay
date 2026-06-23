@@ -9,6 +9,9 @@ on:
       linux-artifact-name:
         type: string
         default: linux-zip
+      linux-appimage-artifact-name:
+        type: string
+        default: linux-appimage
       retention-days:
         type: number
         default: 0
@@ -79,6 +82,9 @@ jobs:
         with:
           workspaces: ws-server/src-tauri
 
+      - name: install tauri-cli
+        run: cargo install tauri-cli --locked
+
       - name: build ws-server binary
         working-directory: ws-server/src-tauri
         run: cargo build --release
@@ -93,4 +99,15 @@ jobs:
         with:
           name: ${{ inputs.linux-artifact-name }}
           path: ws-server/src-tauri/target/release/input-overlay-ws
+          retention-days: ${{ inputs.retention-days }}
+
+      - name: build AppImage
+        working-directory: ws-server/src-tauri
+        run: cargo tauri build --bundles appimage
+
+      - name: upload linux appimage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.linux-appimage-artifact-name }}
+          path: ws-server/src-tauri/target/release/bundle/appimage/input-overlay-ws_*.AppImage
           retention-days: ${{ inputs.retention-days }}

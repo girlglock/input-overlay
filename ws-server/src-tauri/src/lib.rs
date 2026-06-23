@@ -102,6 +102,8 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     }
 
     #[cfg(target_os = "linux")]
+    let _ = need_raw_restart;
+    #[cfg(target_os = "linux")]
     if need_evdev_restart {
         let new_thread = services::linux::evdev_input::EvdevInputThread::start(
             state.ws_state.input_tx.clone(),
