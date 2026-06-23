@@ -338,6 +338,10 @@ unsafe fn handle_rawinput(
     accum_ts: &Mutex<Option<u64>>,
 ) {
     if ri.header.dwType == RIM_TYPEKEYBOARD.0 {
+        //hDevice is null for syntehtic events (eg when pressing altgr) so ignore then to avoid another input event
+        if ri.header.hDevice.0.is_null() {
+            return;
+        }
         handle_keyboard(&ri.data.keyboard, tx, us_layout);
     } else if ri.header.dwType == RIM_TYPEMOUSE.0 {
         handle_mouse(&ri.data.mouse, tx, min_delta, accum_dx, accum_dy, accum_ts);
@@ -366,7 +370,13 @@ unsafe fn handle_keyboard(
         if vk != 0 {
             vk as u16
         } else {
-            kb.VKey
+            //MapVirtualKeyExW fail..
+            //fallback to manual convertin
+            match ext_scan {
+                0x11D => 163, // E0 + 0x1D = key_rightctrl
+                0x138 => 165, // E0 + 0x38 = ley_rightalt
+                _ => kb.VKey,
+            }
         }
     };
     if rawcode == 0 {
