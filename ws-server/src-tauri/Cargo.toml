@@ -1,6 +1,6 @@
 [package]
 name = "input-overlay-ws"
-version = "0.0.1"
+version = "1.8.2"
 description = "Input Overlay WebSocket Server"
 authors = []
 edition = "2021"

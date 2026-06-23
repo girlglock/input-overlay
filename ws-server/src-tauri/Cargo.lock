@@ -1882,7 +1882,7 @@ dependencies = [
 
 [[package]]
 name = "input-overlay-ws"
-version = "0.0.1"
+version = "1.8.2"
 dependencies = [
  "chrono",
  "evdev",
