@@ -9,7 +9,7 @@ use tauri::Emitter;
 use crate::services::updater::{download_bytes, ProgressPayload, UpdateInfo};
 
 const ASSET_NAME_BINARY: &str = "input-overlay-ws-linux.zip";
-const ASSET_NAME_APPIMAGE: &str = "input-overlay-ws-linux.AppImage";
+const ASSET_NAME_APPIMAGE: &str = "input-overlay-ws.AppImage";
 const BINARY_NAME: &str = "input-overlay-ws";
 
 fn appimage_path() -> Option<PathBuf> {

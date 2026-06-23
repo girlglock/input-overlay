@@ -360,11 +360,20 @@ pub fn run() {
         std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
     }
 
-    let data_dir = std::env::current_exe()
-        .expect("failed to get exe path")
-        .parent()
-        .expect("exe has no parent dir")
-        .to_path_buf();
+    let data_dir = {
+        let exe_dir = std::env::current_exe()
+            .expect("failed to get exe path")
+            .parent()
+            .expect("exe has no parent dir")
+            .to_path_buf();
+        //for appimage  use the dir where the appimage is in, not the temp dir it runs in :p
+        #[cfg(target_os = "linux")]
+        let exe_dir = std::env::var("APPIMAGE")
+            .ok()
+            .and_then(|p| std::path::PathBuf::from(p).parent().map(|p| p.to_path_buf()))
+            .unwrap_or(exe_dir);
+        exe_dir
+    };
 
     let log_dir = data_dir.join("logs");
     std::fs::create_dir_all(&log_dir).ok();
