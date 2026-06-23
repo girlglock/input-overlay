@@ -102,7 +102,8 @@ export const RAW_CODE_TO_KEY_NAME = {
     99: "key_numpad_3",
     108: "key_numpad_enter",
     96: "key_numpad_0",
-    110: "key_numpad_decimal"
+    110: "key_numpad_decimal",
+    226: "key_iso_backslash" //iso pipe key next to the smol littlefuckass left shift
 };
 
 export const HID_TO_KEY_NAME = {
@@ -131,7 +132,7 @@ export const HID_TO_KEY_NAME = {
     0x59: "key_numpad_1", 0x5a: "key_numpad_2", 0x5b: "key_numpad_3",
     0x5c: "key_numpad_4", 0x5d: "key_numpad_5", 0x5e: "key_numpad_6",
     0x5f: "key_numpad_7", 0x60: "key_numpad_8", 0x61: "key_numpad_9",
-    0x62: "key_numpad_0", 0x63: "key_numpad_decimal",
+    0x62: "key_numpad_0", 0x63: "key_numpad_decimal", 0x64: "key_iso_backslash",
     0xe0: "key_leftctrl", 0xe1: "key_leftshift", 0xe2: "key_leftalt",
     0xe3: "key_leftwin", 0xe4: "key_rightctrl", 0xe5: "key_rightshift",
     0xe6: "key_rightalt", 0xe7: "key_rightwin",
