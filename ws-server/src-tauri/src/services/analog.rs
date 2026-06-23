@@ -169,34 +169,40 @@ fn madlions_layout(pid: u16) -> Option<&'static [u16]> {
 }
 
 fn device_thread(tx: UnboundedSender<InputEvent>, entry: DeviceEntry, stop: Arc<AtomicBool>) {
-    let api = match HidApi::new() {
-        Ok(a) => a,
-        Err(e) => {
-            tracing::error!("analog: HidApi::new failed: {e}");
-            return;
+    let mut backoff = Duration::from_secs(1);
+
+    while !stop.load(Ordering::Relaxed) {
+        let api = match HidApi::new() {
+            Ok(a) => a,
+            Err(e) => {
+                tracing::error!("analog: HidApi::new failed: {e}");
+                thread::sleep(backoff);
+                backoff = (backoff * 2).min(Duration::from_secs(16));
+                continue;
+            }
+        };
+        if let Ok(dev) = api.open_path(&entry.path) {
+            backoff = Duration::from_secs(1);
+            tracing::info!("analog: device connected");
+            match &entry.proto {
+                Protocol::WootingV1
+                | Protocol::WootingV2
+                | Protocol::RazerV2
+                | Protocol::RazerV3
+                | Protocol::NuPhy => run_passive(&dev, &tx, &entry.proto, &stop),
+                Protocol::DrunkDeer => run_drunkdeer(&dev, &tx, &stop),
+                Protocol::Keychron { layout } => run_keychron(&dev, &tx, layout, &stop),
+                Protocol::Madlions { layout } => run_madlions(&dev, &tx, layout, &stop),
+                Protocol::Bytech => run_bytech(&dev, &tx, &stop),
+            }
+            if !stop.load(Ordering::Relaxed) {
+                tracing::info!("analog: device disconnected, retrying in {}s", backoff.as_secs());
+            }
         }
-    };
-    let dev = match api.open_path(&entry.path) {
-        Ok(d) => d,
-        Err(e) => {
-            tracing::error!("analog: open_path failed: {e}");
-            return;
+        if !stop.load(Ordering::Relaxed) {
+            thread::sleep(backoff);
+            backoff = (backoff * 2).min(Duration::from_secs(16));
         }
-    };
-
-    tracing::info!("analog: device thread started");
-
-    match entry.proto {
-        Protocol::WootingV1
-        | Protocol::WootingV2
-        | Protocol::RazerV2
-        | Protocol::RazerV3
-        | Protocol::NuPhy => run_passive(&dev, &tx, &entry.proto, &stop),
-
-        Protocol::DrunkDeer => run_drunkdeer(&dev, &tx, &stop),
-        Protocol::Keychron { layout } => run_keychron(&dev, &tx, layout, &stop),
-        Protocol::Madlions { layout } => run_madlions(&dev, &tx, layout, &stop),
-        Protocol::Bytech => run_bytech(&dev, &tx, &stop),
     }
 
     tracing::info!("analog: device thread stopped");
@@ -235,7 +241,7 @@ fn run_passive(
             }
             Err(e) => {
                 tracing::warn!("analog: read error: {e}");
-                thread::sleep(Duration::from_millis(100));
+                break;
             }
         }
     }
@@ -347,7 +353,7 @@ fn run_drunkdeer(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop
 
     while !stop.load(Ordering::Relaxed) {
         if last_poll.elapsed() >= Duration::from_millis(8) {
-            let _ = dev.write(&req);
+            if dev.write(&req).is_err() { break; }
             last_poll = Instant::now();
         }
 
@@ -393,7 +399,8 @@ fn run_drunkdeer(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop
                     prev_vks.clone_from(&cur_vks);
                 }
             }
-            Ok(_) | Err(_) => {}
+            Ok(_) => {}
+            Err(_) => break,
         }
         thread::sleep(Duration::from_millis(1));
     }
@@ -454,11 +461,12 @@ fn run_keychron(
                         }
                     }
                     //next
-                    let _ = dev.write(&req);
+                    if dev.write(&req).is_err() { break; }
                 }
             }
             Ok(0) => {}
-            Ok(_) | Err(_) => {}
+            Ok(_) => {}
+            Err(_) => break,
         }
     }
 }
@@ -511,10 +519,11 @@ fn run_madlions(
                     offset = 0;
                 }
                 req[7] = offset as u8;
-                let _ = dev.write(&req);
+                if dev.write(&req).is_err() { break; }
             }
             Ok(0) => {}
-            Ok(_) | Err(_) => {}
+            Ok(_) => {}
+            Err(_) => break,
         }
     }
 }
@@ -537,7 +546,7 @@ fn run_bytech(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop: &
 
     while !stop.load(Ordering::Relaxed) {
         if last_poll.elapsed() >= Duration::from_millis(8) {
-            let _ = dev.write(&req);
+            if dev.write(&req).is_err() { break; }
             last_poll = Instant::now();
         }
 
@@ -583,7 +592,8 @@ fn run_bytech(dev: &hidapi::HidDevice, tx: &UnboundedSender<InputEvent>, stop: &
                 }
                 prev_vks = cur_vks;
             }
-            Ok(_) | Err(_) => {}
+            Ok(_) => {}
+            Err(_) => break,
         }
         thread::sleep(Duration::from_millis(1));
     }

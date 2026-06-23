@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "input-overlay-ws",
-  "version": "1.8.0",
+  "version": "1.8.2",
   "identifier": "com.input-overlay-ws.app",
   "build": {
     "frontendDist": "../src"
