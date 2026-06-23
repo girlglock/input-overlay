@@ -50,22 +50,19 @@ jobs:
           zip input-overlay-ws-linux.zip input-overlay-ws
           mv input-overlay-ws_*.AppImage input-overlay-ws.AppImage
 
+      - name: attest release artifacts
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            input-overlay-ws-windows.zip
+            input-overlay-ws-linux.zip
+            input-overlay-ws.AppImage
+
       - name: get previous tag
         id: prev_tag
         run: |
           prev=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           echo "tag=$prev" >> "$GITHUB_OUTPUT"
-
-      - name: generate checksums
-        id: checksums
-        run: |
-          sha256sum input-overlay-ws-windows.zip input-overlay-ws-linux.zip input-overlay-ws.AppImage | tee checksums.sha256
-          win=$(sha256sum input-overlay-ws-windows.zip        | awk '{print $1}')
-          lin=$(sha256sum input-overlay-ws-linux.zip          | awk '{print $1}')
-          app=$(sha256sum input-overlay-ws.AppImage     | awk '{print $1}')
-          echo "windows=$win"  >> "$GITHUB_OUTPUT"
-          echo "linux=$lin"    >> "$GITHUB_OUTPUT"
-          echo "appimage=$app" >> "$GITHUB_OUTPUT"
 
       - name: make release
         uses: softprops/action-gh-release@v2
@@ -74,7 +71,6 @@ jobs:
             input-overlay-ws-windows.zip
             input-overlay-ws-linux.zip
             input-overlay-ws.AppImage
-            checksums.sha256
           body: |
             ## input-overlay websocket server ${{ github.ref_name }}
 
@@ -101,35 +97,22 @@ jobs:
             <summary><b>linux setup (experimental)</b></summary>
             <br>
 
-            **option A — AppImage (no system deps needed)**
+            download `input-overlay-ws-linux.zip` and unzip it, then follow the steps below.
 
-            download `input-overlay-ws.AppImage`, make it executable, and run it:
-
-            ```bash
-            chmod +x input-overlay-ws.AppImage
-            ./input-overlay-ws.AppImage
-            ```
-
-            skip to step 2 below for the input group setup.
-
-            ---
-
-            **option B — standalone binary**
-
-            download `input-overlay-ws-linux.zip` and unzip it, then follow all steps below.
-
-            **1. install runtime dependency (WebKitGTK 4.1)**
+            **1. install runtime dependencies**
 
             ```bash
             # debian / ubuntu
-            sudo apt-get install libwebkit2gtk-4.1-0
+            sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0 libayatana-appindicator3-1 librsvg2-2
 
             # fedora
-            sudo dnf install webkit2gtk4.1
+            sudo dnf install webkit2gtk4.1 gtk3 libayatana-appindicator librsvg2
 
             # arch
-            sudo pacman -S webkit2gtk-4.1
+            sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator librsvg
             ```
+
+            an appimage build is also available which should run on most distros without installing dependencies at the cost of being hughmungous in comparison
 
             **2. add yourself to the `input` group**
 
@@ -171,26 +154,12 @@ jobs:
 
             </details>
 
-            # **Checksum:**
-
-            | file | sha256 |
-            |------|--------|
-            | `input-overlay-ws-windows.zip` | `${{ steps.checksums.outputs.windows }}` |
-            | `input-overlay-ws-linux.zip` | `${{ steps.checksums.outputs.linux }}` |
-            | `input-overlay-ws.AppImage` | `${{ steps.checksums.outputs.appimage }}` |
-
-            a `checksums.sha256` file is also attached to this release. verify with:
-
-            **linux:** `sha256sum -c checksums.sha256`
-
-            **windows:** `Get-FileHash input-overlay-ws-windows.zip -Algorithm SHA256`
-
             ---
             > [!WARNING]
             > all builds are created via github actions directly from the repo sources
             > the ws server might occasionally trigger a false positive on windows defender due to it not being signed and how we handle rawinputbuffer reads via an "invisible background window"
             > alternatively you can build the ws server yourself. see the readme for instructions :p
-            
+
             ${{ steps.prev_tag.outputs.tag != '' && format('[CHANGELOG]({0}/{1}/compare/{2}...{3})', github.server_url, github.repository, steps.prev_tag.outputs.tag, github.ref_name) || 'First release.' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
