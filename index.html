@@ -91,13 +91,14 @@
                     <h1>Single PC Setup</h1>
                     <ol>
                         <li>get the <a href="https://github.com/girlglock/input-overlay/releases"
-                                target="_blank">input-overlay-ws</a> server</li>
-                        <li>run it and right click the tray icon to open the settings</li>
-                        <li>copy your auth token</li>
-                        <blockquote class="note note--purple">(you can change it to whatever you like)
+                                target="_blank">input-overlay-ws</a> server and follow the setup instructions from its release page</li>
+                        <li>after its set up, go into its settings</li>
+                        <blockquote class="note note--green">standalone app: right-click the tray icon -> settings. obs plugin: Tools -> Input Overlay WS Settings</blockquote>
+                        <li>copy your auth token from the settings</li>
+                        <blockquote class="note note--green">you can change it to whatever you like in there too
                         </blockquote>
-                        <li>paste the token in the auth token field above</li>
-                        <li>configure your overlay to your liking, then click the <code>⎘ copy url</code> button
+                        <li>paste the auth token in the auth token field above</li>
+                        <li>configure your overlay to your liking, then once done click the <code>⎘ copy url</code> button
                             and paste the copied url as an OBS
                             browser source</li>
                     </ol>
@@ -107,10 +108,11 @@
                     </blockquote>
                     <br>
                     <h1>Sending keys to another pc</h1>
-                    <blockquote class="note note--purple">(eg. from gaming to streaming pc)</blockquote>
+                    <small>(eg. from gaming to streaming pc)</small>
                     <ol>
-                        <li>open the input-overlay-ws server settings and enable the http server<br><small>(run
-                                the ws server on your gaming pc)</small></li>
+                        <warning class="note note--red">this will not work with the obs-plugin version of the input-overlay-ws! you will have to use the standalone app version!</warning>
+                        <li>open the input-overlay-ws server <b>on your gaming pc</b></li>
+                        <li>right-click the tray icon -> settings -> enable the http server</li>
                         <li>change the host of the ws server to the address of your gaming pc
                             <br><small>run <code>ipconfig</code> in cmd and copy the local IPv4
                                 address (usually 192.168.0.1 or 192.168.X.X with X being 0-255)</small>
