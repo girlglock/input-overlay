@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "common",
+    "standalone/src-tauri",
+    "obs-plugin",
+]
+resolver = "2"
+
+[workspace.package]
+version = "1.8.2"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+strip = true

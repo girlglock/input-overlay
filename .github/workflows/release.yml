@@ -18,6 +18,8 @@ jobs:
       windows-artifact-name: windows-zip
       linux-artifact-name: linux-zip
       linux-appimage-artifact-name: linux-appimage
+      obs-plugin-artifact-name: obs-plugin-windows
+      obs-plugin-linux-artifact-name: obs-plugin-linux
 
   release:
     runs-on: ubuntu-latest
@@ -44,11 +46,25 @@ jobs:
         with:
           name: linux-appimage
 
+      - name: download obs plugin windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: obs-plugin-windows
+
+      - name: download obs plugin linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: obs-plugin-linux
+
       - name: create release zips
         run: |
           zip input-overlay-ws-windows.zip input-overlay-ws.exe
           zip input-overlay-ws-linux.zip input-overlay-ws
           mv input-overlay-ws_*.AppImage input-overlay-ws.AppImage
+          mkdir -p obs-studio/obs-plugins/64bit
+          cp input_overlay_ws_server.dll obs-studio/obs-plugins/64bit/
+          cp libinput_overlay_ws_server.so obs-studio/obs-plugins/64bit/
+          zip -r input-overlay-ws-obs-plugin.zip obs-studio/
 
       - name: attest release artifacts
         uses: actions/attest-build-provenance@v1
@@ -57,6 +73,7 @@ jobs:
             input-overlay-ws-windows.zip
             input-overlay-ws-linux.zip
             input-overlay-ws.AppImage
+            input-overlay-ws-obs-plugin.zip
 
       - name: get previous tag
         id: prev_tag
@@ -71,6 +88,7 @@ jobs:
             input-overlay-ws-windows.zip
             input-overlay-ws-linux.zip
             input-overlay-ws.AppImage
+            input-overlay-ws-obs-plugin.zip
           body: |
             ## input-overlay websocket server ${{ github.ref_name }}
 
@@ -151,6 +169,25 @@ jobs:
             **6.** right-click the tray icon and open **settings -> devices** to pick your keyboard and mouse evdev devices.
 
             some mice and keyboards might show up duplicate (nkro, wireless dongle, keyboard mouse button emulation for macros, mouse keyboard macros etc etc), you will just kinda have to try and error them)
+
+            </details>
+
+            <details>
+            <summary><b>obs plugin setup (experimental)</b></summary>
+            <br>
+
+            > [!IMPORTANT]
+            > the obs plugin version does **not** include all features, will **not** receive automatic update checks, and is only intended for **single pc setups** (obs and the game running on the same peesee)
+
+            download `input-overlay-ws-obs-plugin.zip` and unzip it. place the contents into your obs-studio folder:
+
+            - **windows:** `C:\Program Files\obs-studio\`
+            - **linux:** `~/.config/obs-studio/` *(or whereever your obs folder is :p)*
+
+            after that, launch obs with admin privileges (only needed on windows) and head to **Tools -> Input Overlay WS Settings**
+
+            > [!NOTE]
+            > **linux users:** you still need to follow the steps 2 to 4 from the linux setup section above before the plugin will be able to read your input devices
 
             </details>
 

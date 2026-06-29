@@ -1,5 +1,4 @@
 mod services;
-mod ws_server;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -9,14 +8,14 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
-use tokio::sync::{watch, RwLock};
+use tokio::sync::watch;
 
 use services::config::Config;
 use tauri::Emitter;
-use ws_server::{InputEvent, ServerStatus, WsState};
+use io_ws_common::ws_server::{InputEvent, ServerStatus, WsState};
 
 struct AppState {
-    config: Arc<RwLock<Config>>,
+    config: Arc<Mutex<Config>>,
     config_path: PathBuf,
     status: Arc<Mutex<ServerStatus>>,
     ws_state: Arc<WsState>,
@@ -33,13 +32,13 @@ struct AppState {
 //tairi io-----------------------------------------------------------------------
 #[tauri::command]
 async fn get_config(state: tauri::State<'_, AppState>) -> Result<Config, String> {
-    Ok(state.config.read().await.clone())
+    Ok(state.config.lock().unwrap().clone())
 }
 
 #[tauri::command]
 async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let (need_rebind, need_analog_restart, need_http_restart, need_evdev_restart, need_raw_restart, need_affinity) = {
-        let old = state.config.read().await;
+        let old = state.config.lock().unwrap();
         (
             old.host != new_cfg.host || old.port != new_cfg.port,
             old.analog_keyboard != new_cfg.analog_keyboard,
@@ -69,7 +68,7 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     );
     #[cfg(windows)]
     let (new_min_delta, new_flush_hz, new_affinity) = (new_cfg.raw_mouse_min_delta, new_cfg.flush_hz, new_cfg.cpu_affinity.clone());
-    *state.config.write().await = new_cfg;
+    *state.config.lock().unwrap() = new_cfg;
 
     if need_affinity {
         #[cfg(windows)]
@@ -138,9 +137,11 @@ async fn apply_bind(
     port: u16,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut cfg = state.config.write().await;
-    cfg.host = host;
-    cfg.port = port;
+    {
+        let mut cfg = state.config.lock().unwrap();
+        cfg.host = host;
+        cfg.port = port;
+    }
     let _ = state.ws_state.rebind_tx.send(());
     Ok(())
 }
@@ -158,7 +159,7 @@ async fn toggle_http(
         None
     };
     *state.http.lock().unwrap() = new_server;
-    let mut cfg = state.config.write().await;
+    let mut cfg = state.config.lock().unwrap();
     cfg.http_enabled = enabled;
     cfg.http_port = port;
     services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())
@@ -234,7 +235,7 @@ fn is_admin() -> bool {
 
 #[tauri::command]
 async fn set_theme(theme: Option<String>, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut cfg = state.config.write().await;
+    let mut cfg = state.config.lock().unwrap();
     cfg.theme = theme;
     services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())
 }
@@ -281,7 +282,7 @@ fn check_update(state: tauri::State<'_, AppState>) -> Option<services::updater::
 
 #[tauri::command]
 async fn dismiss_update(version: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut cfg = state.config.write().await;
+    let mut cfg = state.config.lock().unwrap();
     if !cfg.dismissed_update_versions.contains(&version) {
         cfg.dismissed_update_versions.push(version);
         services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())?;
@@ -426,7 +427,7 @@ pub fn run() {
                 cfg.linux_raw_mouse_device.clone(),
                 cfg.raw_mouse_min_delta,
             );
-            let config = Arc::new(RwLock::new(cfg));
+            let config = Arc::new(Mutex::new(cfg));
             let status = Arc::new(Mutex::new(ServerStatus::default()));
             let (rebind_tx, rebind_rx) = watch::channel(());
             let (input_tx, input_rx) = tokio::sync::mpsc::unbounded_channel::<InputEvent>();
@@ -441,16 +442,18 @@ pub fn run() {
                 let st = Arc::clone(&status);
                 let ah = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    ws_server::run(cfg, input_rx, st, rebind_rx, ah).await;
+                    io_ws_common::ws_server::run(cfg, input_rx, st, rebind_rx, move |s| {
+                        ah.emit("status-update", s).ok();
+                    }).await;
                 });
             }
 
             #[cfg(windows)]
             let raw_input_handle = {
-                let (min_delta, flush_hz) = config
-                    .try_read()
-                    .map(|c| (c.raw_mouse_min_delta, c.flush_hz))
-                    .unwrap_or((0, 125));
+                let (min_delta, flush_hz) = {
+                    let c = config.lock().unwrap();
+                    (c.raw_mouse_min_delta, c.flush_hz)
+                };
                 Some(services::windows::raw_input::RawInputThread::start(
                     input_tx.clone(),
                     min_delta,
@@ -460,7 +463,7 @@ pub fn run() {
 
             #[cfg(target_os = "linux")]
             let evdev_handle = {
-                let flush_hz = config.try_read().map(|c| c.flush_hz).unwrap_or(125);
+                let flush_hz = config.lock().unwrap().flush_hz;
                 Some(services::linux::evdev_input::EvdevInputThread::start(
                     input_tx.clone(),
                     &evdev_kbd,
@@ -501,7 +504,7 @@ pub fn run() {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     let state = handle.state::<AppState>();
-                    let dismissed = state.config.read().await.dismissed_update_versions.clone();
+                    let dismissed = state.config.lock().unwrap().dismissed_update_versions.clone();
                     let current = handle.package_info().version.to_string();
                     #[cfg(windows)]
                     let check = services::windows::updater::check(&current, &dismissed).await;

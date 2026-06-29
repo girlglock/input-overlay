@@ -1,6 +1,4 @@
-pub mod analog;
-pub mod config;
-pub mod consts;
+pub use io_ws_common::services::{analog, config};
 pub mod http_server;
 pub mod updater;
 #[cfg(target_os = "linux")]

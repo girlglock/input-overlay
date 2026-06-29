@@ -10,7 +10,6 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::services::consts::{hid_to_vk, now_ms};
 use crate::ws_server::InputEvent;
 
-//mouse buttons
 fn evdev_btn_to_overlay(code: u16) -> Option<u8> {
     match code {
         0x110 => Some(1), //BTN_LEFT
@@ -22,7 +21,6 @@ fn evdev_btn_to_overlay(code: u16) -> Option<u8> {
     }
 }
 
-//keyboard buttons
 fn evdev_to_hid(code: u16) -> Option<u16> {
     Some(match code {
         1 => 0x29,   //KEY_ESC
@@ -186,7 +184,7 @@ fn is_in_input_group() -> bool {
                 .split_whitespace()
                 .any(|g| g == "input")
         })
-        .unwrap_or(true) //dont block if this fails
+        .unwrap_or(true)
 }
 
 pub struct EvdevInputThread {

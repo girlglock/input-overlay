@@ -18,4 +18,6 @@ jobs:
     with:
       windows-artifact-name: input-overlay-ws-windows
       linux-artifact-name: input-overlay-ws-linux
+      obs-plugin-artifact-name: input-overlay-ws-obs-plugin-windows
+      obs-plugin-linux-artifact-name: input-overlay-ws-obs-plugin-linux
       retention-days: 60

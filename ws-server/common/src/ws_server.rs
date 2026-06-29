@@ -5,11 +5,9 @@ use std::time::{Duration, Instant};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
-use tokio::sync::{broadcast, mpsc, watch, RwLock};
+use tokio::sync::{broadcast, mpsc, watch};
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::Message;
-
-use tauri::Emitter;
 
 use crate::services::config::Config;
 use crate::services::consts::{mouse_button_name, mouse_scroll_name, vk_to_key_name};
@@ -68,10 +66,12 @@ fn is_allowed(event: &InputEvent, cfg: &Config) -> bool {
             if cfg.key_whitelist.iter().any(|k| k == "mouse_wheel") {
                 return true;
             }
-            mouse_scroll_name(*rotation).is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
+            mouse_scroll_name(*rotation)
+                .is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
         }
         InputEvent::MouseButton { button, .. } => {
-            mouse_button_name(*button).is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
+            mouse_button_name(*button)
+                .is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
         }
         InputEvent::KeyPress { rawcode, .. } | InputEvent::KeyRelease { rawcode, .. } => {
             vk_to_key_name(*rawcode).is_some_and(|n| cfg.key_whitelist.contains(&n.to_string()))
@@ -90,34 +90,19 @@ fn event_to_json(event: &InputEvent) -> Option<String> {
         InputEvent::KeyRelease { rawcode, timestamp } => Some(format!(
             r#"{{"event_type":"key_released","rawcode":{rawcode},"timestamp":{timestamp}}}"#
         )),
-        InputEvent::MouseButton {
-            button,
-            pressed,
-            timestamp,
-        } => {
-            let event_type = if *pressed {
-                "mouse_pressed"
-            } else {
-                "mouse_released"
-            };
+        InputEvent::MouseButton { button, pressed, timestamp } => {
+            let event_type = if *pressed { "mouse_pressed" } else { "mouse_released" };
             Some(format!(
                 r#"{{"event_type":"{event_type}","button":{button},"timestamp":{timestamp}}}"#
             ))
         }
-        InputEvent::MouseScroll {
-            rotation,
-            timestamp,
-        } => Some(format!(
+        InputEvent::MouseScroll { rotation, timestamp } => Some(format!(
             r#"{{"event_type":"mouse_wheel","rotation":{rotation},"timestamp":{timestamp}}}"#
         )),
         InputEvent::MouseMove { dx, dy, timestamp } => Some(format!(
             r#"{{"event_type":"mouse_moved","dx":{dx},"dy":{dy},"timestamp":{timestamp}}}"#
         )),
-        InputEvent::AnalogDepth {
-            rawcode,
-            depth,
-            timestamp,
-        } => Some(format!(
+        InputEvent::AnalogDepth { rawcode, depth, timestamp } => Some(format!(
             r#"{{"event_type":"analog_depth","rawcode":{rawcode},"depth":{depth:.4},"timestamp":{timestamp}}}"#
         )),
     }
@@ -126,10 +111,10 @@ fn event_to_json(event: &InputEvent) -> Option<String> {
 async fn distributor(
     mut input_rx: mpsc::UnboundedReceiver<InputEvent>,
     bcast_tx: Arc<broadcast::Sender<Arc<str>>>,
-    config: Arc<RwLock<Config>>,
+    config: Arc<Mutex<Config>>,
 ) {
     let flush_interval = {
-        let hz = config.read().await.flush_hz.max(1);
+        let hz = config.lock().unwrap().flush_hz.max(1);
         Duration::from_micros(1_000_000 / hz as u64)
     };
     let mut last_flush = Instant::now();
@@ -142,8 +127,11 @@ async fn distributor(
         loop {
             match input_rx.try_recv() {
                 Ok(event) => {
-                    let cfg = config.read().await;
-                    if !is_allowed(&event, &cfg) {
+                    let allowed = {
+                        let cfg = config.lock().unwrap();
+                        is_allowed(&event, &cfg)
+                    };
+                    if !allowed {
                         continue;
                     }
                     match event {
@@ -189,10 +177,10 @@ async fn distributor(
 async fn handle_connection(
     stream: tokio::net::TcpStream,
     addr: SocketAddr,
-    config: Arc<RwLock<Config>>,
+    config: Arc<Mutex<Config>>,
     bcast_tx: Arc<broadcast::Sender<Arc<str>>>,
-    app_handle: tauri::AppHandle,
     status: Arc<Mutex<ServerStatus>>,
+    notify: Arc<dyn Fn(&ServerStatus) + Send + Sync>,
 ) {
     let ws = match accept_async(stream).await {
         Ok(w) => w,
@@ -203,8 +191,7 @@ async fn handle_connection(
     };
     let (mut write, mut read) = ws.split();
 
-    //handshake first message needs to be {"type":"auth","token":"..."}
-    let auth_token = config.read().await.auth_token.clone();
+    let auth_token = config.lock().unwrap().auth_token.clone();
 
     let authed = loop {
         match read.next().await {
@@ -244,9 +231,7 @@ async fn handle_connection(
                             break false;
                         }
                     }
-                    _ => {
-                        tracing::debug!("unexpected message from {addr}, ignoring");
-                    }
+                    _ => tracing::debug!("unexpected message from {addr}, ignoring"),
                 }
             }
             Some(Ok(Message::Close(_))) | None => break false,
@@ -266,7 +251,8 @@ async fn handle_connection(
         let mut s = status.lock().unwrap();
         s.clients.push(addr.to_string());
         s.client_count = s.clients.len();
-        app_handle.emit("status-update", s.clone()).ok();
+        tracing::info!("client connected: {addr} (total: {})", s.client_count);
+        notify(&s);
     }
 
     let mut rx = bcast_tx.subscribe();
@@ -300,18 +286,19 @@ async fn handle_connection(
         let mut s = status.lock().unwrap();
         s.clients.retain(|a| a != &addr.to_string());
         s.client_count = s.clients.len();
-        app_handle.emit("status-update", s.clone()).ok();
+        tracing::info!("client disconnected: {addr} (remaining: {})", s.client_count);
+        notify(&s);
     }
-    tracing::info!("client disconnected: {addr}");
 }
 
 pub async fn run(
-    config: Arc<RwLock<Config>>,
+    config: Arc<Mutex<Config>>,
     input_rx: mpsc::UnboundedReceiver<InputEvent>,
     status: Arc<Mutex<ServerStatus>>,
     mut rebind_rx: watch::Receiver<()>,
-    app_handle: tauri::AppHandle,
+    on_status_change: impl Fn(&ServerStatus) + Send + Sync + 'static,
 ) {
+    let notify: Arc<dyn Fn(&ServerStatus) + Send + Sync> = Arc::new(on_status_change);
     let (bcast_tx, _) = broadcast::channel::<Arc<str>>(1024);
     let bcast_tx = Arc::new(bcast_tx);
 
@@ -323,7 +310,7 @@ pub async fn run(
 
     loop {
         let (host, port) = {
-            let cfg = config.read().await;
+            let cfg = config.lock().unwrap();
             (cfg.host.clone(), cfg.port)
         };
         let bind_addr = format!("{host}:{port}");
@@ -336,10 +323,8 @@ pub async fn run(
                     s.bind_error = None;
                     s.host = host.clone();
                     s.port = port;
+                    notify(&s);
                 }
-                app_handle
-                    .emit("status-update", status.lock().unwrap().clone())
-                    .ok();
                 tracing::info!("ws server listening on ws://{bind_addr}");
 
                 loop {
@@ -349,10 +334,10 @@ pub async fn run(
                                 Ok((stream, addr)) => {
                                     let cfg = Arc::clone(&config);
                                     let btx = Arc::clone(&bcast_tx);
-                                    let ah  = app_handle.clone();
                                     let st  = Arc::clone(&status);
+                                    let n   = Arc::clone(&notify);
                                     tokio::spawn(async move {
-                                        handle_connection(stream, addr, cfg, btx, ah, st).await;
+                                        handle_connection(stream, addr, cfg, btx, st, n).await;
                                     });
                                 }
                                 Err(e) => tracing::warn!("accept error: {e}"),
@@ -363,19 +348,16 @@ pub async fn run(
                 }
             }
             Err(e) => {
-                let kind = bind_error_kind(&e).to_string();
+                let kind = bind_error_kind(&e);
                 tracing::error!("failed to bind {bind_addr}: {e} ({kind})");
                 {
                     let mut s = status.lock().unwrap();
                     s.running = false;
-                    s.bind_error = Some(kind);
+                    s.bind_error = Some(kind.to_string());
                     s.host = host;
                     s.port = port;
+                    notify(&s);
                 }
-                app_handle
-                    .emit("status-update", status.lock().unwrap().clone())
-                    .ok();
-                //wait for rebind
                 let _ = rebind_rx.changed().await;
             }
         }
