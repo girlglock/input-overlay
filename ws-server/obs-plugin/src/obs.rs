@@ -24,7 +24,7 @@ unsafe impl Send for ObsSourceInfo {}
 unsafe impl Sync for ObsSourceInfo {}
 
 pub const OBS_SOURCE_TYPE_INPUT:    i32 = 0;
-pub const OBS_SOURCE_CAP_DISABLED:  u32 = 1 << 3;
+pub const OBS_SOURCE_CAP_DISABLED:  u32 = 1 << 10;
 pub const OBS_TEXT_DEFAULT:         i32 = 0;
 pub const OBS_TEXT_PASSWORD:        i32 = 1;
 pub const OBS_TEXT_INFO:            i32 = 3;
