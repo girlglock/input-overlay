@@ -1,0 +1,52 @@
+[package]
+name = "input-overlay-ws"
+version.workspace = true
+description = "Input Overlay WebSocket Server"
+authors = []
+edition = "2021"
+
+[lib]
+name = "input_overlay_ws_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+io-ws-common = { path = "../../common" }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+log = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+rust-embed = { version = "8", features = ["interpolate-folder-path"] }
+rand = "0.8"
+time = "=0.3.36"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+hidapi = { version = "2", features = ["linux-static-hidraw"] }
+evdev = "0.12"
+libc = "0.2"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls-native-roots"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+hidapi = "2"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_UI_Input",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Threading",
+    "Win32_System_LibraryLoader",
+] }

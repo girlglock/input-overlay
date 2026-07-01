@@ -17,6 +17,9 @@ jobs:
     with:
       windows-artifact-name: windows-zip
       linux-artifact-name: linux-zip
+      linux-appimage-artifact-name: linux-appimage
+      obs-plugin-artifact-name: obs-plugin-windows
+      obs-plugin-linux-artifact-name: obs-plugin-linux
 
   release:
     runs-on: ubuntu-latest
@@ -38,10 +41,39 @@ jobs:
         with:
           name: linux-zip
 
+      - name: download linux appimage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-appimage
+
+      - name: download obs plugin windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: obs-plugin-windows
+
+      - name: download obs plugin linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: obs-plugin-linux
+
       - name: create release zips
         run: |
           zip input-overlay-ws-windows.zip input-overlay-ws.exe
           zip input-overlay-ws-linux.zip input-overlay-ws
+          mv input-overlay-ws_*.AppImage input-overlay-ws.AppImage
+          mkdir -p obs-studio/obs-plugins/64bit
+          cp input_overlay_ws_server.dll obs-studio/obs-plugins/64bit/
+          cp libinput_overlay_ws_server.so obs-studio/obs-plugins/64bit/
+          zip -r input-overlay-ws-obs-plugin.zip obs-studio/
+
+      - name: attest release artifacts
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            input-overlay-ws-windows.zip
+            input-overlay-ws-linux.zip
+            input-overlay-ws.AppImage
+            input-overlay-ws-obs-plugin.zip
 
       - name: get previous tag
         id: prev_tag
@@ -49,22 +81,14 @@ jobs:
           prev=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           echo "tag=$prev" >> "$GITHUB_OUTPUT"
 
-      - name: generate checksums
-        id: checksums
-        run: |
-          sha256sum input-overlay-ws-windows.zip input-overlay-ws-linux.zip | tee checksums.sha256
-          win=$(sha256sum input-overlay-ws-windows.zip | awk '{print $1}')
-          lin=$(sha256sum input-overlay-ws-linux.zip  | awk '{print $1}')
-          echo "windows=$win" >> "$GITHUB_OUTPUT"
-          echo "linux=$lin"   >> "$GITHUB_OUTPUT"
-
       - name: make release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             input-overlay-ws-windows.zip
             input-overlay-ws-linux.zip
-            checksums.sha256
+            input-overlay-ws.AppImage
+            input-overlay-ws-obs-plugin.zip
           body: |
             ## input-overlay websocket server ${{ github.ref_name }}
 
@@ -93,18 +117,20 @@ jobs:
 
             download `input-overlay-ws-linux.zip` and unzip it, then follow the steps below.
 
-            **1. install runtime dependency (WebKitGTK 4.1)**
+            **1. install runtime dependencies**
 
             ```bash
             # debian / ubuntu
-            sudo apt-get install libwebkit2gtk-4.1-0
+            sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0 libayatana-appindicator3-1 librsvg2-2
 
             # fedora
-            sudo dnf install webkit2gtk4.1
+            sudo dnf install webkit2gtk4.1 gtk3 libayatana-appindicator librsvg2
 
             # arch
-            sudo pacman -S webkit2gtk-4.1
+            sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator librsvg
             ```
+
+            an appimage build is also available which should run on most distros without installing dependencies at the cost of being hughmungous in comparison
 
             **2. add yourself to the `input` group**
 
@@ -146,25 +172,31 @@ jobs:
 
             </details>
 
-            # **Checksum:**
+            <details>
+            <summary><b>obs plugin setup (experimental)</b></summary>
+            <br>
 
-            | file | sha256 |
-            |------|--------|
-            | `input-overlay-ws-windows.zip` | `${{ steps.checksums.outputs.windows }}` |
-            | `input-overlay-ws-linux.zip` | `${{ steps.checksums.outputs.linux }}` |
+            > [!IMPORTANT]
+            > the obs plugin version does **not** include all features, will **not** receive automatic update checks, and is only intended for **single pc setups** (obs and the game running on the same peesee)
 
-            a `checksums.sha256` file is also attached to this release. verify with:
+            download `input-overlay-ws-obs-plugin.zip` and unzip it. place the contents into your obs-studio folder:
 
-            **linux:** `sha256sum -c checksums.sha256`
+            - **windows:** `C:\Program Files\obs-studio\`
+            - **linux:** `~/.config/obs-studio/` *(or whereever your obs folder is :p)*
 
-            **windows:** `Get-FileHash input-overlay-ws-windows.zip -Algorithm SHA256`
+            after that, launch obs with admin privileges (only needed on windows) and head to **Tools -> Input Overlay WS Settings**
+
+            > [!NOTE]
+            > **linux users:** you still need to follow the steps 2 to 4 from the linux setup section above before the plugin will be able to read your input devices
+
+            </details>
 
             ---
             > [!WARNING]
             > all builds are created via github actions directly from the repo sources
             > the ws server might occasionally trigger a false positive on windows defender due to it not being signed and how we handle rawinputbuffer reads via an "invisible background window"
             > alternatively you can build the ws server yourself. see the readme for instructions :p
-            
+
             ${{ steps.prev_tag.outputs.tag != '' && format('[CHANGELOG]({0}/{1}/compare/{2}...{3})', github.server_url, github.repository, steps.prev_tag.outputs.tag, github.ref_name) || 'First release.' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
