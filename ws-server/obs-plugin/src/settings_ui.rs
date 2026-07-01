@@ -59,7 +59,7 @@ pub fn init(config: Arc<Mutex<Config>>, config_path: PathBuf, ws_state: Arc<WsSt
     let source = unsafe {
         (api.source_create_private)(
             SOURCE_ID.as_ptr() as *const _,
-            b"Input Overlay WS Server\0".as_ptr() as *const _,
+            c"Input Overlay WS Server".as_ptr(),
             data,
         )
     };
@@ -73,7 +73,7 @@ pub fn init(config: Arc<Mutex<Config>>, config_path: PathBuf, ws_state: Arc<WsSt
 
     unsafe {
         (api.add_tools_menu_item)(
-            b"Input Overlay WS Settings\0".as_ptr() as *const _,
+            c"Input Overlay WS Settings".as_ptr(),
             on_tools_menu_click,
             std::ptr::null_mut(),
         );
@@ -96,7 +96,7 @@ pub fn release_singleton() {
 }
 
 unsafe extern "C" fn source_get_name(_type_data: *mut c_void) -> *const std::ffi::c_char {
-    b"Input Overlay WS Server\0".as_ptr() as *const _
+    c"Input Overlay WS Server".as_ptr()
 }
 
 unsafe extern "C" fn source_create(
@@ -118,33 +118,33 @@ unsafe extern "C" fn source_get_defaults(settings: *mut ObsData) {
     };
     (api.data_set_default_string)(
         settings,
-        b"host\0".as_ptr() as _,
-        b"localhost\0".as_ptr() as _,
+        c"host".as_ptr(),
+        c"localhost".as_ptr(),
     );
-    (api.data_set_default_int)(settings, b"port\0".as_ptr() as _, 4455);
-    (api.data_set_default_string)(settings, b"auth_token\0".as_ptr() as _, b"\0".as_ptr() as _);
-    (api.data_set_default_bool)(settings, b"send_mouse_move\0".as_ptr() as _, true);
+    (api.data_set_default_int)(settings, c"port".as_ptr(), 4455);
+    (api.data_set_default_string)(settings, c"auth_token".as_ptr(), c"".as_ptr());
+    (api.data_set_default_bool)(settings, c"send_mouse_move".as_ptr(), true);
     (api.data_set_default_string)(
         settings,
-        b"key_whitelist\0".as_ptr() as _,
-        b"\0".as_ptr() as _,
+        c"key_whitelist".as_ptr(),
+        c"".as_ptr(),
     );
     (api.data_set_default_string)(
         settings,
-        b"analog_keyboard\0".as_ptr() as _,
-        b"\0".as_ptr() as _,
+        c"analog_keyboard".as_ptr(),
+        c"".as_ptr(),
     );
     #[cfg(target_os = "linux")]
     {
         (api.data_set_default_string)(
             settings,
-            b"linux_kbd_device\0".as_ptr() as _,
-            b"\0".as_ptr() as _,
+            c"linux_kbd_device".as_ptr(),
+            c"".as_ptr(),
         );
         (api.data_set_default_string)(
             settings,
-            b"linux_mouse_device\0".as_ptr() as _,
-            b"\0".as_ptr() as _,
+            c"linux_mouse_device".as_ptr(),
+            c"".as_ptr(),
         );
     }
 }
@@ -280,9 +280,9 @@ unsafe extern "C" fn source_update(_data: *mut c_void, settings: *mut ObsData) {
     };
 
     let host = read_str(api, settings, b"host\0");
-    let port = (api.data_get_int)(settings, b"port\0".as_ptr() as _) as u16;
+    let port = (api.data_get_int)(settings, c"port".as_ptr()) as u16;
     let auth_token = read_str(api, settings, b"auth_token\0");
-    let send_mouse_move = (api.data_get_bool)(settings, b"send_mouse_move\0".as_ptr() as _);
+    let send_mouse_move = (api.data_get_bool)(settings, c"send_mouse_move".as_ptr());
     let whitelist_str = read_str(api, settings, b"key_whitelist\0");
     let analog_keyboard = read_str(api, settings, b"analog_keyboard\0");
     #[cfg(target_os = "linux")]
@@ -403,23 +403,23 @@ unsafe fn populate_obs_data(api: &ObsApi, data: *mut ObsData, cfg: &Config) {
     let wl = CString::new(cfg.key_whitelist.join(", ").as_str()).unwrap_or_default();
     let ak = CString::new(cfg.analog_keyboard.as_str()).unwrap_or_default();
 
-    (api.data_set_string)(data, b"host\0".as_ptr() as _, host.as_ptr());
-    (api.data_set_int)(data, b"port\0".as_ptr() as _, cfg.port as i64);
-    (api.data_set_string)(data, b"auth_token\0".as_ptr() as _, token.as_ptr());
+    (api.data_set_string)(data, c"host".as_ptr(), host.as_ptr());
+    (api.data_set_int)(data, c"port".as_ptr(), cfg.port as i64);
+    (api.data_set_string)(data, c"auth_token".as_ptr(), token.as_ptr());
     (api.data_set_bool)(
         data,
-        b"send_mouse_move\0".as_ptr() as _,
+        c"send_mouse_move".as_ptr(),
         cfg.send_mouse_move,
     );
-    (api.data_set_string)(data, b"key_whitelist\0".as_ptr() as _, wl.as_ptr());
-    (api.data_set_string)(data, b"analog_keyboard\0".as_ptr() as _, ak.as_ptr());
+    (api.data_set_string)(data, c"key_whitelist".as_ptr(), wl.as_ptr());
+    (api.data_set_string)(data, c"analog_keyboard".as_ptr(), ak.as_ptr());
 
     #[cfg(target_os = "linux")]
     {
         let kbd = CString::new(cfg.linux_evdev_keyboard_device.as_str()).unwrap_or_default();
         let mouse = CString::new(cfg.linux_raw_mouse_device.as_str()).unwrap_or_default();
-        (api.data_set_string)(data, b"linux_kbd_device\0".as_ptr() as _, kbd.as_ptr());
-        (api.data_set_string)(data, b"linux_mouse_device\0".as_ptr() as _, mouse.as_ptr());
+        (api.data_set_string)(data, c"linux_kbd_device".as_ptr(), kbd.as_ptr());
+        (api.data_set_string)(data, c"linux_mouse_device".as_ptr(), mouse.as_ptr());
     }
 }
 
@@ -502,7 +502,7 @@ unsafe extern "C" fn regen_token_clicked(
     let new_token = crate::gen_token(32);
     let data = (api.data_create)();
     let token_cstr = CString::new(new_token.as_str()).unwrap_or_default();
-    (api.data_set_string)(data, b"auth_token\0".as_ptr() as _, token_cstr.as_ptr());
+    (api.data_set_string)(data, c"auth_token".as_ptr(), token_cstr.as_ptr());
     (api.source_update)(source, data);
     (api.data_release)(data);
     true

@@ -27,6 +27,9 @@ struct PluginState {
     _log_guard: tracing_appender::non_blocking::WorkerGuard,
 }
 
+/// # Safety
+///
+/// called by obs with a module pointer
 #[no_mangle]
 pub unsafe extern "C" fn obs_module_set_pointer(module: *mut std::ffi::c_void) {
     OBS_MODULE_PTR.store(module, Ordering::Relaxed);
@@ -39,12 +42,12 @@ pub extern "C" fn obs_module_ver() -> u32 {
 
 #[no_mangle]
 pub extern "C" fn obs_module_name() -> *const std::os::raw::c_char {
-    b"Input Overlay WS Server\0".as_ptr() as *const _
+    c"Input Overlay WS Server".as_ptr()
 }
 
 #[no_mangle]
 pub extern "C" fn obs_module_description() -> *const std::os::raw::c_char {
-    b"WebSocket input server for input-overlay\0".as_ptr() as *const _
+    c"WebSocket input server for overlay.girlglock.com".as_ptr()
 }
 
 #[no_mangle]
@@ -67,15 +70,14 @@ pub extern "C" fn obs_module_load() -> bool {
     }
 
     let analog_kb = cfg.analog_keyboard.clone();
-    #[cfg(windows)]
-    let (min_delta, flush_hz) = (cfg.raw_mouse_min_delta, cfg.flush_hz);
     #[cfg(target_os = "linux")]
-    let (kbd_dev, mouse_dev, min_delta, flush_hz) = (
+    let (kbd_dev, mouse_dev, min_delta) = (
         cfg.linux_evdev_keyboard_device.clone(),
         cfg.linux_raw_mouse_device.clone(),
         cfg.raw_mouse_min_delta,
-        cfg.flush_hz,
     );
+    #[cfg(windows)]
+    let min_delta = cfg.raw_mouse_min_delta;
 
     let config = Arc::new(Mutex::new(cfg));
     let status = Arc::new(Mutex::new(ServerStatus::default()));

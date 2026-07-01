@@ -117,7 +117,9 @@ pub fn init() -> bool {
                 GetProcAddress(hmod, PCSTR(concat!($name, "\0").as_bytes().as_ptr()))
             };
             match proc {
-                Some(p) => unsafe { std::mem::transmute::<_, $ty>(p) },
+                Some(p) => unsafe {
+                    std::mem::transmute::<unsafe extern "system" fn() -> isize, $ty>(p)
+                },
                 None => {
                     tracing::error!("obs api: '{}' not found in '{}'", $name, $module);
                     return false;
