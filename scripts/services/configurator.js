@@ -881,7 +881,7 @@ export class ConfiguratorMode {
                 { label: "arrows", tiles: [
                     ["key_leftarrow","←"], ["key_uparrow","↑"], ["key_downarrow","↓"], ["key_rightarrow","→"],
                 ]},
-                { label: "function", tiles: Array.from({length: 12}, (_, i) => [`key_f${i+1}`, `F${i+1}`]) },
+                { label: "function", tiles: Array.from({length: 24}, (_, i) => [`key_f${i+1}`, `F${i+1}`]) },
                 { label: "symbols", tiles: [
                     ["key_minus","-"], ["key_equals","="], ["key_openbracket","["], ["key_closebracket","]"],
                     ["key_backslash","\\"], ["key_semicolon",";"], ["key_apostrophe","'"],

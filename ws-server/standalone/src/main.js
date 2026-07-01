@@ -148,6 +148,9 @@ const CODE_TO_KEY = {
   F1: "key_f1", F2: "key_f2", F3: "key_f3", F4: "key_f4",
   F5: "key_f5", F6: "key_f6", F7: "key_f7", F8: "key_f8",
   F9: "key_f9", F10: "key_f10", F11: "key_f11", F12: "key_f12",
+  F13: "key_f13", F14: "key_f14", F15: "key_f15", F16: "key_f16",
+  F17: "key_f17", F18: "key_f18", F19: "key_f19", F20: "key_f20",
+  F21: "key_f21", F22: "key_f22", F23: "key_f23", F24: "key_f24",
 };
 
 const MOUSE_BTN_NAMES = {
