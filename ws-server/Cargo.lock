@@ -1859,7 +1859,7 @@ dependencies = [
 
 [[package]]
 name = "input-overlay-ws"
-version = "1.9.0"
+version = "1.8.2"
 dependencies = [
  "chrono",
  "evdev",
@@ -1888,7 +1888,7 @@ dependencies = [
 
 [[package]]
 name = "input-overlay-ws-server-plugin"
-version = "1.9.0"
+version = "1.8.2"
 dependencies = [
  "chrono",
  "futures-util",
