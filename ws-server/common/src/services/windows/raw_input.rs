@@ -91,12 +91,12 @@ pub struct RawInputThread {
 }
 
 impl RawInputThread {
-    pub fn start(tx: UnboundedSender<InputEvent>, min_delta: i32, flush_hz: u32) -> Self {
+    pub fn start(tx: UnboundedSender<InputEvent>, min_delta: i32, flush_hz: u32, system_tweaks: bool) -> Self {
         let hwnd_ref = Arc::new(Mutex::new(None::<isize>));
         let hwnd_clone = Arc::clone(&hwnd_ref);
         let handle = thread::Builder::new()
             .name("RawInputBuffer".into())
-            .spawn(move || run_raw_input(tx, min_delta, flush_hz, hwnd_clone))
+            .spawn(move || run_raw_input(tx, min_delta, flush_hz, system_tweaks, hwnd_clone))
             .expect("failed to spawn raw input thread");
         RawInputThread {
             hwnd_ref,
@@ -131,10 +131,13 @@ fn run_raw_input(
     tx: UnboundedSender<InputEvent>,
     min_delta: i32,
     flush_hz: u32,
+    system_tweaks: bool,
     hwnd_out: Arc<Mutex<Option<isize>>>,
 ) {
     unsafe {
-        set_background_priority();
+        if system_tweaks {
+            set_background_priority();
+        }
 
         let hwnd = match create_message_window() {
             Some(h) => h,
@@ -152,7 +155,7 @@ fn run_raw_input(
         }
 
         //fuck michaelsoft fuck bimbows and fuck tracy bennett for ruining my wordle
-        let timer_boosted = needs_timer_boost();
+        let timer_boosted = system_tweaks && needs_timer_boost();
         if timer_boosted {
             timeBeginPeriod(1);
         }

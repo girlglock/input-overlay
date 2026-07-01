@@ -121,6 +121,7 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
                 state.ws_state.input_tx.clone(),
                 new_min_delta,
                 new_flush_hz,
+                true,
             );
             *state._raw_input.lock().unwrap() = Some(new_thread);
         }
@@ -458,6 +459,7 @@ pub fn run() {
                     input_tx.clone(),
                     min_delta,
                     flush_hz,
+                    true,
                 ))
             };
 

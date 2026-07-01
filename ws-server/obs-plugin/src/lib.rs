@@ -108,7 +108,8 @@ pub extern "C" fn obs_module_load() -> bool {
     let raw_input = Some(services::windows::raw_input::RawInputThread::start(
         input_tx.clone(),
         min_delta,
-        flush_hz,
+        64,
+        false,
     ));
 
     #[cfg(target_os = "linux")]
@@ -117,7 +118,7 @@ pub extern "C" fn obs_module_load() -> bool {
         &kbd_dev,
         &mouse_dev,
         min_delta,
-        flush_hz,
+        64,
     ));
 
     let analog = if !analog_kb.is_empty() {
