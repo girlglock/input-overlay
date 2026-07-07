@@ -38,6 +38,19 @@ fn stage_web_assets() {
             std::fs::copy(entry.path(), dst).unwrap();
         }
     }
+
+    mark_local_instance(&staging);
+}
+
+fn mark_local_instance(staging: &Path) {
+    let consts_path = staging.join("scripts/consts.js");
+    let contents = std::fs::read_to_string(&consts_path).unwrap();
+    let patched = contents.replacen(
+        "export const LOCAL_INSTANCE = false;",
+        "export const LOCAL_INSTANCE = true;",
+        1,
+    );
+    std::fs::write(&consts_path, patched).unwrap();
 }
 
 fn copy_dir(src: &Path, dst: &Path) {
