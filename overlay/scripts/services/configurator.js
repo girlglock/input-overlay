@@ -1,5 +1,5 @@
 //guh
-import { KEY_CODES, MOUSE_CODES, COLOR_PICKERS } from "../consts.js";
+import { KEY_CODES, MOUSE_CODES, COLOR_PICKERS, LOCAL_INSTANCE } from "../consts.js";
 
 const LAYOUT_ORIGIN = { x: 0, y: 0 };
 
@@ -556,6 +556,105 @@ export class ConfiguratorMode {
         distanceCheckbox?.addEventListener("change", syncDpiState);
         syncDpiState();
 
+        const textureBrowseBtn = document.getElementById("mousepadtextureBrowseBtn");
+        const textureUrlInput = document.getElementById("mousepadtexture");
+        const texturePopup = document.getElementById("mousepadtextureFilePopup");
+        const textureFileList = document.getElementById("mousepadtextureFileList");
+        const texturePopupCloseBtn = document.getElementById("mousepadtextureFilePopupCloseBtn");
+        if (LOCAL_INSTANCE && textureBrowseBtn && textureUrlInput && texturePopup && textureFileList) {
+            textureBrowseBtn.style.display = "";
+
+            const closePopup = () => { texturePopup.style.display = "none"; };
+
+            const applyTexturePath = (relPath) => {
+                textureUrlInput.value = relPath;
+                textureUrlInput.dispatchEvent(new Event("input", { bubbles: true }));
+                closePopup();
+            };
+
+            const buildFileTree = (paths) => {
+                const root = { dirs: new Map(), files: [] };
+                for (const path of paths) {
+                    const parts = path.split("/");
+                    let node = root;
+                    for (let i = 0; i < parts.length - 1; i++) {
+                        if (!node.dirs.has(parts[i])) node.dirs.set(parts[i], { dirs: new Map(), files: [] });
+                        node = node.dirs.get(parts[i]);
+                    }
+                    node.files.push(parts[parts.length - 1]);
+                }
+                return root;
+            };
+
+            const renderFileTree = (node, pathPrefix, onPick) => {
+                const ul = document.createElement("ul");
+                for (const [name, child] of [...node.dirs].sort((a, b) => a[0].localeCompare(b[0]))) {
+                    const li = document.createElement("li");
+                    const details = document.createElement("details");
+                    const summary = document.createElement("summary");
+                    summary.textContent = name;
+                    details.append(summary, renderFileTree(child, pathPrefix ? `${pathPrefix}/${name}` : name, onPick));
+                    li.appendChild(details);
+                    ul.appendChild(li);
+                }
+                for (const fileName of [...node.files].sort((a, b) => a.localeCompare(b))) {
+                    const fullPath = pathPrefix ? `${pathPrefix}/${fileName}` : fileName;
+                    const li = document.createElement("li");
+                    const item = document.createElement("div");
+                    item.className = "texture-file-picker-item";
+                    item.textContent = fileName;
+                    item.title = fullPath;
+                    item.addEventListener("click", () => onPick(fullPath));
+                    li.appendChild(item);
+                    ul.appendChild(li);
+                }
+                return ul;
+            };
+
+            const renderSection = (label, paths, onPick) => {
+                const li = document.createElement("li");
+                const details = document.createElement("details");
+                details.open = true;
+                const summary = document.createElement("summary");
+                summary.textContent = label;
+                const count = document.createElement("span");
+                count.className = "kl-tree-count";
+                count.textContent = `(${paths.length})`;
+                summary.appendChild(count);
+                details.appendChild(summary);
+                if (paths.length === 0) {
+                    const empty = document.createElement("div");
+                    empty.className = "texture-file-picker-empty";
+                    empty.textContent = "empty";
+                    details.appendChild(empty);
+                } else {
+                    details.appendChild(renderFileTree(buildFileTree(paths), "", onPick));
+                }
+                li.appendChild(details);
+                return li;
+            };
+
+            textureBrowseBtn.addEventListener("click", async () => {
+                textureFileList.innerHTML = "";
+                texturePopup.style.display = "flex";
+
+                let data = {};
+                try {
+                    const res = await fetch("user_mount/");
+                    if (res.ok) data = await res.json();
+                } catch { /* server unreachable - treat as empty */ }
+
+                const root = document.createElement("ul");
+                root.className = "tree-view";
+                root.appendChild(renderSection("user_mount/ (local)", data.local ?? [], (relPath) => applyTexturePath(`user_mount/${relPath}`)));
+                root.appendChild(renderSection("bundle", data.bundle ?? [], (relPath) => applyTexturePath(relPath)));
+                textureFileList.appendChild(root);
+            });
+
+            texturePopupCloseBtn?.addEventListener("click", closePopup);
+            texturePopup.addEventListener("click", (e) => { if (e.target === texturePopup) closePopup(); });
+        }
+
         document.getElementById("copybtn").addEventListener("click", this.copyLink.bind(this));
         document.getElementById("copysharebtn").addEventListener("click", this.copyShareLink.bind(this));
         document.getElementById("loadbtn").addEventListener("click", this.loadSettingsFromLink.bind(this));
@@ -821,8 +920,8 @@ export class ConfiguratorMode {
 
         const CATS = [
             { id: "keyboard", label: "keyboard", groups: [
-                { label: "letters", tiles: [..."abcdefghijklmnopqrstuvwxyz"].map(l => [`key_${l}`, l.toUpperCase()]) },
-                { label: "numbers", tiles: [..."1234567890"].map(n => [`key_${n}`, n]) },
+                    { label: "letters", tiles: [..."abcdefghijklmnopqrstuvwxyz"].map(l => [`key_${l}`, l.toUpperCase()]) },
+                    { label: "numbers", tiles: [..."1234567890"].map(n => [`key_${n}`, n]) },
                 { label: "modifiers", tiles: [
                     ["key_leftshift","L⇧"], ["key_rightshift","R⇧"],
                     ["key_leftctrl","L^"], ["key_rightctrl","R^"],
@@ -1228,7 +1327,7 @@ export class ConfiguratorMode {
             nameEl.className = "kl-tree-name";
             nameEl.textContent = getShortName(def);
 
-const posEl = document.createElement("span");
+            const posEl = document.createElement("span");
             posEl.className = "kl-tree-pos";
             posEl.textContent = `${numFmt(def.x - LAYOUT_ORIGIN.x)},${numFmt(def.y - LAYOUT_ORIGIN.y)}`;
 

@@ -488,8 +488,12 @@
                                 <div style="display: flex; gap: 8px; align-items: flex-end;">
                                     <div class="cfg-field" id="mousepadtexture-field" style="flex: 1">
                                         <label class="cfg-label" for="mousepadtexture">background texture url</label>
-                                        <input class="cfg-input config-input" id="mousepadtexture" type="text"
-                                            placeholder="https://... direct image link">
+                                        <div style="display: flex; gap: 6px;">
+                                            <input class="cfg-input config-input" id="mousepadtexture" type="text"
+                                                placeholder="https://... direct image link" style="flex: 1">
+                                            <button class="cfg-btn" id="mousepadtextureBrowseBtn" type="button"
+                                                style="display: none;">browse user_mount/</button>
+                                        </div>
                                     </div>
                                     <div class="cfg-field">
                                         <label class="cfg-label" for="mousepadtexturezoom">scale</label>
@@ -598,6 +602,18 @@
                             <button class="cfg-btn" id="klAddCancelBtn2">cancel</button>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="kl-add-popup" id="mousepadtextureFilePopup" style="display:none;">
+                <div class="cs-dialog texture-file-dialog">
+                    <div class="heading">
+                        <div class="wrapper">
+                            <span class="text">choose file from user_mount/<br>(its next to the executable or appimage)</span>
+                        </div>
+                        <button class="cs-btn close" id="mousepadtextureFilePopupCloseBtn"></button>
+                    </div>
+                    <div class="content texture-file-list" id="mousepadtextureFileList"></div>
                 </div>
             </div>
         </aside>

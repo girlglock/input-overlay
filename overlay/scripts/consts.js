@@ -1,5 +1,7 @@
 //shroom
 
+export const LOCAL_INSTANCE = false;
+
 /**
  * @typedef {Object} KeyCode
  * @property {number} rawcode

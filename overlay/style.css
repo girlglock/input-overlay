@@ -3,7 +3,7 @@
 @font-face {
     font-family: 'PerfectDOSVGA437';
     src: url('scripts/fonts/PerfectDOSVGA437Win.woff2') format('woff2'),
-         url('scripts/fonts/PerfectDOSVGA437Win.woff') format('woff');
+        url('scripts/fonts/PerfectDOSVGA437Win.woff') format('woff');
     font-weight: normal;
     font-style: normal;
 }
@@ -2190,6 +2190,48 @@ li {
     color: var(--disabled-text);
     text-shadow: var(--disabled-text-shadow) 1px 1px;
     pointer-events: none;
+}
+
+.texture-file-dialog {
+    position: relative;
+    right: auto;
+    top: auto;
+    min-width: 380px;
+    max-width: 640px;
+    width: 90vw;
+    height: 75vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.texture-file-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-ui);
+    font-size: 12px;
+}
+
+.texture-file-picker-item {
+    padding: 5px 8px;
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+
+.texture-file-picker-item:hover {
+    background: var(--secondary-accent);
+    color: #fff;
+}
+
+.texture-file-picker-empty {
+    padding: 8px;
+    color: var(--disabled-text);
+    font-style: italic;
 }
 
 .kl-add-props {
