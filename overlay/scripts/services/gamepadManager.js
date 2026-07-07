@@ -66,10 +66,6 @@ export class GamepadManager {
         this._rafId = requestAnimationFrame(this._loop);
     }
 
-    stop() {
-        if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
-    }
-
     _loop() {
         this._rafId = null;
         const pads = navigator.getGamepads ? navigator.getGamepads() : [];

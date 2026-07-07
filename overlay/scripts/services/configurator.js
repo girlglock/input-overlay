@@ -1,6 +1,5 @@
 //guh
-import { BROWSER_BUTTON_TO_KEY_NAME, BROWSER_CODE_TO_KEY_NAME, COLOR_PICKERS, HID_TO_KEY_NAME } from "../consts.js";
-import { GamepadManager } from "./gamepadManager.js";
+import { KEY_CODES, MOUSE_CODES, COLOR_PICKERS } from "../consts.js";
 
 const LAYOUT_ORIGIN = { x: 0, y: 0 };
 
@@ -178,11 +177,6 @@ export class ConfiguratorMode {
         this._setupPreviewZoomAndGrid();
         this._setupSidebarToggles();
         this.updateState();
-
-        //tiny delay for gamepads because im lazy
-        setTimeout(() => {
-            this.gamepadManager = new GamepadManager(this.visualizer);
-        }, 100);
     }
 
     applyDefaultSettings() {
@@ -591,7 +585,7 @@ export class ConfiguratorMode {
 
         if (type === "key_pressed" || type === "key_released") {
             const isTyping = event.target.matches("input[type='text'], input[type='number'], textarea, .color-hex-input, .kl-inline-label-edit, .kl-tree-attr-input");
-            let keyName = BROWSER_CODE_TO_KEY_NAME[event.code.toLowerCase()];
+            let keyName = KEY_CODES.byBrowsercode(event.code.toLowerCase())?.codename;
             let elements = els.keyElements.get(keyName);
 
             if (!elements && event.key) {
@@ -607,7 +601,7 @@ export class ConfiguratorMode {
                 if (!isTyping || keyName === "key_tab" || keyName === "key_escape") event.preventDefault();
             }
         } else if (type === "mouse_pressed" || type === "mouse_released") {
-            const btnName = BROWSER_BUTTON_TO_KEY_NAME[event.button];
+            const btnName = MOUSE_CODES.byBrowsercode(event.button)?.codename;
             if (!btnName) return;
             //track this always regardless of m1 key being in custom layout row or not for now TODO: add conditions for mouse_pad and trail highlight being there
             const isPress = type === "mouse_pressed";
@@ -704,7 +698,7 @@ export class ConfiguratorMode {
             const currentScancodes = new Set(activeKeys.map(k => String(k.scancode)));
 
             for (const { scancode, value } of activeKeys) {
-                const rawKeyName = HID_TO_KEY_NAME[scancode];
+                const rawKeyName = KEY_CODES.byHidcode(scancode)?.codename;
                 if (!rawKeyName) continue;
 
                 const keyElements = viz.previewElements.keyElements;
@@ -727,7 +721,7 @@ export class ConfiguratorMode {
 
             for (const scancode of this.analogSenseActiveKeys) {
                 if (currentScancodes.has(String(scancode))) continue;
-                const rawKeyName2 = HID_TO_KEY_NAME[scancode];
+                const rawKeyName2 = KEY_CODES.byHidcode(scancode)?.codename;
                 if (rawKeyName2) {
                     const kels = viz.previewElements.keyElements;
                     if ((this.analogSensePrevDepths[scancode] ?? 0) >= DIGITAL_THRESHOLD) {
@@ -763,43 +757,6 @@ export class ConfiguratorMode {
                 if (e.name !== "SecurityError") btn.textContent = `error: ${e.message}`;
             }
         });
-    }
-
-    widthClassToSlider(cls) {
-        if (!cls) return 100;
-        const m = /^u(\d+)(?:-(\d+))?$/.exec(cls);
-        if (!m) return 100;
-        const intPart = parseInt(m[1]);
-        if (!m[2]) return intPart * 100;
-        const decVal = m[2].length === 1 ? parseInt(m[2]) * 10 : parseInt(m[2]);
-        return intPart * 100 + decVal;
-    }
-
-    getTagLabel(item) {
-        if (!item) return "?";
-        switch (item.type) {
-            case "dummy": return "dummy";
-            case "br": return "↵ br";
-            case "scroller": return `scroller`;
-            case "scroll_updown": return `${item.labels?.[0] || "↑"}/${item.labels?.[1] || "↓"}`;
-            case "scroll_up": return item.label || "↑";
-            case "scroll_down": return item.label || "↓";
-            case "mouse_side": return `M4/M5`;
-            case "mouse_pad": return "mouse pad";
-            case "gp_joystick": return item.stickId === "gp_ls" ? "L stick" : "R stick";
-            default: return item.label || item.key || "?";
-        }
-    }
-
-    getWidthClass(value) {
-        if (value === 100) return "";
-        const units = value / 100;
-        const intPart = Math.floor(units);
-        const decNum = Math.round((units - intPart) * 100);
-        if (!decNum) return `u${intPart}`;
-        let dec = decNum.toString().padStart(2, "0");
-        if (dec.endsWith("0") && !dec.startsWith("0")) dec = dec.slice(0, -1);
-        return `u${intPart}-${dec}`;
     }
 
     setupKeyLayoutEditor() {
@@ -859,6 +816,7 @@ export class ConfiguratorMode {
             mouse_pad:     [5, 3.5],
             gp_joystick_ls: [3, 3],
             gp_joystick_rs: [3, 3],
+            input_history: [6, 2],
         };
 
         const CATS = [
@@ -895,6 +853,9 @@ export class ConfiguratorMode {
                     ["key_numpad_0","0",2], ["key_numpad_decimal","."], ["key_numpad_add","+"],
                     ["key_numpad_enter","Ent"], ["key_numlock","NL"],
                 ]},
+                { label: "misc", tiles: [
+                    ["input_history","history",3]
+                ]},
             ]},
             { id: "mouse", label: "mouse", groups: [
                 { label: "buttons", tiles: [
@@ -905,7 +866,7 @@ export class ConfiguratorMode {
                     ["scroller","wheel"], ["scroll_updown","↑↓"], ["scroll_up","↑"], ["scroll_down","↓"],
                 ]},
                 { label: "pad", tiles: [
-                    ["mouse_pad","mouse pad",3],
+                    ["mouse_pad","mouse pad",3]
                 ]},
             ]},
             { id: "gamepad", label: "gamepad", groups: [
@@ -921,7 +882,7 @@ export class ConfiguratorMode {
             ]},
         ];
 
-        const NO_MULTIBIND = new Set(["mouse_pad", "gp_joystick_ls", "gp_joystick_rs"]);
+        const NO_MULTIBIND = new Set(["mouse_pad", "gp_joystick_ls", "gp_joystick_rs", "input_history"]);
         let selectedTypes = [];
 
         CATS.forEach((cat, ci) => {
@@ -1058,6 +1019,12 @@ export class ConfiguratorMode {
                 const inps = labelsEl.querySelectorAll("input");
                 const defs = LABEL_DEFAULTS[type] || [];
                 def.labels = Array.from(inps).map((inp, i) => inp.value || defs[i] || "");
+            } else if (type === "input_history") {
+                def.trackedKeys = ["key_a", "key_d"];
+                def.vertical = false;
+                def.scrollSpeed = 200;
+                def.highlightOverlap = false;
+                def.reverseDirection = false;
             }
 
             if (this.keyLayoutDefs.length) {
@@ -1141,7 +1108,6 @@ export class ConfiguratorMode {
                 ctx.beginPath(); ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY); ctx.stroke();
             }
         };
-        this._drawPreviewGrid = drawGrid;
 
         wrapper.addEventListener("mouseenter", () => { if (this.keyLayoutMode && this._klGridPx > 0) drawGrid(); });
         wrapper.addEventListener("mouseleave", () => { canvas.style.display = "none"; });
@@ -1150,16 +1116,6 @@ export class ConfiguratorMode {
             else canvas.style.display = "none";
         });
         scrollArea?.addEventListener("scroll", () => { if (canvas.style.display !== "none") drawGrid(); });
-    }
-
-    enterKeyLayoutMode() {
-        if (!this.keyLayoutParser) return;
-        this.keyLayoutMode = true;
-        if (!this.keyLayoutDefs.length) {
-            this.keyLayoutDefs = this._buildDefaultKeyLayoutDefs();
-        }
-        this._syncKeyLayoutEditorUI();
-        this._commitKeyLayoutDefs();
     }
 
     //lazy for now..
@@ -1189,19 +1145,11 @@ export class ConfiguratorMode {
             ["key_space", "SPACE", 3.25, 1, 162.5, 168.75],
             ["mouse_pad", 5, 3.63, 331.25, 37.5],
             ["mouse_left", "M1", 1.625, 0.63, 331.25, 0],
-            ["scroller", "-", "🡅", "🡇", 1.5, 0.63, 418.75, 0],
             ["mouse_right", "M2", 1.625, 0.63, 500, 0],
+            ["scroller", "-", "🡅", "🡇", 1.5, 0.63, 418.75, 0],
+            ["input_history", "key_a,key_d;1;100;1;1", 1, 3.25, -56.25, 56.25],
         ];
         return this.keyLayoutParser.parseAll(tuples);
-    }
-
-    _centerLayoutDefs(defs) {
-        if (!defs.length) return;
-        const minX = Math.min(...defs.map(d => d.x));
-        const minY = Math.min(...defs.map(d => d.y));
-        const offX = LAYOUT_ORIGIN.x - minX;
-        const offY = LAYOUT_ORIGIN.y - minY;
-        if (offX !== 0 || offY !== 0) defs.forEach(d => { d.x += offX; d.y += offY; });
     }
 
     _syncKeyLayoutEditorUI() {
@@ -1309,10 +1257,11 @@ const posEl = document.createElement("span");
                 const inp = document.createElement("input");
                 inp.className = "kl-tree-attr-input";
                 inp.type = type;
-                inp.value = getValue();
+                if (type === "checkbox") inp.checked = !!getValue();
+                else inp.value = getValue();
                 if (type === "number") { inp.step = "0.25"; }
                 inp.addEventListener("change", () => {
-                    setValue(inp.value);
+                    setValue(type === "checkbox" ? inp.checked : inp.value);
                     posEl.textContent = `${numFmt(def.x - LAYOUT_ORIGIN.x)},${numFmt(def.y - LAYOUT_ORIGIN.y)}`;
                     nameEl.textContent = getShortName(def);
                     this._commitKeyLayoutDefs();
@@ -1328,6 +1277,7 @@ const posEl = document.createElement("span");
             if ("label" in def) {
                 attrList.appendChild(makeAttrRow("key", () => def.type, (v) => { def.type = v.trim() || "key_a"; }));
                 attrList.appendChild(makeAttrRow("label", () => def.label || "", (v) => { def.label = v; }));
+                attrList.appendChild(makeAttrRow("move to top when active", () => def.moveToTop, (v) => { def.moveToTop = v; }, "checkbox"));
             }
             if ("labels" in def) {
                 const baseType = def.type.split("|")[0];
@@ -1342,6 +1292,16 @@ const posEl = document.createElement("span");
                         def.type = extras.length ? [baseType, ...extras].join("|") : baseType;
                     }));
                 }
+                attrList.appendChild(makeAttrRow("move to top when active", () => def.moveToTop, (v) => { def.moveToTop = v; }, "checkbox"));
+            }
+            if (def.type === "input_history") {
+                attrList.appendChild(makeAttrRow("keys", () => (def.trackedKeys ?? []).join(" "), (v) => {
+                    def.trackedKeys = v.trim().split(/[|,\s]+/).filter(Boolean);
+                }));
+                attrList.appendChild(makeAttrRow("vertical", () => def.vertical, (v) => { def.vertical = v; }, "checkbox"));
+                attrList.appendChild(makeAttrRow("reverse direction", () => def.reverseDirection, (v) => { def.reverseDirection = v; }, "checkbox"));
+                attrList.appendChild(makeAttrRow("highlight overlap", () => def.highlightOverlap, (v) => { def.highlightOverlap = v; }, "checkbox"));
+                attrList.appendChild(makeAttrRow("scroll speed", () => def.scrollSpeed ?? 200, (v) => { def.scrollSpeed = Math.max(1, parseFloat(v) || 200); }, "number"));
             }
 
             itemDetails.appendChild(attrList);
@@ -1429,7 +1389,7 @@ const posEl = document.createElement("span");
             const defIdx = defIndices[ci];
             if (defIdx == null) return;
             child.dataset.klIdx = String(defIdx);
-            const isCanvas = child.classList.contains("mousepad-wrap") || child.classList.contains("joystick-wrap");
+            const isCanvas = child.classList.contains("mousepad-wrap") || child.classList.contains("joystick-wrap") || child.classList.contains("input-history-wrap");
             if (isCanvas) {
                 child.style.pointerEvents = "auto";
             } else {
@@ -1545,7 +1505,7 @@ const posEl = document.createElement("span");
         const gridPx = this._klGridPx || 0;
         const snap = (v, g) => g > 0 ? Math.round(v / g) * g : Math.round(v);
         const snapW = (px, g) => g > 0 ? Math.max(MIN * U, Math.round(px / g) * g) / U : Math.max(MIN, Math.round(px) / U);
-        const isCanvasWrap = ds.child.classList.contains("mousepad-wrap") || ds.child.classList.contains("joystick-wrap");
+        const isCanvasWrap = ds.child.classList.contains("mousepad-wrap") || ds.child.classList.contains("joystick-wrap") || ds.child.classList.contains("input-history-wrap");
 
         if (ds.mode === "move") {
             const newX = snap(ds.origX + dx, gridPx);
@@ -1583,7 +1543,7 @@ const posEl = document.createElement("span");
         }
     }
 
-    _onKlPointerUp(e) {
+    _onKlPointerUp() {
         const ds = this._klDragState;
         if (!ds) return;
         this._klDragState = null;
@@ -1604,65 +1564,6 @@ const posEl = document.createElement("span");
             def.h = ds._pendingH; def.y = ds._pendingY; changed = true;
         }
         if (changed) this._commitKeyLayoutDefs();
-    }
-
-    _rowKeyStringToDef(rawKeyString) {
-        const item = this.layoutParser.parseElementDef(rawKeyString?.trim());
-        if (!item || item.type === "br" || item.type === "dummy") return null;
-
-        const parseUStr = (uStr) => {
-            if (!uStr) return 1;
-            const m = uStr.match(/^u(\d+)(?:-(\d+))?$/);
-            if (!m) return 1;
-            const dec = m[2] ? (m[2].length === 1 ? parseInt(m[2]) * 10 : parseInt(m[2])) : 0;
-            return parseInt(m[1]) + dec / 100;
-        };
-        const LEGACY_WIDTH_U = { "wide": 1.5, "extra-wide": 2, "super-wide": 3.4 };
-        const parseWFromClass = (cls) => {
-            if (!cls) return 1;
-            for (const t of cls.split(/\s+/)) {
-                if (LEGACY_WIDTH_U[t] !== undefined) return LEGACY_WIDTH_U[t];
-                if (/^u\d/.test(t)) return parseUStr(t);
-                const wm = t.match(/^w-(\d+)(?:-(\d+))?u$/);
-                if (wm) {
-                    const dec = wm[2] ? (wm[2].length === 1 ? parseInt(wm[2]) * 10 : parseInt(wm[2])) : 0;
-                    return parseInt(wm[1]) + dec / 100;
-                }
-            }
-            return 1;
-        };
-
-        switch (item.type) {
-            case "mouse_pad":
-                return { type: "mouse_pad", w: parseUStr(item.widthClass) || 5, h: parseUStr(item.heightClass) || 3, x: 0, y: 0 };
-            case "gp_joystick":
-                return {
-                    type: item.stickId === "gp_ls" ? "gp_joystick_ls" : "gp_joystick_rs",
-                    w: parseUStr(item.widthClass) || 3, h: parseUStr(item.heightClass || item.widthClass) || 3, x: 0, y: 0
-                };
-            case "scroller":
-                return { type: "scroller", labels: item.labels ?? ["M3", "🡅", "🡇"], w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            case "scroll_updown":
-                return { type: "scroll_updown", labels: item.labels ?? ["🡅", "🡇"], w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            case "scroll_up":
-                return { type: "scroll_up", label: item.label ?? "🡅", w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            case "scroll_down":
-                return { type: "scroll_down", label: item.label ?? "🡇", w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            case "mouse_side":
-                return { type: "mouse_side", labels: item.labels ?? ["M5", "M4"], w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            default: {
-                const isInvis = item.class?.includes("invisible") || item.label === "invis";
-                if (isInvis) {
-                    return { type: "$", w: parseWFromClass(item.class?.replace("invisible", "").trim()) || 1, h: 1, x: 0, y: 0 };
-                }
-                return {
-                    type: item.keys?.length > 1 ? item.keys.join("|") : (item.key || item.keys?.[0] || "key_a"),
-                    label: item.label ?? "",
-                    w: parseWFromClass(item.class),
-                    h: 1, x: 0, y: 0,
-                };
-            }
-        }
     }
 
     _setupSidebarToggles() {

@@ -144,10 +144,6 @@ export class UrlManager {
         return params.join("&");
     }
 
-    getKeyLayoutParam() {
-        return this.urlParams.get("keyLayout") || null;
-    }
-
     getOverlaySettings() {
         const params = this.urlParams;
         if (params.has("cfg")) {

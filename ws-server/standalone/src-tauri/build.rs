@@ -12,25 +12,19 @@ fn stage_web_assets() {
         .canonicalize()
         .expect("failed to resolve repo root");
 
+    let web_src = repo_root.join("overlay");
     let staging = Path::new(&manifest_dir).join("web-bundle");
 
-    println!("cargo:rerun-if-changed={}", repo_root.display());
+    println!("cargo:rerun-if-changed={}", web_src.display());
 
     if staging.exists() {
         std::fs::remove_dir_all(&staging).unwrap();
     }
 
-    const SKIP: &[&str] = &[
-        "media",
-        "ws-server",
-        ".git",
-        "README.md",
-        "LICENSE",
-        "CNAME",
-    ];
+    const SKIP: &[&str] = &["media", ".idea"];
 
     std::fs::create_dir_all(&staging).unwrap();
-    for entry in std::fs::read_dir(&repo_root).unwrap() {
+    for entry in std::fs::read_dir(&web_src).unwrap() {
         let entry = entry.unwrap();
         let name = entry.file_name();
         let name_str = name.to_string_lossy();

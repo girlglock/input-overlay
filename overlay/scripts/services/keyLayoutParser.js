@@ -8,6 +8,7 @@ const LABEL_ARITY = {
     mouse_pad: 0,
     gp_joystick_ls: 0,
     gp_joystick_rs: 0,
+    input_history: 0,
     "$": 0,
 };
 
@@ -19,15 +20,40 @@ export class KeyLayoutParser {
 
     parseTuple(tuple) {
         if (!Array.isArray(tuple) || tuple.length === 0) return null;
-        const type = String(tuple[0]);
+
+        let arr = tuple;
+        let moveToTop = false;
+        if (arr.length > 1 && arr[arr.length - 1] === "top") {
+            moveToTop = true;
+            arr = arr.slice(0, -1);
+        }
+
+        const type = String(arr[0]);
+
+        if (type === "input_history") {
+            const [cfg, w = 1, h = 1, x = 0, y = 0] = arr.slice(1);
+            const [keysStr = "", vFlag = "0", speedStr = "200", hlFlag = "0", revFlag = "0"] = String(cfg ?? "").split(";");
+            const historyDef = {
+                type, w: +w, h: +h, x: +x, y: +y,
+                trackedKeys: keysStr ? keysStr.split(",").filter(Boolean) : [],
+                vertical: vFlag === "1",
+                scrollSpeed: parseFloat(speedStr) || 200,
+                highlightOverlap: hlFlag === "1",
+                reverseDirection: revFlag === "1",
+            };
+            if (moveToTop) historyDef.moveToTop = true;
+            return historyDef;
+        }
+
         const arity = this.getLabelArity(type);
-        const labels = tuple.slice(1, 1 + arity).map(String);
-        const dims = tuple.slice(1 + arity);
+        const labels = arr.slice(1, 1 + arity).map(String);
+        const dims = arr.slice(1 + arity);
         const [w = 1, h = 1, x = 0, y = 0] = dims;
         const def = { type, w: +w, h: +h, x: +x, y: +y };
         if (arity === 1) def.label = labels[0] ?? "";
         else if (arity > 1) def.labels = labels;
         if (type.includes("|")) def.keys = type.split("|");
+        if (moveToTop) def.moveToTop = true;
         return def;
     }
 
@@ -37,10 +63,6 @@ export class KeyLayoutParser {
     }
 
     serializeTuple(def) {
-        const arity = this.getLabelArity(def.type);
-        const labels = arity === 1 ? [def.label ?? ""]
-            : arity > 1 ? (def.labels ?? []).slice(0, arity)
-                : [];
         const r = (v) => parseFloat(v.toFixed(4));
         const w = r(def.w ?? 1), h = r(def.h ?? 1), x = r(def.x ?? 0), y = r(def.y ?? 0);
         let tail;
@@ -48,23 +70,26 @@ export class KeyLayoutParser {
         else if (h !== 1) tail = [w, h];
         else if (w !== 1) tail = [w];
         else tail = [];
-        return [def.type, ...labels, ...tail];
+
+        let result;
+        if (def.type === "input_history") {
+            const keysStr = (def.trackedKeys ?? []).join(",");
+            const cfg = `${keysStr};${def.vertical ? 1 : 0};${def.scrollSpeed ?? 200};${def.highlightOverlap ? 1 : 0};${def.reverseDirection ? 1 : 0}`;
+            result = [def.type, cfg, ...tail];
+        } else {
+            const arity = this.getLabelArity(def.type);
+            const labels = arity === 1 ? [def.label ?? ""]
+                : arity > 1 ? (def.labels ?? []).slice(0, arity)
+                    : [];
+            result = [def.type, ...labels, ...tail];
+        }
+
+        if (def.moveToTop) result.push("top");
+        return result;
     }
 
     serializeAll(defs) {
         return defs.map(d => this.serializeTuple(d));
-    }
-
-    compressTuples(tupleArray) {
-        try {
-            const json = JSON.stringify(tupleArray);
-            const compressed = pako.deflate(json, { level: 9 });
-            const base64 = btoa(String.fromCharCode.apply(null, compressed));
-            return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-        } catch (e) {
-            console.error("keyLayout compress error:", e);
-            return null;
-        }
     }
 
     decompressTuples(str) {

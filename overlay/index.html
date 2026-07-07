@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css"
         onerror="this.href='scripts/libs/pickr.min.css'" />
     <link rel="stylesheet" type="text/css" href="style.css">
+    <!--suppress JSDeprecatedSymbols -->
     <script>if (navigator.onLine) { document.write('<script src="https://cdn.counter.dev/script.js" data-id="8990aad5-58d6-440b-9322-f04502f4214f" data-utcoffset="1"><\/script>') }</script>
 </head>
 
@@ -68,7 +69,7 @@
                 <div class="cfg-field">
                     <label class="cfg-label" for="wsauth">auth token</label>
                     <input class="cfg-input config-input" id="wsauth" type="text"
-                        style="-webkit-text-security: disc; -webkit-text-security: disc;"
+                        style="-webkit-text-security: disc;"
                         placeholder="paste your auth token here">
                 </div>
                 <div class="cfg-field" style="margin-top:10px;">
@@ -155,7 +156,7 @@
                         </div>
                         <div id="klPreviewControls" class="cfg-slider-field" style="display:none;flex:1;">
                             <div class="cfg-slider-header">
-                                <label class="cfg-label">snap grid</label>
+                                <label class="cfg-label" for="klGridSlider">snap grid</label>
                                 <span class="cfg-slider-val" id="klGridLabel">0.13u</span>
                             </div>
                             <input type="range" id="klGridSlider" class="cfg-range" min="0" max="15" step="1" value="2">
@@ -165,7 +166,7 @@
                         </div>
                         <div class="cfg-slider-field" style="flex:1;">
                             <div class="cfg-slider-header">
-                                <label class="cfg-label">preview zoom</label>
+                                <label class="cfg-label" for="previewZoomSlider">preview zoom</label>
                                 <span class="cfg-slider-val" id="previewZoomLabel">75%</span>
                             </div>
                             <input type="range" id="previewZoomSlider" class="cfg-range" min="10" max="300" step="5"
@@ -586,11 +587,11 @@
                         </div>
                         <div class="kl-add-btm-row">
                             <div class="kl-add-dim">
-                                <label class="cfg-label">w</label>
+                                <label for="klAddW" class="cfg-label">w</label>
                                 <input class="cfg-input" id="klAddW" type="number" step="0.5" min="0.25" value="1">
                             </div>
                             <div class="kl-add-dim">
-                                <label class="cfg-label">h</label>
+                                <label for="klAddH" class="cfg-label">h</label>
                                 <input class="cfg-input" id="klAddH" type="number" step="0.5" min="0.25" value="1">
                             </div>
                             <button class="cfg-btn kl-add-confirm" id="klAddConfirmBtn">add</button>

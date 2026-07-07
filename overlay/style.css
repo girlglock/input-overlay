@@ -2025,6 +2025,7 @@ li {
 .key:hover .kl-delete-btn,
 .mousepad-wrap:hover .kl-delete-btn,
 .joystick-wrap:hover .kl-delete-btn,
+.input-history-wrap:hover .kl-delete-btn,
 .scroll-display:hover .kl-delete-btn,
 .mouse-side:hover .kl-delete-btn {
     display: flex;
@@ -2042,6 +2043,7 @@ li {
 .key:hover .kl-edge-handle,
 .mousepad-wrap:hover .kl-edge-handle,
 .joystick-wrap:hover .kl-edge-handle,
+.input-history-wrap:hover .kl-edge-handle,
 .scroll-display:hover .kl-edge-handle,
 .mouse-side:hover .kl-edge-handle {
     opacity: 0.5;
