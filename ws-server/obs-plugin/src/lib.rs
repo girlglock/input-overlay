@@ -124,7 +124,7 @@ pub extern "C" fn obs_module_load() -> bool {
     ));
 
     let analog = if !analog_kb.is_empty() {
-        Some(services::analog::AnalogThread::start(input_tx, &analog_kb))
+        Some(services::analog::AnalogThread::start(input_tx, &analog_kb, 64))
     } else {
         None
     };

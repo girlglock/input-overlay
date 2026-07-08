@@ -41,7 +41,7 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
         let old = state.config.lock().unwrap();
         (
             old.host != new_cfg.host || old.port != new_cfg.port,
-            old.analog_keyboard != new_cfg.analog_keyboard,
+            old.analog_keyboard != new_cfg.analog_keyboard || old.flush_hz != new_cfg.flush_hz,
             old.http_enabled != new_cfg.http_enabled
                 || old.http_port != new_cfg.http_port
                 || old.host != new_cfg.host,
@@ -80,10 +80,12 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     }
 
     if need_analog_restart {
+        *state.analog.lock().unwrap() = None;
         let new_thread = if !new_analog_kb.is_empty() {
             Some(services::analog::AnalogThread::start(
                 state.ws_state.input_tx.clone(),
                 &new_analog_kb,
+                new_flush_hz,
             ))
         } else {
             None
@@ -478,7 +480,8 @@ pub fn run() {
             };
 
             let analog_handle = if !analog_kb.is_empty() {
-                Some(services::analog::AnalogThread::start(input_tx, &analog_kb))
+                let analog_flush_hz = config.lock().unwrap().flush_hz;
+                Some(services::analog::AnalogThread::start(input_tx, &analog_kb, analog_flush_hz))
             } else {
                 None
             };
