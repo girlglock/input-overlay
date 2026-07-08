@@ -10,6 +10,14 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::services::consts::{hid_to_vk, now_ms};
 use crate::ws_server::InputEvent;
 
+fn ev_ts_ms(event: &evdev::InputEvent) -> u64 {
+    event
+        .timestamp()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
 fn evdev_btn_to_overlay(code: u16) -> Option<u8> {
     match code {
         0x110 => Some(1), //BTN_LEFT
@@ -284,7 +292,7 @@ fn run_keyboard(mut dev: Device, tx: UnboundedSender<InputEvent>, stop: Arc<Atom
                     match event.kind() {
                         InputEventKind::Key(key) if evdev_btn_to_overlay(key.0).is_some() => {
                             let btn = evdev_btn_to_overlay(key.0).unwrap();
-                            let timestamp = now_ms();
+                            let timestamp = ev_ts_ms(&event);
                             match event.value() {
                                 1 => {
                                     let _ = tx.send(InputEvent::MouseButton {
@@ -308,9 +316,9 @@ fn run_keyboard(mut dev: Device, tx: UnboundedSender<InputEvent>, stop: Arc<Atom
                                 continue;
                             };
                             let Some(vk) = hid_to_vk(hid) else { continue };
-                            let timestamp = now_ms();
+                            let timestamp = ev_ts_ms(&event);
                             match event.value() {
-                                1 | 2 => {
+                                1 => {
                                     let _ = tx.send(InputEvent::KeyPress {
                                         rawcode: vk,
                                         timestamp,
@@ -334,7 +342,7 @@ fn run_keyboard(mut dev: Device, tx: UnboundedSender<InputEvent>, stop: Arc<Atom
                             if rotation != 0 {
                                 let _ = tx.send(InputEvent::MouseScroll {
                                     rotation,
-                                    timestamp: now_ms(),
+                                    timestamp: ev_ts_ms(&event),
                                 });
                             }
                         }
@@ -415,7 +423,7 @@ fn run_mouse(
                                 *accum_dx.lock().unwrap() += dx;
                                 let mut ts = accum_ts.lock().unwrap();
                                 if ts.is_none() {
-                                    *ts = Some(now_ms());
+                                    *ts = Some(ev_ts_ms(&event));
                                 }
                             }
                         }
@@ -425,7 +433,7 @@ fn run_mouse(
                                 *accum_dy.lock().unwrap() += dy;
                                 let mut ts = accum_ts.lock().unwrap();
                                 if ts.is_none() {
-                                    *ts = Some(now_ms());
+                                    *ts = Some(ev_ts_ms(&event));
                                 }
                             }
                         }
@@ -438,13 +446,13 @@ fn run_mouse(
                             if rotation != 0 {
                                 let _ = tx.send(InputEvent::MouseScroll {
                                     rotation,
-                                    timestamp: now_ms(),
+                                    timestamp: ev_ts_ms(&event),
                                 });
                             }
                         }
                         InputEventKind::Key(key) => {
                             if let Some(btn) = evdev_btn_to_overlay(key.0) {
-                                let timestamp = now_ms();
+                                let timestamp = ev_ts_ms(&event);
                                 match event.value() {
                                     1 => {
                                         let _ = tx.send(InputEvent::MouseButton {

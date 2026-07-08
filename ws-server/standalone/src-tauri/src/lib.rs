@@ -104,6 +104,7 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     let _ = need_raw_restart;
     #[cfg(target_os = "linux")]
     if need_evdev_restart {
+        *state._evdev.lock().unwrap() = None;
         let new_thread = services::linux::evdev_input::EvdevInputThread::start(
             state.ws_state.input_tx.clone(),
             &new_kbd_dev,
@@ -117,6 +118,7 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     {
         let _ = need_evdev_restart;
         if need_raw_restart {
+            *state._raw_input.lock().unwrap() = None;
             let new_thread = services::windows::raw_input::RawInputThread::start(
                 state.ws_state.input_tx.clone(),
                 new_min_delta,

@@ -34,7 +34,8 @@
         </div>
       </div>
 
-      <pre id="admin-warning" hidden style="font-size: 11px;"><span class="warn-line"><span class="warn-icon">&#9888;</span>Not running as admin! Port binding issues may occur.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Windows won't post WM_INPUT messages to a non-admin process while an admin app is in focus, so the overlay might not work when tabbed into an elevated app or game.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Consider restarting as admin. Setting "Start with Windows" will automatically start with admin rights on next boot.</span></pre>
+      <pre id="admin-warning" hidden
+        style="font-size: 11px;"><span class="warn-line"><span class="warn-icon">&#9888;</span>Not running as admin! Port binding issues may occur.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Windows won't post WM_INPUT messages to a non-admin process while an admin app is in focus, so the overlay might not work when tabbed into an elevated app or game.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Consider restarting as admin. Setting "Start with Windows" will automatically start with admin rights on next boot.</span></pre>
       <pre id="linux-perm-warning" hidden style="font-size: 11px;"></pre>
 
       <menu role="tablist">
@@ -58,7 +59,8 @@
             </div>
             <div class="field-row-stacked" style="flex: 1;">
               <label for="port">Port</label>
-              <input type="text" id="port" inputmode="numeric" pattern="[0-9]*" autocomplete="off" style="width: 100%;" />
+              <input type="text" id="port" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                style="width: 100%;" />
             </div>
           </div>
           <div id="port-error" class="error-lbl" hidden></div>
@@ -88,7 +90,8 @@
             </div>
             <div class="field-row-stacked" style="flex: 1;">
               <label for="http-port">Port</label>
-              <input type="text" id="http-port" inputmode="numeric" pattern="[0-9]*" autocomplete="off" style="width: 100%;" />
+              <input type="text" id="http-port" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                style="width: 100%;" />
             </div>
           </div>
           <div class="field-row" style="margin-top: 6px;">
@@ -149,7 +152,8 @@
 
       <article role="tabpanel" hidden id="tab-advanced">
         <div class="field-row-stacked" style="width: 100%; margin-top: 8px;">
-          <label for="flush-hz">Input flush rate (Hz)</label>
+          <label for="flush-hz" title="limited by windows timer resolution">Input
+            flush rate (Hz)</label>
           <input type="text" id="flush-hz" inputmode="numeric" pattern="[0-9]*" style="width: 100%;" />
         </div>
         <div class="field-row-stacked" id="cpu-affinity-row" hidden style="width: 100%; margin-top: 8px;">

@@ -1,5 +1,7 @@
 #![cfg(windows)]
 
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -87,6 +89,8 @@ const BTN_MAP: &[(u16, u16, u8)] = &[
 
 pub struct RawInputThread {
     hwnd_ref: Arc<Mutex<Option<isize>>>,
+    stop_flush: Arc<AtomicBool>,
+    flush_handle_ref: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
     handle: Option<thread::JoinHandle<()>>,
 }
 
@@ -94,23 +98,33 @@ impl RawInputThread {
     pub fn start(tx: UnboundedSender<InputEvent>, min_delta: i32, flush_hz: u32, system_tweaks: bool) -> Self {
         let hwnd_ref = Arc::new(Mutex::new(None::<isize>));
         let hwnd_clone = Arc::clone(&hwnd_ref);
+        let stop_flush = Arc::new(AtomicBool::new(false));
+        let stop_flush_clone = Arc::clone(&stop_flush);
+        let flush_handle_ref = Arc::new(Mutex::new(None));
+        let flush_handle_clone = Arc::clone(&flush_handle_ref);
         let handle = thread::Builder::new()
             .name("RawInputBuffer".into())
-            .spawn(move || run_raw_input(tx, min_delta, flush_hz, system_tweaks, hwnd_clone))
+            .spawn(move || run_raw_input(tx, min_delta, flush_hz, system_tweaks, hwnd_clone, stop_flush_clone, flush_handle_clone))
             .expect("failed to spawn raw input thread");
         RawInputThread {
             hwnd_ref,
+            stop_flush,
+            flush_handle_ref,
             handle: Some(handle),
         }
     }
 
     pub fn stop(&mut self) {
+        self.stop_flush.store(true, Ordering::Relaxed);
         if let Some(hwnd) = *self.hwnd_ref.lock().unwrap() {
             unsafe {
                 let _ = PostMessageW(HWND(hwnd as *mut _), WM_QUIT, WPARAM(0), LPARAM(0));
             }
         }
         if let Some(h) = self.handle.take() {
+            let _ = h.join();
+        }
+        if let Some(h) = self.flush_handle_ref.lock().unwrap().take() {
             let _ = h.join();
         }
     }
@@ -133,6 +147,8 @@ fn run_raw_input(
     flush_hz: u32,
     system_tweaks: bool,
     hwnd_out: Arc<Mutex<Option<isize>>>,
+    stop_flush: Arc<AtomicBool>,
+    flush_handle_out: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
 ) {
     unsafe {
         if system_tweaks {
@@ -178,12 +194,16 @@ fn run_raw_input(
             let adx = Arc::clone(&accum_dx);
             let ady = Arc::clone(&accum_dy);
             let ats = Arc::clone(&accum_ts);
-            let _ = thread::Builder::new()
+            let stop = Arc::clone(&stop_flush);
+            let flush_handle = thread::Builder::new()
                 .name("RawInputFlush".into())
                 .spawn(move || {
                     let iv = Duration::from_micros(1_000_000 / flush_hz as u64);
                     loop {
                         thread::sleep(iv);
+                        if stop.load(Ordering::Relaxed) {
+                            break;
+                        }
                         let dx = {
                             let mut g = adx.lock().unwrap();
                             std::mem::take(&mut *g)
@@ -202,15 +222,18 @@ fn run_raw_input(
                             *ats.lock().unwrap() = None;
                         }
                     }
-                });
+                })
+                .ok();
+            *flush_handle_out.lock().unwrap() = flush_handle;
         }
 
         let interval = Duration::from_micros(1_000_000 / flush_hz as u64);
         let mut msg = MSG::default();
+        let mut pressed_keys: HashSet<u16> = HashSet::new();
 
         loop {
             thread::sleep(interval);
-            drain_buffer(&tx, us_layout, min_delta, &accum_dx, &accum_dy, &accum_ts);
+            drain_buffer(&tx, us_layout, min_delta, &accum_dx, &accum_dy, &accum_ts, &mut pressed_keys);
 
             while PeekMessageW(&mut msg, HWND::default(), 0, WM_INPUT - 1, PM_REMOVE).as_bool() {
                 if msg.message == WM_QUIT {
@@ -295,6 +318,7 @@ unsafe fn drain_buffer(
     accum_dx: &Mutex<i32>,
     accum_dy: &Mutex<i32>,
     accum_ts: &Mutex<Option<u64>>,
+    pressed_keys: &mut HashSet<u16>,
 ) {
     loop {
         let mut sz: u32 = 0;
@@ -324,7 +348,7 @@ unsafe fn drain_buffer(
                 break;
             }
             let ri = &*(buf.as_ptr().add(offset) as *const RAWINPUT);
-            handle_rawinput(ri, tx, us_layout, min_delta, accum_dx, accum_dy, accum_ts);
+            handle_rawinput(ri, tx, us_layout, min_delta, accum_dx, accum_dy, accum_ts, pressed_keys);
             let item_sz = ri.header.dwSize as usize;
             offset = (offset + item_sz + 7) & !7;
         }
@@ -339,13 +363,14 @@ unsafe fn handle_rawinput(
     accum_dx: &Mutex<i32>,
     accum_dy: &Mutex<i32>,
     accum_ts: &Mutex<Option<u64>>,
+    pressed_keys: &mut HashSet<u16>,
 ) {
     if ri.header.dwType == RIM_TYPEKEYBOARD.0 {
         //hDevice is null for syntehtic events (eg when pressing altgr) so ignore then to avoid another input event
         if ri.header.hDevice.0.is_null() {
             return;
         }
-        handle_keyboard(&ri.data.keyboard, tx, us_layout);
+        handle_keyboard(&ri.data.keyboard, tx, us_layout, pressed_keys);
     } else if ri.header.dwType == RIM_TYPEMOUSE.0 {
         handle_mouse(&ri.data.mouse, tx, min_delta, accum_dx, accum_dy, accum_ts);
     }
@@ -355,6 +380,7 @@ unsafe fn handle_keyboard(
     kb: &windows::Win32::UI::Input::RAWKEYBOARD,
     tx: &UnboundedSender<InputEvent>,
     us_layout: windows::Win32::UI::Input::KeyboardAndMouse::HKL,
+    pressed_keys: &mut HashSet<u16>,
 ) {
     if kb.VKey == 0xFF {
         return;
@@ -385,6 +411,13 @@ unsafe fn handle_keyboard(
     if rawcode == 0 {
         return;
     }
+
+    if is_release {
+        pressed_keys.remove(&rawcode);
+    } else if !pressed_keys.insert(rawcode) {
+        return;
+    }
+
     let timestamp = now_ms();
     let _ = tx.send(if is_release {
         InputEvent::KeyRelease { rawcode, timestamp }
