@@ -391,6 +391,7 @@ const LINKS = {
   "link-github": "https://github.com/girlglock/input-overlay",
   "link-twitter": "https://twitter.com/girlglock_",
   "link-website": "https://girlglock.com",
+  "link-analogsense": "https://github.com/AnalogSense/JavaScript-SDK",
 };
 for (const [id, url] of Object.entries(LINKS)) {
   document.getElementById(id)?.addEventListener("click", (e) => {
