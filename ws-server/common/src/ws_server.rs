@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
@@ -113,64 +112,17 @@ async fn distributor(
     bcast_tx: Arc<broadcast::Sender<Arc<str>>>,
     config: Arc<Mutex<Config>>,
 ) {
-    let flush_interval = {
-        let hz = config.lock().unwrap().flush_hz.max(1);
-        Duration::from_micros(1_000_000 / hz as u64)
-    };
-    let mut last_flush = Instant::now();
-    let mut pending_dx = 0i32;
-    let mut pending_dy = 0i32;
-    let mut pending_move_ts: u64 = 0;
-    let mut pending: Vec<String> = Vec::new();
-
-    loop {
-        loop {
-            match input_rx.try_recv() {
-                Ok(event) => {
-                    let allowed = {
-                        let cfg = config.lock().unwrap();
-                        is_allowed(&event, &cfg)
-                    };
-                    if !allowed {
-                        continue;
-                    }
-                    match event {
-                        InputEvent::MouseMove { dx, dy, timestamp } => {
-                            if pending_dx == 0 && pending_dy == 0 {
-                                pending_move_ts = timestamp;
-                            }
-                            pending_dx += dx;
-                            pending_dy += dy;
-                        }
-                        other => {
-                            if let Some(json) = event_to_json(&other) {
-                                pending.push(json);
-                            }
-                        }
-                    }
-                }
-                Err(mpsc::error::TryRecvError::Empty) => break,
-                Err(mpsc::error::TryRecvError::Disconnected) => return,
-            }
+    while let Some(event) = input_rx.recv().await {
+        let allowed = {
+            let cfg = config.lock().unwrap();
+            is_allowed(&event, &cfg)
+        };
+        if !allowed {
+            continue;
         }
-
-        if last_flush.elapsed() >= flush_interval {
-            for json in pending.drain(..) {
-                let _ = bcast_tx.send(Arc::from(json.as_str()));
-            }
-            if pending_dx != 0 || pending_dy != 0 {
-                let json = format!(
-                    r#"{{"event_type":"mouse_moved","dx":{pending_dx},"dy":{pending_dy},"timestamp":{pending_move_ts}}}"#
-                );
-                let _ = bcast_tx.send(Arc::from(json.as_str()));
-                pending_dx = 0;
-                pending_dy = 0;
-                pending_move_ts = 0;
-            }
-            last_flush = Instant::now();
+        if let Some(json) = event_to_json(&event) {
+            let _ = bcast_tx.send(Arc::from(json.as_str()));
         }
-
-        tokio::time::sleep(Duration::from_millis(1)).await;
     }
 }
 
