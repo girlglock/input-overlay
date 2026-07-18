@@ -1,4 +1,4 @@
-name: build ws-server
+name: build
 
 on:
   workflow_call:

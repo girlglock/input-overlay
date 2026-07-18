@@ -1,4 +1,4 @@
-name: release ws-server
+name: release
 
 on:
   workflow_dispatch:
@@ -64,7 +64,7 @@ jobs:
           mkdir -p obs-studio/obs-plugins/64bit
           cp input_overlay_obs_plugin.dll obs-studio/obs-plugins/64bit/
           cp libinput_overlay_obs_plugin.so obs-studio/obs-plugins/64bit/
-          zip -r input-overlay-ws-obs-plugin.zip obs-studio/
+          zip -r input-overlay-obs-plugin.zip obs-studio/
 
       - name: attest release artifacts
         uses: actions/attest-build-provenance@v1
@@ -73,7 +73,7 @@ jobs:
             input-overlay-ws-windows.zip
             input-overlay-ws-linux.zip
             input-overlay-ws.AppImage
-            input-overlay-ws-obs-plugin.zip
+            input-overlay-obs-plugin.zip
 
       - name: get previous tag
         id: prev_tag
@@ -88,7 +88,7 @@ jobs:
             input-overlay-ws-windows.zip
             input-overlay-ws-linux.zip
             input-overlay-ws.AppImage
-            input-overlay-ws-obs-plugin.zip
+            input-overlay-obs-plugin.zip
           body: |
             ## input-overlay websocket server ${{ github.ref_name }}
 
