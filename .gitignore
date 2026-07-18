@@ -1,4 +1,5 @@
 TODO.md
+/target/
 **/__pycache__/
 **/*.pyc
 **/*.pyo

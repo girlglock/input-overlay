@@ -39,15 +39,14 @@
 
 1. get the [`input-overlay-ws`](https://github.com/girlglock/input-overlay/releases) server and follow the setup instructions from its release page
 2. after its set up, go into its settings
-   > standalone app: right-click the tray icon -> settings
-   
-   > obs plugin: Tools -> Input Overlay WS Settings
+   > right-click the tray icon -> settings
 3. copy your auth token from the settings
    > you can change it to whatever you like in there too
 4. paste the auth token in the auth token field above
 5. configure your overlay to your liking, then once done click the `⎘ copy url` button and paste the copied url as an OBS browser source
 
-> tip: you can configure the key whitelist in the server settings to ensure you are only sending keys over your network that are configured in the overlay
+> [!TIP]
+> you can configure the key whitelist in the server settings to ensure you are only sending keys over your network that are configured in the overlay
 
 <details>
    <summary>nightly builds</summary>
@@ -62,23 +61,39 @@
 
 ---
 
+## obs plugin setup
+
+*gets the inputs and renders the overlay directly inside OBS, no browser source or separate server needed*
+
+1. download the latest release of the [`input-overlay-obs-plugin`](https://github.com/girlglock/input-overlay/releases) and follow the setup instructions from its release page
+2. configure your overlay to your liking, then click `⭳ export json` above
+3. add a new `Input Overlay` source in OBS
+4. in its properties choose the config file you just exported
+5. configure other settings to your preference
+
+> [!TIP]
+> you can also load your overlay config from the link if its more conveniant to you
+
+---
+
 ## sending keys to another pc
 
 *(eg. from gaming to streaming pc)*
 
+> [!WARNING]
 > this will not work with the obs-plugin version of the input-overlay-ws! you will have to use the standalone app version!
 
 1. open the input-overlay-ws server **on your gaming pc**
 2. right-click the tray icon -> settings -> enable the http server
 3. change the host of the ws server to the address of your gaming pc
-   > run `ipconfig` in cmd and copy the local IPv4 address
-   
-   > (usually 192.168.0.1 or 192.168.X.X with X being 0-255)
+   > run `ipconfig` in cmd and copy the local IPv4 address (usually 192.168.0.1 or 192.168.X.X with X being 0-255)
 4. click the `open in browser` button inside the http server settings
 5. enter the gaming pc's address in both the **input-overlay-ws** and the hosted **configurator**
 6. click the `⎘ copy url` button to copy your hosted overlay url from the hosted configurator and add it as a browser source in your OBS running on the streaming pc
 
-> **cant connect from another pc?** Windows Firewall might block inbound connections by default. Run this in PowerShell **as Administrator** on your gaming pc to allow the ws server ports:
+> [!TIP]
+> **cant connect from another pc?**
+> Windows Firewall might block inbound connections by default. Run this in PowerShell **as Administrator** on your gaming pc to allow the ws server ports:
 > ```powershell
 > New-NetFirewallRule -DisplayName "input-overlay WS" -Direction Inbound -Protocol TCP -LocalPort 4455 -Action Allow
 > New-NetFirewallRule -DisplayName "input-overlay HTTP" -Direction Inbound -Protocol TCP -LocalPort 4456 -Action Allow
@@ -105,7 +120,7 @@ sudo apt install libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev l
 
 </details>
 
-**2. build** (run from the `ws-server/` directory)
+**2. build** (run from the repo root)
 
 <details>
 <summary><b>both standalone and plugin</b></summary>
@@ -116,7 +131,7 @@ cargo build --release
 
 outputs:
 - `target/release/input-overlay-ws` (or `.exe` on bimbows) standalone app
-- `target/release/input_overlay_ws_server.dll/.so` obs plugin
+- `target/release/input_overlay_obs_plugin.dll/.so` obs plugin
 
 </details>
 
@@ -135,10 +150,10 @@ output: `target/release/input-overlay-ws` (or with `.exe` on bimbows)
 <summary><b>obs plugin only</b></summary>
 
 ```bash
-cargo build --release --package input-overlay-ws-server-plugin
+cargo build --release --package input-overlay-obs-plugin
 ```
 
-output: `target/release/input_overlay_ws_server.dll/.so`
+output: `target/release/input_overlay_obs_plugin.dll/.so`
 
 place the output file in your obs-studio plugins folder: `obs-studio/obs-plugins/64bit/`
 

@@ -1,0 +1,42 @@
+[package]
+name = "input-overlay-obs-plugin"
+version.workspace = true
+edition = "2021"
+
+[lib]
+name = "input_overlay_obs_plugin"
+crate-type = ["cdylib"]
+
+[features]
+profiler = []
+
+[dependencies]
+io-ws-common = { path = "../common" }
+tokio = { version = "1", features = ["full"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+flate2 = "1"
+base64 = "0.22"
+tiny-skia = "0.11"
+fontdue = "0.9"
+ureq = "2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+hidapi = "2"
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_Input",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
