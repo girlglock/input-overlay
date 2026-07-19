@@ -1,3 +1,3 @@
 pub mod autostart;
-pub mod evdev_input;
+pub use io_ws_common::services::linux::evdev_input;
 pub mod updater;

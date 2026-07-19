@@ -7,10 +7,17 @@ use std::time::Duration;
 use evdev::{Device, InputEventKind, Key, RelativeAxisType};
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::services::consts::{hid_to_vk, RAW_MOUSE_FLUSH_HZ};
-use crate::ws_server::InputEvent;
+use crate::services::consts::{hid_to_vk, now_ms};
+use crate::input_event::InputEvent;
 
-//mouse buttons
+fn ev_ts_ms(event: &evdev::InputEvent) -> u64 {
+    event
+        .timestamp()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
 fn evdev_btn_to_overlay(code: u16) -> Option<u8> {
     match code {
         0x110 => Some(1), //BTN_LEFT
@@ -22,7 +29,6 @@ fn evdev_btn_to_overlay(code: u16) -> Option<u8> {
     }
 }
 
-//keyboard buttons
 fn evdev_to_hid(code: u16) -> Option<u16> {
     Some(match code {
         1 => 0x29,   //KEY_ESC
@@ -112,6 +118,18 @@ fn evdev_to_hid(code: u16) -> Option<u16> {
         86 => 0x64,  //KEY_102ND
         87 => 0x44,  //KEY_F11
         88 => 0x45,  //KEY_F12
+        183 => 0x68, //KEY_F13
+        184 => 0x69, //KEY_F14
+        185 => 0x6A, //KEY_F15
+        186 => 0x6B, //KEY_F16
+        187 => 0x6C, //KEY_F17
+        188 => 0x6D, //KEY_F18
+        189 => 0x6E, //KEY_F19
+        190 => 0x6F, //KEY_F20
+        191 => 0x70, //KEY_F21
+        192 => 0x71, //KEY_F22
+        193 => 0x72, //KEY_F23
+        194 => 0x73, //KEY_F24
         96 => 0x58,  //KEY_KPENTER
         97 => 0xE4,  //KEY_RIGHTCTRL
         98 => 0x54,  //KEY_KPSLASH
@@ -186,7 +204,7 @@ fn is_in_input_group() -> bool {
                 .split_whitespace()
                 .any(|g| g == "input")
         })
-        .unwrap_or(true) //dont block if this fails
+        .unwrap_or(true)
 }
 
 pub struct EvdevInputThread {
@@ -200,6 +218,7 @@ impl EvdevInputThread {
         kbd_path: &str,
         mouse_path: &str,
         min_delta: i32,
+        flush_hz: u32,
     ) -> Self {
         let stop = Arc::new(AtomicBool::new(false));
         let mut handles = Vec::new();
@@ -226,7 +245,7 @@ impl EvdevInputThread {
                     let stop2 = Arc::clone(&stop);
                     let h = thread::Builder::new()
                         .name("EvdevMouse".into())
-                        .spawn(move || run_mouse(dev, tx2, stop2, min_delta))
+                        .spawn(move || run_mouse(dev, tx2, stop2, min_delta, flush_hz))
                         .expect("spawn evdev mouse thread");
                     handles.push(h);
                 }
@@ -273,17 +292,20 @@ fn run_keyboard(mut dev: Device, tx: UnboundedSender<InputEvent>, stop: Arc<Atom
                     match event.kind() {
                         InputEventKind::Key(key) if evdev_btn_to_overlay(key.0).is_some() => {
                             let btn = evdev_btn_to_overlay(key.0).unwrap();
+                            let timestamp = ev_ts_ms(&event);
                             match event.value() {
                                 1 => {
                                     let _ = tx.send(InputEvent::MouseButton {
                                         button: btn,
                                         pressed: true,
+                                        timestamp,
                                     });
                                 }
                                 0 => {
                                     let _ = tx.send(InputEvent::MouseButton {
                                         button: btn,
                                         pressed: false,
+                                        timestamp,
                                     });
                                 }
                                 _ => {}
@@ -294,12 +316,19 @@ fn run_keyboard(mut dev: Device, tx: UnboundedSender<InputEvent>, stop: Arc<Atom
                                 continue;
                             };
                             let Some(vk) = hid_to_vk(hid) else { continue };
+                            let timestamp = ev_ts_ms(&event);
                             match event.value() {
-                                1 | 2 => {
-                                    let _ = tx.send(InputEvent::KeyPress { rawcode: vk });
+                                1 => {
+                                    let _ = tx.send(InputEvent::KeyPress {
+                                        rawcode: vk,
+                                        timestamp,
+                                    });
                                 }
                                 0 => {
-                                    let _ = tx.send(InputEvent::KeyRelease { rawcode: vk });
+                                    let _ = tx.send(InputEvent::KeyRelease {
+                                        rawcode: vk,
+                                        timestamp,
+                                    });
                                 }
                                 _ => {}
                             }
@@ -311,7 +340,10 @@ fn run_keyboard(mut dev: Device, tx: UnboundedSender<InputEvent>, stop: Arc<Atom
                                 std::cmp::Ordering::Equal => 0,
                             };
                             if rotation != 0 {
-                                let _ = tx.send(InputEvent::MouseScroll { rotation });
+                                let _ = tx.send(InputEvent::MouseScroll {
+                                    rotation,
+                                    timestamp: ev_ts_ms(&event),
+                                });
                             }
                         }
                         _ => {}
@@ -336,6 +368,7 @@ fn run_mouse(
     tx: UnboundedSender<InputEvent>,
     stop: Arc<AtomicBool>,
     min_delta: i32,
+    flush_hz: u32,
 ) {
     unsafe {
         let fd = dev.as_raw_fd();
@@ -349,22 +382,30 @@ fn run_mouse(
 
     let accum_dx: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
     let accum_dy: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
+    let accum_ts: Arc<Mutex<Option<u64>>> = Arc::new(Mutex::new(None));
 
     {
         let stop2 = Arc::clone(&stop);
         let tx2 = tx.clone();
         let adx = Arc::clone(&accum_dx);
         let ady = Arc::clone(&accum_dy);
+        let ats = Arc::clone(&accum_ts);
         thread::Builder::new()
             .name("EvdevMouseFlush".into())
             .spawn(move || {
-                let interval = Duration::from_micros(1_000_000 / RAW_MOUSE_FLUSH_HZ as u64);
+                let interval = Duration::from_micros(1_000_000 / flush_hz as u64);
                 while !stop2.load(Ordering::Relaxed) {
                     thread::sleep(interval);
                     let dx = std::mem::take(&mut *adx.lock().unwrap());
                     let dy = std::mem::take(&mut *ady.lock().unwrap());
                     if dx != 0 || dy != 0 {
-                        let _ = tx2.send(InputEvent::MouseMove { dx, dy });
+                        let timestamp = {
+                            let mut g = ats.lock().unwrap();
+                            std::mem::take(&mut *g).unwrap_or_else(now_ms)
+                        };
+                        let _ = tx2.send(InputEvent::MouseMove { dx, dy, timestamp });
+                    } else {
+                        *ats.lock().unwrap() = None;
                     }
                 }
             })
@@ -380,12 +421,20 @@ fn run_mouse(
                             let dx = event.value();
                             if min_delta <= 0 || dx.abs() >= min_delta {
                                 *accum_dx.lock().unwrap() += dx;
+                                let mut ts = accum_ts.lock().unwrap();
+                                if ts.is_none() {
+                                    *ts = Some(ev_ts_ms(&event));
+                                }
                             }
                         }
                         InputEventKind::RelAxis(axis) if axis == RelativeAxisType::REL_Y => {
                             let dy = event.value();
                             if min_delta <= 0 || dy.abs() >= min_delta {
                                 *accum_dy.lock().unwrap() += dy;
+                                let mut ts = accum_ts.lock().unwrap();
+                                if ts.is_none() {
+                                    *ts = Some(ev_ts_ms(&event));
+                                }
                             }
                         }
                         InputEventKind::RelAxis(axis) if axis == RelativeAxisType::REL_WHEEL => {
@@ -395,22 +444,28 @@ fn run_mouse(
                                 std::cmp::Ordering::Equal => 0,
                             };
                             if rotation != 0 {
-                                let _ = tx.send(InputEvent::MouseScroll { rotation });
+                                let _ = tx.send(InputEvent::MouseScroll {
+                                    rotation,
+                                    timestamp: ev_ts_ms(&event),
+                                });
                             }
                         }
                         InputEventKind::Key(key) => {
                             if let Some(btn) = evdev_btn_to_overlay(key.0) {
+                                let timestamp = ev_ts_ms(&event);
                                 match event.value() {
                                     1 => {
                                         let _ = tx.send(InputEvent::MouseButton {
                                             button: btn,
                                             pressed: true,
+                                            timestamp,
                                         });
                                     }
                                     0 => {
                                         let _ = tx.send(InputEvent::MouseButton {
                                             button: btn,
                                             pressed: false,
+                                            timestamp,
                                         });
                                     }
                                     _ => {}

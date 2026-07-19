@@ -1,4 +1,4 @@
-name: build ws-server
+name: build
 
 on:
   workflow_call:
@@ -9,6 +9,15 @@ on:
       linux-artifact-name:
         type: string
         default: linux-zip
+      linux-appimage-artifact-name:
+        type: string
+        default: linux-appimage
+      obs-plugin-artifact-name:
+        type: string
+        default: obs-plugin-windows
+      obs-plugin-linux-artifact-name:
+        type: string
+        default: obs-plugin-linux
       retention-days:
         type: number
         default: 0
@@ -33,23 +42,29 @@ jobs:
 
       - name: rust cache
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ws-server/src-tauri
 
-      - name: build ws-server exe
-        working-directory: ws-server/src-tauri
+      - name: build
         run: cargo build --release
 
       - name: attest windows build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: ws-server/src-tauri/target/release/input-overlay-ws.exe
+          subject-path: |
+            target/release/input-overlay-ws.exe
+            target/release/input_overlay_obs_plugin.dll
 
       - name: upload windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.windows-artifact-name }}
-          path: ws-server/src-tauri/target/release/input-overlay-ws.exe
+          path: target/release/input-overlay-ws.exe
+          retention-days: ${{ inputs.retention-days }}
+
+      - name: upload obs plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.obs-plugin-artifact-name }}
+          path: target/release/input_overlay_obs_plugin.dll
           retention-days: ${{ inputs.retention-days }}
 
   build-linux:
@@ -76,21 +91,47 @@ jobs:
 
       - name: rust cache
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ws-server/src-tauri
+
+      - name: install tauri-cli
+        run: cargo install tauri-cli --locked
 
       - name: build ws-server binary
-        working-directory: ws-server/src-tauri
-        run: cargo build --release
+        run: cargo build --release --package input-overlay-ws
 
       - name: attest linux build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: ws-server/src-tauri/target/release/input-overlay-ws
+          subject-path: target/release/input-overlay-ws
 
       - name: upload linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.linux-artifact-name }}
-          path: ws-server/src-tauri/target/release/input-overlay-ws
+          path: target/release/input-overlay-ws
+          retention-days: ${{ inputs.retention-days }}
+
+      - name: build AppImage
+        working-directory: ws-server/src-tauri
+        run: cargo tauri build --bundles appimage
+
+      - name: upload linux appimage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.linux-appimage-artifact-name }}
+          path: target/release/bundle/appimage/input-overlay-ws_*.AppImage
+          retention-days: ${{ inputs.retention-days }}
+
+      - name: build obs plugin (linux)
+        run: cargo build --release --package input-overlay-obs-plugin
+
+      - name: attest linux obs plugin build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: target/release/libinput_overlay_obs_plugin.so
+
+      - name: upload linux obs plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.obs-plugin-linux-artifact-name }}
+          path: target/release/libinput_overlay_obs_plugin.so
           retention-days: ${{ inputs.retention-days }}

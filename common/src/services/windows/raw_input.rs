@@ -1,5 +1,7 @@
 #![cfg(windows)]
 
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -23,7 +25,50 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WINDOW_EX_STYLE, WINDOW_STYLE, WM_INPUT, WM_QUIT, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 
-use crate::ws_server::InputEvent;
+use crate::services::consts::now_ms;
+use crate::input_event::InputEvent;
+
+#[derive(Default)]
+struct MouseAccum {
+    dx: Mutex<i32>,
+    dy: Mutex<i32>,
+    ts: Mutex<Option<u64>>,
+}
+
+#[link(name = "winmm")]
+unsafe extern "system" {
+    fn timeBeginPeriod(uPeriod: u32) -> u32;
+    fn timeEndPeriod(uPeriod: u32) -> u32;
+}
+
+#[link(name = "ntdll")]
+unsafe extern "system" {
+    fn RtlGetVersion(info: *mut OsVersionInfo) -> i32;
+}
+
+#[repr(C)]
+struct OsVersionInfo {
+    size: u32,
+    major: u32,
+    minor: u32,
+    build: u32,
+    platform: u32,
+    csd_version: [u16; 128],
+    sp_major: u16,
+    sp_minor: u16,
+    suite_mask: u16,
+    product_type: u8,
+    reserved: u8,
+}
+
+fn needs_timer_boost() -> bool {
+    unsafe {
+        let mut info: OsVersionInfo = std::mem::zeroed();
+        info.size = std::mem::size_of::<OsVersionInfo>() as u32;
+        RtlGetVersion(&mut info);
+        info.major > 10 || (info.major == 10 && info.build >= 19041)
+    }
+}
 
 const RI_KEY_BREAK: u16 = 0x01;
 const RI_KEY_E0: u16 = 0x02;
@@ -51,30 +96,42 @@ const BTN_MAP: &[(u16, u16, u8)] = &[
 
 pub struct RawInputThread {
     hwnd_ref: Arc<Mutex<Option<isize>>>,
+    stop_flush: Arc<AtomicBool>,
+    flush_handle_ref: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
     handle: Option<thread::JoinHandle<()>>,
 }
 
 impl RawInputThread {
-    pub fn start(tx: UnboundedSender<InputEvent>, min_delta: i32) -> Self {
+    pub fn start(tx: UnboundedSender<InputEvent>, min_delta: i32, flush_hz: u32, system_tweaks: bool) -> Self {
         let hwnd_ref = Arc::new(Mutex::new(None::<isize>));
         let hwnd_clone = Arc::clone(&hwnd_ref);
+        let stop_flush = Arc::new(AtomicBool::new(false));
+        let stop_flush_clone = Arc::clone(&stop_flush);
+        let flush_handle_ref = Arc::new(Mutex::new(None));
+        let flush_handle_clone = Arc::clone(&flush_handle_ref);
         let handle = thread::Builder::new()
             .name("RawInputBuffer".into())
-            .spawn(move || run_raw_input(tx, min_delta, hwnd_clone))
+            .spawn(move || run_raw_input(tx, min_delta, flush_hz, system_tweaks, hwnd_clone, stop_flush_clone, flush_handle_clone))
             .expect("failed to spawn raw input thread");
         RawInputThread {
             hwnd_ref,
+            stop_flush,
+            flush_handle_ref,
             handle: Some(handle),
         }
     }
 
     pub fn stop(&mut self) {
+        self.stop_flush.store(true, Ordering::Relaxed);
         if let Some(hwnd) = *self.hwnd_ref.lock().unwrap() {
             unsafe {
                 let _ = PostMessageW(HWND(hwnd as *mut _), WM_QUIT, WPARAM(0), LPARAM(0));
             }
         }
         if let Some(h) = self.handle.take() {
+            let _ = h.join();
+        }
+        if let Some(h) = self.flush_handle_ref.lock().unwrap().take() {
             let _ = h.join();
         }
     }
@@ -94,10 +151,16 @@ impl Drop for RawInputThread {
 fn run_raw_input(
     tx: UnboundedSender<InputEvent>,
     min_delta: i32,
+    flush_hz: u32,
+    system_tweaks: bool,
     hwnd_out: Arc<Mutex<Option<isize>>>,
+    stop_flush: Arc<AtomicBool>,
+    flush_handle_out: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
 ) {
     unsafe {
-        set_background_priority();
+        if system_tweaks {
+            set_background_priority();
+        }
 
         let hwnd = match create_message_window() {
             Some(h) => h,
@@ -114,56 +177,74 @@ fn run_raw_input(
             return;
         }
 
-        tracing::info!("raw_input: started (min_delta={min_delta})");
+        //fuck michaelsoft fuck bimbows and fuck tracy bennett for ruining my wordle
+        let timer_boosted = system_tweaks && needs_timer_boost();
+        if timer_boosted {
+            timeBeginPeriod(1);
+        }
+        tracing::info!("raw_input: started (min_delta={min_delta}, flush_hz={flush_hz}, timer_boost={timer_boosted})");
 
         let us_layout = LoadKeyboardLayoutW(
             windows::core::w!("00000409"),
             windows::Win32::UI::Input::KeyboardAndMouse::ACTIVATE_KEYBOARD_LAYOUT_FLAGS(0),
         )
-        .unwrap_or(windows::Win32::UI::Input::KeyboardAndMouse::HKL(std::ptr::null_mut()));
+        .unwrap_or(windows::Win32::UI::Input::KeyboardAndMouse::HKL(
+            std::ptr::null_mut(),
+        ));
 
-        let accum_dx: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
-        let accum_dy: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
+        let accum: Arc<MouseAccum> = Arc::new(MouseAccum::default());
 
         {
             let flush_tx = tx.clone();
-            let adx = Arc::clone(&accum_dx);
-            let ady = Arc::clone(&accum_dy);
-            let _ = thread::Builder::new()
+            let acc = Arc::clone(&accum);
+            let stop = Arc::clone(&stop_flush);
+            let flush_handle = thread::Builder::new()
                 .name("RawInputFlush".into())
                 .spawn(move || {
-                    let iv = Duration::from_micros(
-                        1_000_000 / crate::services::consts::RAW_MOUSE_FLUSH_HZ as u64,
-                    );
+                    let iv = Duration::from_micros(1_000_000 / flush_hz as u64);
                     loop {
                         thread::sleep(iv);
+                        if stop.load(Ordering::Relaxed) {
+                            break;
+                        }
                         let dx = {
-                            let mut g = adx.lock().unwrap();
+                            let mut g = acc.dx.lock().unwrap();
                             std::mem::take(&mut *g)
                         };
                         let dy = {
-                            let mut g = ady.lock().unwrap();
+                            let mut g = acc.dy.lock().unwrap();
                             std::mem::take(&mut *g)
                         };
                         if dx != 0 || dy != 0 {
-                            let _ = flush_tx.send(InputEvent::MouseMove { dx, dy });
+                            let timestamp = {
+                                let mut g = acc.ts.lock().unwrap();
+                                std::mem::take(&mut *g).unwrap_or_else(now_ms)
+                            };
+                            let _ = flush_tx.send(InputEvent::MouseMove { dx, dy, timestamp });
+                        } else {
+                            *acc.ts.lock().unwrap() = None;
                         }
                     }
-                });
+                })
+                .ok();
+            *flush_handle_out.lock().unwrap() = flush_handle;
         }
 
-        let interval =
-            Duration::from_micros(1_000_000 / crate::services::consts::RAW_MOUSE_FLUSH_HZ as u64);
+        let interval = Duration::from_micros(1_000_000 / flush_hz as u64);
         let mut msg = MSG::default();
+        let mut pressed_keys: HashSet<u16> = HashSet::new();
 
         loop {
             thread::sleep(interval);
-            drain_buffer(&tx, us_layout, min_delta, &accum_dx, &accum_dy);
+            drain_buffer(&tx, us_layout, min_delta, &accum, &mut pressed_keys);
 
             while PeekMessageW(&mut msg, HWND::default(), 0, WM_INPUT - 1, PM_REMOVE).as_bool() {
                 if msg.message == WM_QUIT {
                     unregister_devices();
                     let _ = DestroyWindow(hwnd);
+                    if timer_boosted {
+                        timeEndPeriod(1);
+                    }
                     tracing::info!("raw_input: stopped");
                     return;
                 }
@@ -237,8 +318,8 @@ unsafe fn drain_buffer(
     tx: &UnboundedSender<InputEvent>,
     us_layout: windows::Win32::UI::Input::KeyboardAndMouse::HKL,
     min_delta: i32,
-    accum_dx: &Mutex<i32>,
-    accum_dy: &Mutex<i32>,
+    accum: &MouseAccum,
+    pressed_keys: &mut HashSet<u16>,
 ) {
     loop {
         let mut sz: u32 = 0;
@@ -268,7 +349,7 @@ unsafe fn drain_buffer(
                 break;
             }
             let ri = &*(buf.as_ptr().add(offset) as *const RAWINPUT);
-            handle_rawinput(ri, tx, us_layout, min_delta, accum_dx, accum_dy);
+            handle_rawinput(ri, tx, us_layout, min_delta, accum, pressed_keys);
             let item_sz = ri.header.dwSize as usize;
             offset = (offset + item_sz + 7) & !7;
         }
@@ -280,13 +361,17 @@ unsafe fn handle_rawinput(
     tx: &UnboundedSender<InputEvent>,
     us_layout: windows::Win32::UI::Input::KeyboardAndMouse::HKL,
     min_delta: i32,
-    accum_dx: &Mutex<i32>,
-    accum_dy: &Mutex<i32>,
+    accum: &MouseAccum,
+    pressed_keys: &mut HashSet<u16>,
 ) {
     if ri.header.dwType == RIM_TYPEKEYBOARD.0 {
-        handle_keyboard(&ri.data.keyboard, tx, us_layout);
+        //hDevice is null for syntehtic events (eg when pressing altgr) so ignore then to avoid another input event
+        if ri.header.hDevice.0.is_null() {
+            return;
+        }
+        handle_keyboard(&ri.data.keyboard, tx, us_layout, pressed_keys);
     } else if ri.header.dwType == RIM_TYPEMOUSE.0 {
-        handle_mouse(&ri.data.mouse, tx, min_delta, accum_dx, accum_dy);
+        handle_mouse(&ri.data.mouse, tx, min_delta, accum);
     }
 }
 
@@ -294,6 +379,7 @@ unsafe fn handle_keyboard(
     kb: &windows::Win32::UI::Input::RAWKEYBOARD,
     tx: &UnboundedSender<InputEvent>,
     us_layout: windows::Win32::UI::Input::KeyboardAndMouse::HKL,
+    pressed_keys: &mut HashSet<u16>,
 ) {
     if kb.VKey == 0xFF {
         return;
@@ -312,16 +398,30 @@ unsafe fn handle_keyboard(
         if vk != 0 {
             vk as u16
         } else {
-            kb.VKey
+            //MapVirtualKeyExW fail..
+            //fallback to manual convertin
+            match ext_scan {
+                0x11D => 163, // E0 + 0x1D = key_rightctrl
+                0x138 => 165, // E0 + 0x38 = ley_rightalt
+                _ => kb.VKey,
+            }
         }
     };
     if rawcode == 0 {
         return;
     }
+
+    if is_release {
+        pressed_keys.remove(&rawcode);
+    } else if !pressed_keys.insert(rawcode) {
+        return;
+    }
+
+    let timestamp = now_ms();
     let _ = tx.send(if is_release {
-        InputEvent::KeyRelease { rawcode }
+        InputEvent::KeyRelease { rawcode, timestamp }
     } else {
-        InputEvent::KeyPress { rawcode }
+        InputEvent::KeyPress { rawcode, timestamp }
     });
 }
 
@@ -329,9 +429,9 @@ unsafe fn handle_mouse(
     m: &windows::Win32::UI::Input::RAWMOUSE,
     tx: &UnboundedSender<InputEvent>,
     min_delta: i32,
-    accum_dx: &Mutex<i32>,
-    accum_dy: &Mutex<i32>,
+    accum: &MouseAccum,
 ) {
+    let timestamp = now_ms();
     let flags = m.Anonymous.Anonymous.usButtonFlags;
     if flags != 0 {
         for &(dn, up, btn) in BTN_MAP {
@@ -339,12 +439,14 @@ unsafe fn handle_mouse(
                 let _ = tx.send(InputEvent::MouseButton {
                     button: btn,
                     pressed: true,
+                    timestamp,
                 });
             }
             if flags & up != 0 {
                 let _ = tx.send(InputEvent::MouseButton {
                     button: btn,
                     pressed: false,
+                    timestamp,
                 });
             }
         }
@@ -358,7 +460,10 @@ unsafe fn handle_mouse(
                 0
             };
             if rot != 0 {
-                let _ = tx.send(InputEvent::MouseScroll { rotation: rot });
+                let _ = tx.send(InputEvent::MouseScroll {
+                    rotation: rot,
+                    timestamp,
+                });
             }
         }
     }
@@ -373,6 +478,10 @@ unsafe fn handle_mouse(
     if min_delta > 0 && dx.abs() + dy.abs() < min_delta {
         return;
     }
-    *accum_dx.lock().unwrap() += dx;
-    *accum_dy.lock().unwrap() += dy;
+    *accum.dx.lock().unwrap() += dx;
+    *accum.dy.lock().unwrap() += dy;
+    let mut ts = accum.ts.lock().unwrap();
+    if ts.is_none() {
+        *ts = Some(timestamp);
+    }
 }

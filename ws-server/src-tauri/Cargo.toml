@@ -1,6 +1,6 @@
 [package]
 name = "input-overlay-ws"
-version = "1.8.2"
+version.workspace = true
 description = "Input Overlay WebSocket Server"
 authors = []
 edition = "2021"
@@ -13,6 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+io-ws-common = { path = "../../common" }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
@@ -49,9 +50,3 @@ windows = { version = "0.58", features = [
     "Win32_System_Threading",
     "Win32_System_LibraryLoader",
 ] }
-
-[profile.release]
-panic = "abort"
-codegen-units = 1
-lto = true
-strip = true

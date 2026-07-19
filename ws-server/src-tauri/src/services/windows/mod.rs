@@ -1,3 +1,3 @@
 pub mod autostart;
-pub mod raw_input;
+pub use io_ws_common::services::windows::raw_input;
 pub mod updater;

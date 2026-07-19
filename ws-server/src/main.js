@@ -30,6 +30,8 @@ const adminWarning = document.getElementById("admin-warning");
 const addKeyBtn = document.getElementById("add-key-btn");
 const keyList = document.getElementById("key-list");
 const mouseMove = document.getElementById("send-mouse-move");
+const flushHzEl = document.getElementById("flush-hz");
+const cpuAffinityEl = document.getElementById("cpu-affinity");
 const clientsCount = document.getElementById("clients-count");
 const clientsList = document.getElementById("clients-list");
 const clientsModal = document.getElementById("clients-modal");
@@ -146,6 +148,9 @@ const CODE_TO_KEY = {
   F1: "key_f1", F2: "key_f2", F3: "key_f3", F4: "key_f4",
   F5: "key_f5", F6: "key_f6", F7: "key_f7", F8: "key_f8",
   F9: "key_f9", F10: "key_f10", F11: "key_f11", F12: "key_f12",
+  F13: "key_f13", F14: "key_f14", F15: "key_f15", F16: "key_f16",
+  F17: "key_f17", F18: "key_f18", F19: "key_f19", F20: "key_f20",
+  F21: "key_f21", F22: "key_f22", F23: "key_f23", F24: "key_f24",
 };
 
 const MOUSE_BTN_NAMES = {
@@ -187,6 +192,8 @@ function applyConfig(cfg) {
   portEl.value = cfg.port ?? 4455;
   authEl.value = cfg.auth_token ?? "";
   mouseMove.checked = cfg.send_mouse_move ?? true;
+  flushHzEl.value = cfg.flush_hz ?? 125;
+  cpuAffinityEl.value = (cfg.cpu_affinity ?? []).join(", ");
   analogEl.value = cfg.analog_keyboard ?? "";
   httpEnabledEl.checked = cfg.http_enabled ?? false;
   httpHostEl.value = cfg.host ?? "localhost";
@@ -213,8 +220,11 @@ function readConfig() {
     analog_keyboard: analogEl.value,
     http_enabled: httpEnabledEl.checked,
     http_port: parseInt(httpPortEl.value, 10) || 4456,
+    flush_hz: parseInt(flushHzEl.value, 10) || 125,
+    cpu_affinity: cpuAffinityEl.value.trim()
+      ? cpuAffinityEl.value.split(",").map(s => parseInt(s.trim(), 10)).filter(n => Number.isInteger(n) && n >= 0)
+      : [],
     raw_mouse_min_delta: originalConfig?.raw_mouse_min_delta ?? 0,
-    cpu_affinity: originalConfig?.cpu_affinity ?? [0, 1],
     linux_evdev_keyboard_device: kbdEl ? kbdEl.value : (originalConfig?.linux_evdev_keyboard_device ?? ""),
     linux_raw_mouse_device: mouseDevEl ? mouseDevEl.value : (originalConfig?.linux_raw_mouse_device ?? ""),
     dismissed_update_versions: originalConfig?.dismissed_update_versions ?? [],
@@ -343,6 +353,8 @@ httpPortEl.addEventListener("blur", () => {
 });
 authEl.addEventListener("input", () => markDirty());
 mouseMove.addEventListener("change", () => markDirty());
+flushHzEl.addEventListener("input", () => markDirty());
+cpuAffinityEl.addEventListener("input", () => markDirty());
 analogEl.addEventListener("change", () => markDirty());
 httpPortEl.addEventListener("input", () => markDirty());
 
@@ -379,6 +391,7 @@ const LINKS = {
   "link-github": "https://github.com/girlglock/input-overlay",
   "link-twitter": "https://twitter.com/girlglock_",
   "link-website": "https://girlglock.com",
+  "link-analogsense": "https://github.com/AnalogSense/JavaScript-SDK",
 };
 for (const [id, url] of Object.entries(LINKS)) {
   document.getElementById(id)?.addEventListener("click", (e) => {
@@ -535,6 +548,9 @@ async function init() {
     applyConfig(cfg);
     applyStatus(status);
     autostartEl.checked = autostart;
+    if (navigator.userAgent.includes("Windows")) {
+      document.getElementById("cpu-affinity-row").hidden = false;
+    }
     if (!admin) {
       adminWarning.hidden = false;
       autostartEl.disabled = true;

@@ -1,5 +1,5 @@
 //gup
-import { RAW_CODE_TO_KEY_NAME, MOUSE_BUTTON_MAP } from "../consts.js";
+import { KEY_CODES, MOUSE_CODES } from "../consts.js";
 
 /**
  * @typedef {Object} KeyboardInputEvent
@@ -173,11 +173,11 @@ export class WebSocketManager {
 
     _getMappedKeyInfo(event) {
         if (event.rawcode !== undefined && (event.event_type.startsWith("key_") || event.event_type === "analog_depth")) {
-            const name = RAW_CODE_TO_KEY_NAME[event.rawcode];
+            const name = KEY_CODES.byRawcode(event.rawcode)?.codename;
             return name ? { id: `k_${event.rawcode}`, name, type: "key" } : null;
         }
         if (event.button && event.event_type.startsWith("mouse_")) {
-            const name = MOUSE_BUTTON_MAP[event.button];
+            const name = MOUSE_CODES.byRawcode(event.button)?.codename;
             return name ? { id: `m_${event.button}`, name, type: "mouse" } : null;
         }
         return null;
@@ -268,6 +268,8 @@ export class WebSocketManager {
                 for (const el of elements) {
                     el.classList.remove("active", "analog-key");
                     viz.activeElements.delete(el);
+                    const topEl = el.closest("[data-base-z-index]");
+                    if (topEl?.dataset.moveToTop === "1") topEl.style.zIndex = topEl.dataset.baseZIndex;
                     el.style.transform = "";
                     el.style.removeProperty("background-image");
                     el.style.removeProperty("border-color");
@@ -292,6 +294,7 @@ export class WebSocketManager {
             scrollDisplays.forEach((display, i) => {
                 display.classList.remove("active");
                 viz.activeElements.delete(display);
+                if (display.dataset.moveToTop === "1") display.style.zIndex = display.dataset.baseZIndex;
                 scrollArrows[i].textContent = display.dataset.defaultLabel || "";
                 scrollCounts[i].textContent = "";
             });

@@ -11,7 +11,6 @@ export class OverlayVisualiser {
         this.currentScrollCount = 0;
         this.lastScrollDirection = null;
         this.scrollTimeout = null;
-        this.Z_INDEX_COUNTER = 100;
 
         this.analogMode = false;
         this.analogTargetDepths = {};
@@ -42,27 +41,40 @@ export class OverlayVisualiser {
         this.MOUSEPAD_PAN_X = 0;
         this.MOUSEPAD_PAN_Y = 0;
         this._mousePadRafLoop = this._mousePadRafLoop.bind(this);
-        this._mousePadLastFrameTime = 0;
         this._mousePadTextureImg = null;
-        this._mousePadTextureUrl = null;
         this._mousePadTexturePattern = null;
         this._mousePadTextureTintCanvas = null;
         this._mousePadVideoEl = null;
         this._mousePadWasLiveTrail = false;
         this._mousePadTextureAnimated = false;
 
+        this._mousePadGifDecoder = null;
+        this._mousePadGifFrame = null;
+        this._mousePadGifFrameIndex = 0;
+        this._mousePadGifFrameCount = 0;
+        this._mousePadGifTimer = null;
+
         this._activeColorRGB = null;
 
         this._joystickCanvases = {};
         this._joystickRafLoops = {};
+
+        this._historyCanvases = {};
+        this._historyRafLoops = {};
+        this._historyByKey = new Map();
+
+        this._moveToTopZCounter = 10000;
     }
 
     updateElementState(el, keyName, isActive, activeSet) {
         if (isActive) {
             if (this.activeElements.has(el)) { activeSet.add(keyName); return; }
+            const wasKeyActive = activeSet.has(keyName);
 
             el.classList.add("active");
             this.activeElements.add(el);
+            const topEl = el.closest("[data-base-z-index]");
+            if (topEl?.dataset.moveToTop === "1") topEl.style.zIndex = String(++this._moveToTopZCounter);
 
             if (this.analogMode && (keyName.startsWith("key_") || keyName === "gp_lt" || keyName === "gp_rt")) {
                 el.classList.add("analog-key");
@@ -82,9 +94,12 @@ export class OverlayVisualiser {
                 el.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
             }
             activeSet.add(keyName);
+            if (!wasKeyActive) this._recordHistoryEdge(keyName, true);
         } else {
             el.classList.remove("active", "analog-key");
             this.activeElements.delete(el);
+            const topElOff = el.closest("[data-base-z-index]");
+            if (topElOff?.dataset.moveToTop === "1") topElOff.style.zIndex = topElOff.dataset.baseZIndex;
 
             if (this.analogMode && (keyName.startsWith("key_") || keyName === "gp_lt" || keyName === "gp_rt")) {
                 el.style.setProperty("transform", "scale(1)", "important");
@@ -106,7 +121,29 @@ export class OverlayVisualiser {
             }
 
             const map = this.previewElements?.keyElements.get(keyName) || this.previewElements?.mouseElements.get(keyName) || this.previewElements?.gamepadElements?.get(keyName);
-            if (map && !map.some(e => this.activeElements.has(e))) activeSet.delete(keyName);
+            if (map && !map.some(e => this.activeElements.has(e))) {
+                activeSet.delete(keyName);
+                this._recordHistoryEdge(keyName, false);
+            }
+        }
+    }
+
+    _recordHistoryEdge(keyName, isPress) {
+        const instances = this._historyByKey.get(keyName);
+        if (!instances?.length) return;
+        const now = performance.now();
+        for (const state of instances) {
+            if (isPress) {
+                state.log.push({ key: keyName, start: now, end: null });
+            } else {
+                for (let i = state.log.length - 1; i >= 0; i--) {
+                    if (state.log[i].key === keyName && state.log[i].end === null) {
+                        state.log[i].end = now;
+                        break;
+                    }
+                }
+            }
+            if (!state.rafId) state.rafId = requestAnimationFrame(this._historyRafLoops[state.historyId]);
         }
     }
 
@@ -133,7 +170,6 @@ export class OverlayVisualiser {
         this.activeColor = opts.activecolor;
         this.activeBgColor = opts.activebgcolor;
         this.backgroundcolor = opts.backgroundcolor;
-        this.glowRadius = opts.glowradius;
         this.inactiveColor = opts.inactivecolor;
         this.outlineColor = opts.outlinecolor;
         this.fontColor = opts.fontcolor;
@@ -172,9 +208,15 @@ export class OverlayVisualiser {
                 this._mousePadVideoEl._domNode?.remove();
                 this._mousePadVideoEl = null;
             }
+            clearTimeout(this._mousePadGifTimer);
+            this._mousePadGifFrame?.close();
+            this._mousePadGifFrame = null;
+            this._mousePadGifDecoder?.close?.();
+            this._mousePadGifDecoder = null;
             if (newTextureUrl) {
                 const ext = (newTextureUrl.split("?")[0].toLowerCase().match(/\.(\w+)$/) || [])[1] || "";
                 const isVideo = ext === "mp4" || ext === "webm" || ext === "ogg";
+                const isGif = ext === "gif" && typeof ImageDecoder !== "undefined";
                 if (isVideo) {
                     const video = document.createElement("video");
                     video.muted = true;
@@ -193,6 +235,8 @@ export class OverlayVisualiser {
                     this._mousePadTextureAnimated = true;
                     if (!this.mousePadRafId && this.mousePadCtx)
                         this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
+                } else if (isGif) {
+                    this._mousePadLoadGif(newTextureUrl);
                 } else {
                     const img = new Image();
                     img.crossOrigin = "anonymous";
@@ -407,6 +451,13 @@ export class OverlayVisualiser {
 
         this.scrollerAliases.clear();
 
+        for (const state of Object.values(this._historyCanvases)) {
+            if (state.rafId) cancelAnimationFrame(state.rafId);
+        }
+        this._historyCanvases = {};
+        this._historyRafLoops = {};
+        this._historyByKey = new Map();
+
         const register = (map, name, el) => {
             let arr = map.get(name);
             if (!arr) { arr = []; map.set(name, arr); }
@@ -440,6 +491,17 @@ export class OverlayVisualiser {
                     const el = this._buildJoystickElementAbs(item, stickId, x, y, widthPx, heightPx);
                     container.appendChild(el);
                     register(gamepadElements, stickId, el);
+                    break;
+                }
+                case "input_history": {
+                    const historyId = `hist_${zi}`;
+                    const el = this._buildInputHistoryElementAbs(item, historyId, x, y, widthPx, heightPx);
+                    container.appendChild(el);
+                    for (const keyName of item.trackedKeys ?? []) {
+                        let arr = this._historyByKey.get(keyName);
+                        if (!arr) { arr = []; this._historyByKey.set(keyName, arr); }
+                        arr.push(this._historyCanvases[historyId]);
+                    }
                     break;
                 }
                 case "scroller": {
@@ -533,6 +595,8 @@ export class OverlayVisualiser {
                 }
             }
             container.lastElementChild.style.zIndex = String(zi);
+            container.lastElementChild.dataset.baseZIndex = String(zi);
+            if (item.moveToTop) container.lastElementChild.dataset.moveToTop = "1";
         }
 
         container.style.minWidth = `${maxRight}px`;
@@ -592,15 +656,13 @@ export class OverlayVisualiser {
         canvas.style.cssText = "display:block;position:absolute;pointer-events:none;";
         wrap.appendChild(canvas);
 
-        const state = {
+        this._joystickCanvases[stickId] = {
             canvas, ctx: canvas.getContext("2d"),
             posX: 0.5, posY: 0.5,
             W: widthPx, H: heightPx,
             rafId: null,
         };
-        this._joystickCanvases[stickId] = state;
-        const loopFn = this._joystickRafLoop.bind(this, stickId);
-        this._joystickRafLoops[stickId] = loopFn;
+        this._joystickRafLoops[stickId] = this._joystickRafLoop.bind(this, stickId);
 
         const ro = new ResizeObserver(() => this._resizeJoystick(stickId));
         ro.observe(wrap);
@@ -609,6 +671,42 @@ export class OverlayVisualiser {
             this._resizeJoystick(stickId);
             if (typeof window.setDynamicScale === "function") window.setDynamicScale();
         }));
+
+        return wrap;
+    }
+
+    _buildInputHistoryElementAbs(item, historyId, x, y, widthPx, heightPx) {
+        const heightMod = (heightPx / 50).toFixed(4);
+
+        const wrap = document.createElement("div");
+        wrap.className = "input-history-wrap key";
+        wrap.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${widthPx}px;height:${heightPx}px;overflow:hidden;pointer-events:none;z-index:50;box-sizing:border-box;`;
+        wrap.style.setProperty("--key-width", `${widthPx}px`);
+        wrap.style.setProperty("--key-height-modifier", heightMod);
+
+        const canvas = document.createElement("canvas");
+        canvas.className = "input-history-canvas";
+        canvas.style.cssText = "display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;";
+        wrap.appendChild(canvas);
+
+        this._historyCanvases[historyId] = {
+            historyId,
+            canvas, ctx: canvas.getContext("2d"),
+            log: [],
+            trackedKeys: item.trackedKeys ?? [],
+            vertical: !!item.vertical,
+            scrollSpeed: item.scrollSpeed || 200,
+            highlightOverlap: !!item.highlightOverlap,
+            reverseDirection: !!item.reverseDirection,
+            W: widthPx, H: heightPx,
+            rafId: null,
+        };
+        this._historyRafLoops[historyId] = this._historyRafLoop.bind(this, historyId);
+
+        const ro = new ResizeObserver(() => this._resizeInputHistory(historyId));
+        ro.observe(wrap);
+
+        requestAnimationFrame(() => requestAnimationFrame(() => this._resizeInputHistory(historyId)));
 
         return wrap;
     }
@@ -629,7 +727,6 @@ export class OverlayVisualiser {
                 this.restoreActiveStates();
                 this.adjustScrollDisplays();
                 this.adjustKeyFontSizes(parseFloat(this.outlineScaleUnpressed) || 0);
-                return;
             }
         }
     }
@@ -706,6 +803,7 @@ export class OverlayVisualiser {
                     const scaleX = this.pressScaleValue > 1 ? this._getPressScale(display) : scaleY;
                     display.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
                 }
+                if (display.dataset.moveToTop === "1") display.style.zIndex = String(++this._moveToTopZCounter);
             }
             display.classList.add("active");
 
@@ -724,6 +822,7 @@ export class OverlayVisualiser {
             for (const display of els.scrollDisplays) {
                 display.classList.remove("active");
                 if (this.analogMode) display.style.setProperty("transform", "scale(1)", "important");
+                if (display.dataset.moveToTop === "1") display.style.zIndex = display.dataset.baseZIndex;
             }
         }, this.scrollHoldMs || 250);
     }
@@ -739,7 +838,7 @@ export class OverlayVisualiser {
         }
     }
 
-    setAnalogDepthTarget(keyName, depth, source) {
+    setAnalogDepthTarget(keyName, depth) {
         if (!this.analogMode && this._cachedOpts) {
             this.analogMode = true;
             this.applyStyles(this._cachedOpts);
@@ -802,7 +901,6 @@ export class OverlayVisualiser {
 
         const unpressedWidth = this.outlineScaleUnpressed ?? 2;
         const pressedWidth = this.outlineScalePressed ?? 2;
-        const glowRadius = this.glowRadius || "24px";
         const keyLegendMode = this.keyLegendMode || "inverting";
 
         const showFill = this.analogDisplayMode !== "percent";
@@ -877,108 +975,6 @@ export class OverlayVisualiser {
                 if (inverted) inverted.style.clipPath = "inset(100% 0 0 0)";
             }
         }
-    }
-
-    _parseUClass(uStr, base = 50) {
-        if (!uStr) return base;
-        const m = uStr.match(/^u(\d+)(?:-(\d+))?$/);
-        if (!m) return base;
-        const dec = m[2] ? (m[2].length === 1 ? parseInt(m[2]) * 10 : parseInt(m[2])) : 0;
-        return parseInt(m[1]) * base + Math.round(dec * base / 100);
-    }
-
-    _buildMousePadElement(item) {
-        const widthPx = this._parseUClass(item.widthClass, 50);
-        const heightPx = this._parseUClass(item.heightClass, 50);
-        const heightMod = (heightPx / 50).toFixed(4);
-        const heightCss = `calc(50px * ${heightMod})`;
-
-        const anchor = item.anchor || "a-tl";
-        const anchorV = anchor[2];
-        const anchorH = anchor[3];
-
-        const container = document.createElement("div");
-        container.className = "mousepad-container";
-        container.style.cssText = [
-            "position:relative",
-            "width:0", "min-width:0", "max-width:0",
-            "height:0", "min-height:0",
-            "flex-shrink:0",
-            "overflow:visible",
-            "pointer-events:none",
-            "align-self:flex-start",
-        ].join(";");
-
-        const wrap = document.createElement("div");
-        wrap.className = "mousepad-wrap key";
-        wrap.style.setProperty("--key-width", `${widthPx}px`);
-        wrap.style.setProperty("--key-height-modifier", heightMod);
-        wrap.style.position = "absolute";
-        wrap.style.zIndex = "50";
-        wrap.style.width = `${widthPx}px`;
-        wrap.style.height = heightCss;
-        wrap.style.overflow = "hidden";
-        wrap.style.pointerEvents = "none";
-
-        if (anchorV === "t") wrap.style.top = "0";
-
-        const canvas = document.createElement("canvas");
-        canvas.className = "mousepad-canvas";
-        canvas.id = `mouse_pad`;
-        canvas.style.cssText = "display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;";
-        wrap.appendChild(canvas);
-
-        this.mousePadCanvas = canvas;
-        this.mousePadCtx = canvas.getContext("2d");
-        this.mousePadTrail = [];
-        this.mousePadCursorX = null;
-        this.mousePadCursorY = null;
-
-        this._mousePadResizeObserver?.disconnect();
-        this._mousePadResizeObserver = new ResizeObserver(() => this._resizeMousePad());
-        this._mousePadResizeObserver.observe(wrap);
-
-        const findRow = (el) => {
-            let cur = el?.parentElement;
-            while (cur) {
-                if (cur.classList.contains("key-row") || cur.classList.contains("mouse-row")) return cur;
-                cur = cur.parentElement;
-            }
-            return null;
-        };
-
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            const row = findRow(container);
-            const gap = row ? parseFloat(getComputedStyle(row).gap) || 0 : 0;
-            const rowH = row ? row.getBoundingClientRect().height : heightPx;
-
-            let left;
-            if (anchorH === "l") {
-                left = 0;
-                container.style.marginRight = `-${gap}px`;
-            } else if (anchorH === "r") {
-                left = -widthPx;
-                container.style.marginLeft = `-${gap}px`;
-            } else {
-                left = -widthPx / 2;
-                container.style.marginLeft = `-${gap / 2}px`;
-                container.style.marginRight = `-${gap / 2}px`;
-            }
-            wrap.style.left = `${left}px`;
-
-            const innerH = row ? row.clientHeight : heightPx;
-            if (anchorV === "c") {
-                wrap.style.top = `${(innerH - heightPx) / 2}px`;
-            } else if (anchorV === "b") {
-                wrap.style.top = `${innerH - heightPx}px`;
-            }
-
-            this._resizeMousePad();
-            if (typeof window.setDynamicScale === "function") window.setDynamicScale();
-        }));
-
-        container.appendChild(wrap);
-        return container;
     }
 
     _resizeMousePad() {
@@ -1070,6 +1066,39 @@ export class OverlayVisualiser {
         if (!this.mousePadRafId) this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
     }
 
+    async _mousePadLoadGif(url) {
+        try {
+            const resp = await fetch(url);
+            const buf = await resp.arrayBuffer();
+            if (url !== this.MOUSEPAD_BG_TEXTURE) return;
+            const decoder = new ImageDecoder({ data: buf, type: "image/gif" });
+            await decoder.tracks.ready;
+            if (url !== this.MOUSEPAD_BG_TEXTURE) { decoder.close?.(); return; }
+
+            this._mousePadGifDecoder = decoder;
+            this._mousePadGifFrameCount = decoder.tracks.selectedTrack.frameCount;
+            this._mousePadGifFrameIndex = 0;
+            this._mousePadTextureAnimated = this._mousePadGifFrameCount > 1;
+            this._mousePadGifAdvance(decoder);
+            if (!this.mousePadRafId && this.mousePadCtx)
+                this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
+        } catch (e) {
+            console.warn(`mouse_pad: failed to decode gif texture: ${e}`);
+        }
+    }
+
+    _mousePadGifAdvance(decoder) {
+        decoder.decode({ frameIndex: this._mousePadGifFrameIndex }).then((result) => {
+            if (this._mousePadGifDecoder !== decoder) { result.image.close(); return; }
+            this._mousePadGifFrame?.close();
+            this._mousePadGifFrame = result.image;
+            const delayMs = Math.max(20, (result.image.duration || 100000) / 1000);
+            this._mousePadGifFrameIndex = (this._mousePadGifFrameIndex + 1) % this._mousePadGifFrameCount;
+            if (this._mousePadGifFrameCount > 1)
+                this._mousePadGifTimer = setTimeout(() => this._mousePadGifAdvance(decoder), delayMs);
+        }).catch(() => {});
+    }
+
     _mousePadRafLoop() {
         this.mousePadRafId = null;
         if (!this.mousePadCtx || !this.mousePadCanvas) return;
@@ -1083,7 +1112,7 @@ export class OverlayVisualiser {
 
         ctx.clearRect(0, 0, W, H);
 
-        if (this._mousePadTextureImg || this._mousePadVideoEl || this.MOUSEPAD_MODE === "pan") {
+        if (this._mousePadTextureImg || this._mousePadVideoEl || this._mousePadGifFrame || this.MOUSEPAD_MODE === "pan") {
             const [r, g, b] = this._activeColorRGB || [139, 92, 246];
             const tintColor = `rgba(${r},${g},${b},0.13)`;
 
@@ -1093,6 +1122,10 @@ export class OverlayVisualiser {
                 texSrc = this._mousePadVideoEl;
                 tw = this._mousePadVideoEl.videoWidth;
                 th = this._mousePadVideoEl.videoHeight;
+            } else if (this._mousePadGifFrame) {
+                texSrc = this._mousePadGifFrame;
+                tw = texSrc.displayWidth || texSrc.codedWidth;
+                th = texSrc.displayHeight || texSrc.codedHeight;
             } else if (this._mousePadTextureImg) {
                 texSrc = this._mousePadTextureImg;
                 tw = texSrc.naturalWidth || texSrc.width;
@@ -1235,12 +1268,11 @@ export class OverlayVisualiser {
                 ctx.lineJoin = "round";
                 ctx.stroke();
             };
-            const taperTotal = taperEnd;
             for (let i = 0; i < taperEnd; i++) {
                 const isM1 = this.MOUSEPAD_M1_HIGHLIGHT && (pts[i].m1 || pts[i + 1].m1);
                 const baseWidth = trailPx * (isM1 ? 1.5 : 1);
                 const color = isM1 ? this._mousePadColorBright(fade) : this._mousePadColor(fade);
-                const w = baseWidth * (i + 1) / taperTotal;
+                const w = baseWidth * (i + 1) / taperEnd;
                 _dbgStrokes++;
                 const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
                 ctx.beginPath();
@@ -1310,7 +1342,6 @@ export class OverlayVisualiser {
         }
 
         ctx.restore();
-        const naiveStrokes = Math.max(0, trail.filter(p => p !== null).length - 1);
         if (this.MOUSEPAD_SHOW_DISTANCE) {
             const inchesTotal = (this._mousePadTotalDistancePx || 0) / (this.MOUSEPAD_DPI || 400);
             const cmTotal = inchesTotal * 2.54;
@@ -1338,7 +1369,6 @@ export class OverlayVisualiser {
             ctx.restore();
         }
 
-        const fullyFaded = !noFadeout && lastPoint !== null && (now - lastPoint.t) >= maxAge;
         if (this.mousePadTrail.length > 0 && this.mousePadTrail.every(p => p === null)) this.mousePadTrail = [];
         const trailEmpty = this.mousePadTrail.length === 0;
         const trailVisuallyLive = !trailEmpty && (noFadeout ? true : idleFade > 0);
@@ -1380,84 +1410,115 @@ export class OverlayVisualiser {
         return `rgba(${r},${g},${b},${Math.min(1, alpha * 1.2).toFixed(3)})`;
     }
 
+    _resizeInputHistory(historyId) {
+        const state = this._historyCanvases[historyId];
+        if (!state) return;
+        const wrap = state.canvas.parentElement;
+        if (!wrap) return;
+        const logW = parseFloat(wrap.style.width) || wrap.offsetWidth;
+        const logH = parseFloat(wrap.style.height) || wrap.offsetHeight;
+        if (!logW || !logH) return;
 
-    _buildJoystickElement(item) {
-        const widthPx = this._parseUClass(item.widthClass, 50);
-        const heightPx = this._parseUClass(item.heightClass || item.widthClass, 50);
-        const heightMod = (heightPx / 50).toFixed(4);
-        const anchor = item.anchor || "a-tl";
-        const anchorV = anchor[2];
-        const anchorH = anchor[3];
-        const stickId = item.stickId || item.key;
+        const dpr = window.devicePixelRatio || 1;
+        state.canvas.width = Math.round(logW * dpr);
+        state.canvas.height = Math.round(logH * dpr);
+        state.canvas.style.width = `${logW}px`;
+        state.canvas.style.height = `${logH}px`;
+        state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        const container = document.createElement("div");
-        container.className = "joystick-container";
-        container.style.cssText = [
-            "position:relative", "width:0", "min-width:0", "max-width:0",
-            "height:0", "min-height:0", "flex-shrink:0",
-            "overflow:visible", "pointer-events:none", "align-self:flex-start",
-        ].join(";");
+        state.W = logW;
+        state.H = logH;
+        this._drawInputHistory(historyId);
+    }
 
-        const wrap = document.createElement("div");
-        wrap.className = "joystick-wrap";
-        wrap.style.setProperty("--key-width", `${widthPx}px`);
-        wrap.style.setProperty("--key-height-modifier", heightMod);
-        wrap.style.position = "absolute";
-        wrap.style.zIndex = "50";
-        wrap.style.width = `${widthPx}px`;
-        wrap.style.height = `calc(50px * ${heightMod})`;
-        wrap.style.overflow = "visible";
-        wrap.style.pointerEvents = "none";
-        if (anchorV === "t") wrap.style.top = "0";
+    _historyRafLoop(historyId) {
+        const state = this._historyCanvases[historyId];
+        if (!state) return;
+        state.rafId = null;
+        const stillLive = this._drawInputHistory(historyId);
+        if (stillLive) state.rafId = requestAnimationFrame(this._historyRafLoops[historyId]);
+    }
 
-        const canvas = document.createElement("canvas");
-        canvas.className = "joystick-canvas";
-        canvas.dataset.stickId = stickId;
-        canvas.style.cssText = "display:block;position:absolute;pointer-events:none;";
-        wrap.appendChild(canvas);
+    _historyOverlapRanges(log, now) {
+        const events = [];
+        for (const e of log) {
+            const end = e.end ?? now;
+            if (end <= e.start) continue;
+            events.push([e.start, 1]);
+            events.push([end, -1]);
+        }
+        events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
 
-        const state = {
-            canvas, ctx: canvas.getContext("2d"),
-            posX: 0.5, posY: 0.5,
-            W: widthPx, H: heightPx,
-            rafId: null,
+        const ranges = [];
+        let active = 0, segStart = null;
+        for (const [t, delta] of events) {
+            const wasOverlap = active >= 2;
+            active += delta;
+            const isOverlap = active >= 2;
+            if (!wasOverlap && isOverlap) segStart = t;
+            else if (wasOverlap && !isOverlap) { ranges.push([segStart, t]); segStart = null; }
+        }
+        return ranges;
+    }
+
+    _drawInputHistory(historyId) {
+        const state = this._historyCanvases[historyId];
+        if (!state?.ctx) return false;
+        const { ctx, W, H, vertical, reverseDirection, scrollSpeed, trackedKeys, highlightOverlap } = state;
+
+        ctx.clearRect(0, 0, W, H);
+        if (!trackedKeys.length) return false;
+
+        const now = performance.now();
+        const pxPerMs = scrollSpeed / 1000;
+        const scrollAxisSize = vertical ? H : W;
+        const crossAxisSize = vertical ? W : H;
+        const laneSize = crossAxisSize / trackedKeys.length;
+
+        const barThickness = Math.max(1, laneSize - 1);
+        const laneInset = (laneSize - barThickness) / 2;
+
+        const agoPx = (t) => (now - t) * pxPerMs;
+        const posOf = (t) => reverseDirection ? scrollAxisSize - agoPx(t) : agoPx(t);
+        const barRange = (entry) => {
+            const p0 = posOf(entry.start), p1 = posOf(entry.end ?? now);
+            return [Math.min(p0, p1), Math.max(1, Math.abs(p1 - p0))];
         };
-        this._joystickCanvases[stickId] = state;
-        const loopFn = this._joystickRafLoop.bind(this, stickId);
-        this._joystickRafLoops[stickId] = loopFn;
 
-        const ro = new ResizeObserver(() => this._resizeJoystick(stickId));
-        ro.observe(wrap);
+        state.log = state.log.filter(e => agoPx(e.end ?? now) <= scrollAxisSize);
 
-        const findRow = el => {
-            let cur = el?.parentElement;
-            while (cur) {
-                if (cur.classList.contains("key-row") || cur.classList.contains("gamepad-row") || cur.classList.contains("mouse-row")) return cur;
-                cur = cur.parentElement;
+        const outlineRgba = this.utils.hexToRgba(this.outlineColor || "#4f4f4f", 0.5);
+        for (let i = 1; i < trackedKeys.length; i++) {
+            const p = i * laneSize;
+            ctx.fillStyle = outlineRgba;
+            if (vertical) ctx.fillRect(p - 0.5, 0, 1, H);
+            else ctx.fillRect(0, p - 0.5, W, 1);
+        }
+
+        ctx.fillStyle = this.utils.hexToRgba(this.activeColor || "#8b5cf6", 0.9);
+        let anyOpen = false;
+
+        trackedKeys.forEach((keyName, i) => {
+            const laneStart = i * laneSize + laneInset;
+            for (const entry of state.log) {
+                if (entry.key !== keyName) continue;
+                if (entry.end === null) anyOpen = true;
+                const [barStart, barLen] = barRange(entry);
+                if (vertical) ctx.fillRect(laneStart, barStart, barThickness, barLen);
+                else ctx.fillRect(barStart, laneStart, barLen, barThickness);
             }
-            return null;
-        };
+        });
 
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            const row = findRow(container);
-            const gap = row ? parseFloat(getComputedStyle(row).gap) || 0 : 0;
-            const innerH = row ? row.clientHeight : heightPx;
+        if (highlightOverlap) {
+            ctx.fillStyle = this.utils.hexToRgba(this.fontColor || "#ffffff", 1);
+            for (const [rangeStart, rangeEnd] of this._historyOverlapRanges(state.log, now)) {
+                const [barStart, barLen] = barRange({ start: rangeStart, end: rangeEnd });
+                if (vertical) ctx.fillRect(0, barStart, W, barLen);
+                else ctx.fillRect(barStart, 0, barLen, H);
+            }
+        }
 
-            let left;
-            if (anchorH === "l") { left = 0; container.style.marginRight = `-${gap}px`; }
-            else if (anchorH === "r") { left = -widthPx; container.style.marginLeft = `-${gap}px`; }
-            else { left = -widthPx / 2; container.style.marginLeft = `-${gap / 2}px`; container.style.marginRight = `-${gap / 2}px`; }
-            wrap.style.left = `${left}px`;
-
-            if (anchorV === "c") wrap.style.top = `${(innerH - heightPx) / 2}px`;
-            else if (anchorV === "b") wrap.style.top = `${innerH - heightPx}px`;
-
-            this._resizeJoystick(stickId);
-            if (typeof window.setDynamicScale === "function") window.setDynamicScale();
-        }));
-
-        container.appendChild(wrap);
-        return container;
+        return anyOpen || state.log.length > 0;
     }
 
     _resizeJoystick(stickId) {

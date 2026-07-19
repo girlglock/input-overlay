@@ -9,14 +9,15 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
-use tokio::sync::{watch, RwLock};
+use tokio::sync::watch;
 
 use services::config::Config;
 use tauri::Emitter;
-use ws_server::{InputEvent, ServerStatus, WsState};
+use io_ws_common::input_event::InputEvent;
+use ws_server::{ServerStatus, WsState};
 
 struct AppState {
-    config: Arc<RwLock<Config>>,
+    config: Arc<Mutex<Config>>,
     config_path: PathBuf,
     status: Arc<Mutex<ServerStatus>>,
     ws_state: Arc<WsState>,
@@ -33,21 +34,24 @@ struct AppState {
 //tairi io-----------------------------------------------------------------------
 #[tauri::command]
 async fn get_config(state: tauri::State<'_, AppState>) -> Result<Config, String> {
-    Ok(state.config.read().await.clone())
+    Ok(state.config.lock().unwrap().clone())
 }
 
 #[tauri::command]
 async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let (need_rebind, need_analog_restart, need_http_restart, need_evdev_restart) = {
-        let old = state.config.read().await;
+    let (need_rebind, need_analog_restart, need_http_restart, need_evdev_restart, need_raw_restart, need_affinity) = {
+        let old = state.config.lock().unwrap();
         (
             old.host != new_cfg.host || old.port != new_cfg.port,
-            old.analog_keyboard != new_cfg.analog_keyboard,
+            old.analog_keyboard != new_cfg.analog_keyboard || old.flush_hz != new_cfg.flush_hz,
             old.http_enabled != new_cfg.http_enabled
                 || old.http_port != new_cfg.http_port
                 || old.host != new_cfg.host,
             old.linux_evdev_keyboard_device != new_cfg.linux_evdev_keyboard_device
-                || old.linux_raw_mouse_device != new_cfg.linux_raw_mouse_device,
+                || old.linux_raw_mouse_device != new_cfg.linux_raw_mouse_device
+                || old.flush_hz != new_cfg.flush_hz,
+            old.flush_hz != new_cfg.flush_hz,
+            old.cpu_affinity != new_cfg.cpu_affinity,
         )
     };
 
@@ -58,22 +62,32 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     let new_http_port = new_cfg.http_port;
     let new_http_on = new_cfg.http_enabled;
     #[cfg(target_os = "linux")]
-    let (new_kbd_dev, new_mouse_dev, new_min_delta) = (
+    let (new_kbd_dev, new_mouse_dev, new_min_delta, new_flush_hz) = (
         new_cfg.linux_evdev_keyboard_device.clone(),
         new_cfg.linux_raw_mouse_device.clone(),
         new_cfg.raw_mouse_min_delta,
+        new_cfg.flush_hz,
     );
-    *state.config.write().await = new_cfg;
+    #[cfg(windows)]
+    let (new_min_delta, new_flush_hz, new_affinity) = (new_cfg.raw_mouse_min_delta, new_cfg.flush_hz, new_cfg.cpu_affinity.clone());
+    *state.config.lock().unwrap() = new_cfg;
+
+    if need_affinity {
+        #[cfg(windows)]
+        apply_cpu_affinity(&new_affinity);
+    }
 
     if need_rebind {
         let _ = state.ws_state.rebind_tx.send(());
     }
 
     if need_analog_restart {
+        *state.analog.lock().unwrap() = None;
         let new_thread = if !new_analog_kb.is_empty() {
             Some(services::analog::AnalogThread::start(
                 state.ws_state.input_tx.clone(),
                 &new_analog_kb,
+                new_flush_hz,
             ))
         } else {
             None
@@ -91,17 +105,35 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     }
 
     #[cfg(target_os = "linux")]
+    let _ = need_raw_restart;
+    #[cfg(target_os = "linux")]
     if need_evdev_restart {
+        *state._evdev.lock().unwrap() = None;
         let new_thread = services::linux::evdev_input::EvdevInputThread::start(
             state.ws_state.input_tx.clone(),
             &new_kbd_dev,
             &new_mouse_dev,
             new_min_delta,
+            new_flush_hz,
         );
         *state._evdev.lock().unwrap() = Some(new_thread);
     }
     #[cfg(windows)]
-    let _ = need_evdev_restart;
+    {
+        let _ = need_evdev_restart;
+        if need_raw_restart {
+            *state._raw_input.lock().unwrap() = None;
+            let new_thread = services::windows::raw_input::RawInputThread::start(
+                state.ws_state.input_tx.clone(),
+                new_min_delta,
+                new_flush_hz,
+                true,
+            );
+            *state._raw_input.lock().unwrap() = Some(new_thread);
+        }
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    let _ = (need_evdev_restart, need_raw_restart);
 
     Ok(())
 }
@@ -112,9 +144,11 @@ async fn apply_bind(
     port: u16,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let mut cfg = state.config.write().await;
-    cfg.host = host;
-    cfg.port = port;
+    {
+        let mut cfg = state.config.lock().unwrap();
+        cfg.host = host;
+        cfg.port = port;
+    }
     let _ = state.ws_state.rebind_tx.send(());
     Ok(())
 }
@@ -132,7 +166,7 @@ async fn toggle_http(
         None
     };
     *state.http.lock().unwrap() = new_server;
-    let mut cfg = state.config.write().await;
+    let mut cfg = state.config.lock().unwrap();
     cfg.http_enabled = enabled;
     cfg.http_port = port;
     services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())
@@ -208,7 +242,7 @@ fn is_admin() -> bool {
 
 #[tauri::command]
 async fn set_theme(theme: Option<String>, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut cfg = state.config.write().await;
+    let mut cfg = state.config.lock().unwrap();
     cfg.theme = theme;
     services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())
 }
@@ -255,7 +289,7 @@ fn check_update(state: tauri::State<'_, AppState>) -> Option<services::updater::
 
 #[tauri::command]
 async fn dismiss_update(version: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut cfg = state.config.write().await;
+    let mut cfg = state.config.lock().unwrap();
     if !cfg.dismissed_update_versions.contains(&version) {
         cfg.dismissed_update_versions.push(version);
         services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())?;
@@ -334,11 +368,20 @@ pub fn run() {
         std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
     }
 
-    let data_dir = std::env::current_exe()
-        .expect("failed to get exe path")
-        .parent()
-        .expect("exe has no parent dir")
-        .to_path_buf();
+    let data_dir = {
+        let exe_dir = std::env::current_exe()
+            .expect("failed to get exe path")
+            .parent()
+            .expect("exe has no parent dir")
+            .to_path_buf();
+        //for appimage  use the dir where the appimage is in, not the temp dir it runs in :p
+        #[cfg(target_os = "linux")]
+        let exe_dir = std::env::var("APPIMAGE")
+            .ok()
+            .and_then(|p| std::path::PathBuf::from(p).parent().map(|p| p.to_path_buf()))
+            .unwrap_or(exe_dir);
+        exe_dir
+    };
 
     let log_dir = data_dir.join("logs");
     std::fs::create_dir_all(&log_dir).ok();
@@ -391,7 +434,7 @@ pub fn run() {
                 cfg.linux_raw_mouse_device.clone(),
                 cfg.raw_mouse_min_delta,
             );
-            let config = Arc::new(RwLock::new(cfg));
+            let config = Arc::new(Mutex::new(cfg));
             let status = Arc::new(Mutex::new(ServerStatus::default()));
             let (rebind_tx, rebind_rx) = watch::channel(());
             let (input_tx, input_rx) = tokio::sync::mpsc::unbounded_channel::<InputEvent>();
@@ -406,32 +449,41 @@ pub fn run() {
                 let st = Arc::clone(&status);
                 let ah = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    ws_server::run(cfg, input_rx, st, rebind_rx, ah).await;
+                    ws_server::run(cfg, input_rx, st, rebind_rx, move |s| {
+                        ah.emit("status-update", s).ok();
+                    }).await;
                 });
             }
 
             #[cfg(windows)]
             let raw_input_handle = {
-                let min_delta = config
-                    .try_read()
-                    .map(|c| c.raw_mouse_min_delta)
-                    .unwrap_or(0);
+                let (min_delta, flush_hz) = {
+                    let c = config.lock().unwrap();
+                    (c.raw_mouse_min_delta, c.flush_hz)
+                };
                 Some(services::windows::raw_input::RawInputThread::start(
                     input_tx.clone(),
                     min_delta,
+                    flush_hz,
+                    true,
                 ))
             };
 
             #[cfg(target_os = "linux")]
-            let evdev_handle = Some(services::linux::evdev_input::EvdevInputThread::start(
-                input_tx.clone(),
-                &evdev_kbd,
-                &evdev_mouse,
-                evdev_min_delta,
-            ));
+            let evdev_handle = {
+                let flush_hz = config.lock().unwrap().flush_hz;
+                Some(services::linux::evdev_input::EvdevInputThread::start(
+                    input_tx.clone(),
+                    &evdev_kbd,
+                    &evdev_mouse,
+                    evdev_min_delta,
+                    flush_hz,
+                ))
+            };
 
             let analog_handle = if !analog_kb.is_empty() {
-                Some(services::analog::AnalogThread::start(input_tx, &analog_kb))
+                let analog_flush_hz = config.lock().unwrap().flush_hz;
+                Some(services::analog::AnalogThread::start(input_tx, &analog_kb, analog_flush_hz))
             } else {
                 None
             };
@@ -461,7 +513,7 @@ pub fn run() {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     let state = handle.state::<AppState>();
-                    let dismissed = state.config.read().await.dismissed_update_versions.clone();
+                    let dismissed = state.config.lock().unwrap().dismissed_update_versions.clone();
                     let current = handle.package_info().version.to_string();
                     #[cfg(windows)]
                     let check = services::windows::updater::check(&current, &dismissed).await;

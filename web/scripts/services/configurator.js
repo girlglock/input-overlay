@@ -1,6 +1,5 @@
 //guh
-import { BROWSER_BUTTON_TO_KEY_NAME, BROWSER_CODE_TO_KEY_NAME, COLOR_PICKERS, HID_TO_KEY_NAME } from "../consts.js";
-import { GamepadManager } from "./gamepadManager.js";
+import { KEY_CODES, MOUSE_CODES, COLOR_PICKERS, LOCAL_INSTANCE } from "../consts.js";
 
 const LAYOUT_ORIGIN = { x: 0, y: 0 };
 
@@ -172,18 +171,75 @@ export class ConfiguratorMode {
         else this.applyDefaultSettings();
 
         this.setupConfigInputs();
-        this.setupKeyAddButtons();
         this.setupPreviewInputListeners();
         this.setupAnalogSense();
         this.setupKeyLayoutEditor();
         this._setupPreviewZoomAndGrid();
         this._setupSidebarToggles();
         this.updateState();
+        this._setupModeChoiceModal();
+    }
 
-        //tiny delay for gamepads because im lazy
-        setTimeout(() => {
-            this.gamepadManager = new GamepadManager(this.visualizer);
-        }, 100);
+    _setupModeChoiceModal() {
+        if (LOCAL_INSTANCE) return;
+
+        const STORAGE_KEY = "io_cfg_mode_choice";
+        const modal = document.getElementById("cfgModeModal");
+        if (!modal) return;
+
+        const applyChoice = (choice) => {
+            const tab = document.getElementById(choice === "plugin" ? "cfgConnTab_plugin" : "cfgConnTab_web");
+            if (tab) tab.checked = true;
+        };
+
+        const remembered = localStorage.getItem(STORAGE_KEY);
+        if (remembered === "plugin" || remembered === "web") {
+            applyChoice(remembered);
+            return;
+        }
+
+        const descriptions = {
+            plugin: {
+                summary: "renders natively inside obs using a plugin",
+                pros: ["better performance", "runs inside your OBS process"],
+                cons: ["no dual pc support", "no auto-updater (configurator may have newer features than the plugin)"],
+            },
+            web: {
+                summary: "displays via obs's browser source (or any web browser)",
+                pros: ["works anywhere a browser does", "dual pc support", "auto-updater"],
+                cons: ["requires the standalone websocket server app", "worse performance due to browser overhead", "websocket round trip may make the overlay display slightly behind your actual input"],
+            },
+        };
+
+        const renderList = (items, cls) => items.length
+            ? `<ul class="cfg-mode-list ${cls}">${items.map(i => `<li>${i}</li>`).join("")}</ul>`
+            : "";
+
+        const descEl = document.getElementById("cfgModeDesc");
+        const buttons = modal.querySelectorAll(".cfg-mode-btn");
+        const rememberEl = document.getElementById("cfgModeRemember");
+
+        const showDesc = (choice) => {
+            if (!descEl) return;
+            const d = descriptions[choice];
+            descEl.innerHTML = d
+                ? `<p class="cfg-mode-summary">${d.summary}</p>${renderList(d.pros, "cfg-mode-pros")}${renderList(d.cons, "cfg-mode-cons")}`
+                : "";
+        };
+
+        buttons.forEach(btn => {
+            const choice = btn.dataset.choice;
+            btn.addEventListener("mouseenter", () => showDesc(choice));
+            btn.addEventListener("focus", () => showDesc(choice));
+            btn.addEventListener("click", () => {
+                if (rememberEl?.checked) localStorage.setItem(STORAGE_KEY, choice);
+                applyChoice(choice);
+                modal.hidden = true;
+            });
+        });
+
+        showDesc("plugin");
+        modal.hidden = false;
     }
 
     applyDefaultSettings() {
@@ -563,9 +619,117 @@ export class ConfiguratorMode {
         distanceCheckbox?.addEventListener("change", syncDpiState);
         syncDpiState();
 
+        const textureBrowseBtn = document.getElementById("mousepadtextureBrowseBtn");
+        const textureUrlInput = document.getElementById("mousepadtexture");
+        const texturePopup = document.getElementById("mousepadtextureFilePopup");
+        const textureFileList = document.getElementById("mousepadtextureFileList");
+        const texturePopupCloseBtn = document.getElementById("mousepadtextureFilePopupCloseBtn");
+        if (LOCAL_INSTANCE && textureBrowseBtn && textureUrlInput && texturePopup && textureFileList) {
+            textureBrowseBtn.style.display = "";
+
+            const closePopup = () => { texturePopup.style.display = "none"; };
+
+            const applyTexturePath = (relPath) => {
+                textureUrlInput.value = relPath;
+                textureUrlInput.dispatchEvent(new Event("input", { bubbles: true }));
+                closePopup();
+            };
+
+            const buildFileTree = (paths) => {
+                const root = { dirs: new Map(), files: [] };
+                for (const path of paths) {
+                    const parts = path.split("/");
+                    let node = root;
+                    for (let i = 0; i < parts.length - 1; i++) {
+                        if (!node.dirs.has(parts[i])) node.dirs.set(parts[i], { dirs: new Map(), files: [] });
+                        node = node.dirs.get(parts[i]);
+                    }
+                    node.files.push(parts[parts.length - 1]);
+                }
+                return root;
+            };
+
+            const renderFileTree = (node, pathPrefix, onPick) => {
+                const ul = document.createElement("ul");
+                for (const [name, child] of [...node.dirs].sort((a, b) => a[0].localeCompare(b[0]))) {
+                    const li = document.createElement("li");
+                    const details = document.createElement("details");
+                    const summary = document.createElement("summary");
+                    summary.textContent = name;
+                    details.append(summary, renderFileTree(child, pathPrefix ? `${pathPrefix}/${name}` : name, onPick));
+                    li.appendChild(details);
+                    ul.appendChild(li);
+                }
+                for (const fileName of [...node.files].sort((a, b) => a.localeCompare(b))) {
+                    const fullPath = pathPrefix ? `${pathPrefix}/${fileName}` : fileName;
+                    const li = document.createElement("li");
+                    const item = document.createElement("div");
+                    item.className = "texture-file-picker-item";
+                    item.textContent = fileName;
+                    item.title = fullPath;
+                    item.addEventListener("click", () => onPick(fullPath));
+                    li.appendChild(item);
+                    ul.appendChild(li);
+                }
+                return ul;
+            };
+
+            const renderSection = (label, paths, onPick) => {
+                const li = document.createElement("li");
+                const details = document.createElement("details");
+                details.open = true;
+                const summary = document.createElement("summary");
+                summary.textContent = label;
+                const count = document.createElement("span");
+                count.className = "kl-tree-count";
+                count.textContent = `(${paths.length})`;
+                summary.appendChild(count);
+                details.appendChild(summary);
+                if (paths.length === 0) {
+                    const empty = document.createElement("div");
+                    empty.className = "texture-file-picker-empty";
+                    empty.textContent = "empty";
+                    details.appendChild(empty);
+                } else {
+                    details.appendChild(renderFileTree(buildFileTree(paths), "", onPick));
+                }
+                li.appendChild(details);
+                return li;
+            };
+
+            textureBrowseBtn.addEventListener("click", async () => {
+                textureFileList.innerHTML = "";
+                texturePopup.style.display = "flex";
+
+                let data = {};
+                try {
+                    const res = await fetch("user_mount/");
+                    if (res.ok) data = await res.json();
+                } catch { /* server unreachable - treat as empty */ }
+
+                const root = document.createElement("ul");
+                root.className = "tree-view";
+                root.appendChild(renderSection("user_mount/ (local)", data.local ?? [], (relPath) => applyTexturePath(`user_mount/${relPath}`)));
+                root.appendChild(renderSection("bundle", data.bundle ?? [], (relPath) => applyTexturePath(relPath)));
+                textureFileList.appendChild(root);
+            });
+
+            texturePopupCloseBtn?.addEventListener("click", closePopup);
+            texturePopup.addEventListener("click", (e) => { if (e.target === texturePopup) closePopup(); });
+        }
+
         document.getElementById("copybtn").addEventListener("click", this.copyLink.bind(this));
         document.getElementById("copysharebtn").addEventListener("click", this.copyShareLink.bind(this));
         document.getElementById("loadbtn").addEventListener("click", this.loadSettingsFromLink.bind(this));
+
+        document.getElementById("exportjsonbtn")?.addEventListener("click", () => this.exportJsonConfig());
+        const jsonFileInput = document.getElementById("jsonfileinput");
+        document.getElementById("loadjsonbtn")?.addEventListener("click", () => jsonFileInput?.click());
+        jsonFileInput?.addEventListener("change", () => {
+            const file = jsonFileInput.files?.[0];
+            this.loadJsonConfigFile(file);
+            jsonFileInput.value = "";
+        });
 
         document.getElementById("layoutPresets")?.addEventListener("change", (e) => {
             const presetUrl = e.target.value;
@@ -592,7 +756,7 @@ export class ConfiguratorMode {
 
         if (type === "key_pressed" || type === "key_released") {
             const isTyping = event.target.matches("input[type='text'], input[type='number'], textarea, .color-hex-input, .kl-inline-label-edit, .kl-tree-attr-input");
-            let keyName = BROWSER_CODE_TO_KEY_NAME[event.code.toLowerCase()];
+            let keyName = KEY_CODES.byBrowsercode(event.code.toLowerCase())?.codename;
             let elements = els.keyElements.get(keyName);
 
             if (!elements && event.key) {
@@ -608,7 +772,7 @@ export class ConfiguratorMode {
                 if (!isTyping || keyName === "key_tab" || keyName === "key_escape") event.preventDefault();
             }
         } else if (type === "mouse_pressed" || type === "mouse_released") {
-            const btnName = BROWSER_BUTTON_TO_KEY_NAME[event.button];
+            const btnName = MOUSE_CODES.byBrowsercode(event.button)?.codename;
             if (!btnName) return;
             //track this always regardless of m1 key being in custom layout row or not for now TODO: add conditions for mouse_pad and trail highlight being there
             const isPress = type === "mouse_pressed";
@@ -686,6 +850,59 @@ export class ConfiguratorMode {
         }
     }
 
+    getPluginConfig() {
+        const { wsaddress, wsport, wsauth, keyLayout, ...rest } = this.getCurrentSettings();
+        return {
+            ...rest,
+            keyLayout: this.keyLayoutMode && this.keyLayoutParser ? this.keyLayoutParser.serializeAll(this.keyLayoutDefs) : [],
+        };
+    }
+
+    exportJsonConfig() {
+        const btn = document.getElementById("exportjsonbtn");
+        try {
+            const config = this.getPluginConfig();
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "input-overlay-config.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            flashBtn(btn, "exported!", "⭳ export json");
+        } catch {
+            flashBtn(btn, "error", "⭳ export json");
+        }
+    }
+
+    async loadJsonConfigFile(file) {
+        const btn = document.getElementById("loadjsonbtn");
+        const flash = (msg) => flashBtn(btn, msg, "⟳ load json");
+        if (!file) return;
+
+        try {
+            const json = JSON.parse(await file.text());
+            const current = this.getCurrentSettings();
+            const settings = { ...json, wsaddress: current.wsaddress, wsport: current.wsport, wsauth: current.wsauth };
+            delete settings.keyLayout;
+
+            if (Array.isArray(json.keyLayout) && this.keyLayoutParser) {
+                this.keyLayoutDefs = this.keyLayoutParser.parseAll(json.keyLayout);
+                this.keyLayoutMode = true;
+                settings.keyLayout = this._getKeyLayoutParam();
+                this._syncKeyLayoutEditorUI();
+            }
+
+            this.applySettings(settings);
+            this.updateState();
+            flash("loaded");
+        } catch {
+            flash("error");
+        }
+    }
+
     setupAnalogSense() {
         if (typeof window.analogsense === "undefined") return;
 
@@ -705,7 +922,7 @@ export class ConfiguratorMode {
             const currentScancodes = new Set(activeKeys.map(k => String(k.scancode)));
 
             for (const { scancode, value } of activeKeys) {
-                const rawKeyName = HID_TO_KEY_NAME[scancode];
+                const rawKeyName = KEY_CODES.byHidcode(scancode)?.codename;
                 if (!rawKeyName) continue;
 
                 const keyElements = viz.previewElements.keyElements;
@@ -728,7 +945,7 @@ export class ConfiguratorMode {
 
             for (const scancode of this.analogSenseActiveKeys) {
                 if (currentScancodes.has(String(scancode))) continue;
-                const rawKeyName2 = HID_TO_KEY_NAME[scancode];
+                const rawKeyName2 = KEY_CODES.byHidcode(scancode)?.codename;
                 if (rawKeyName2) {
                     const kels = viz.previewElements.keyElements;
                     if ((this.analogSensePrevDepths[scancode] ?? 0) >= DIGITAL_THRESHOLD) {
@@ -764,479 +981,6 @@ export class ConfiguratorMode {
                 if (e.name !== "SecurityError") btn.textContent = `error: ${e.message}`;
             }
         });
-    }
-
-    setupKeyAddButtons() {
-        const popup = document.getElementById("keyAddPopup");
-        const keySelect = document.getElementById("popupKeySelect");
-        const labelInput = document.getElementById("popupKeyLabel");
-        const widthSlider = document.getElementById("popupWidthSlider");
-        const widthValue = document.getElementById("popupWidthValue");
-        const heightSlider = document.getElementById("popupHeightSlider");
-        const heightValue = document.getElementById("popupHeightValue");
-        const heightField = document.getElementById("popupHeightField");
-        const addBtn = document.getElementById("popupAddBtn");
-        const cancelBtn = document.getElementById("popupCancelBtn");
-        const scrollerLabels = document.getElementById("popupScrollerLabels");
-        const scrollUpDownLabels = document.getElementById("popupScrollUpDownLabels");
-        const mouseSideLabels = document.getElementById("popupMouseSideLabels");
-        const anchorField = document.getElementById("popupAnchorField");
-        const anchorSelect = document.getElementById("popupAnchorSelect");
-
-        const pipeKeySelect = document.getElementById("popupPipeKeySelect");
-        const pipeTagsContainer = document.getElementById("popupPipeTags");
-        const pipeSection = document.getElementById("popupPipeSection");
-        const PIPE_EXCLUDED_GROUPS = new Set(["Special", "Gamepad Joysticks"]);
-        const PIPE_UNSUPPORTED = new Set(["br", "dummy", "invisible", "mouse_pad", "mouse_side", "gp_ls", "gp_rs", "scroll_updown"]);
-
-        for (const optgroup of keySelect.querySelectorAll("optgroup")) {
-            if (PIPE_EXCLUDED_GROUPS.has(optgroup.label)) continue;
-            pipeKeySelect.appendChild(optgroup.cloneNode(true));
-        }
-
-        let currentTargetRow = null, originalValue = "", isUpdating = false;
-        let editingIndex = null, editingParts = [];
-        let pipeKeys = [];
-
-        const renderPipeTags = () => {
-            pipeTagsContainer.innerHTML = "";
-            if (pipeKeys.length === 0) {
-                const ph = document.createElement("span");
-                ph.className = "cfg-tags-placeholder";
-                ph.textContent = "none";
-                pipeTagsContainer.appendChild(ph);
-                return;
-            }
-            pipeKeys.forEach((key, i) => {
-                const tag = document.createElement("span");
-                tag.className = "cfg-tag";
-                const lbl = document.createElement("span");
-                lbl.className = "cfg-tag-label";
-                const opt = pipeKeySelect.querySelector(`option[value="${key}"]`);
-                lbl.textContent = opt ? opt.text : key;
-                const x = document.createElement("button");
-                x.className = "cfg-tag-remove";
-                x.textContent = "x";
-                x.addEventListener("click", () => { pipeKeys.splice(i, 1); renderPipeTags(); updateKeyString(); });
-                tag.appendChild(lbl);
-                tag.appendChild(x);
-                pipeTagsContainer.appendChild(tag);
-            });
-        };
-
-        renderPipeTags();
-
-        const updateKeyString = () => {
-            if (isUpdating) return;
-            const keyName = keySelect.value;
-            let keyString;
-            const widthClass = this.getWidthClass(parseInt(widthSlider.value));
-
-            switch (keyName) {
-                case "scroller": {
-                    const def = document.getElementById("popupScrollerDefault").value || "M3";
-                    const up = document.getElementById("popupScrollerUp").value || "🡅";
-                    const down = document.getElementById("popupScrollerDown").value || "🡇";
-                    keyString = widthClass
-                        ? `scroller:"${def}":"${up}":"${down}":${widthClass}`
-                        : `scroller:"${def}":"${up}":"${down}"`;
-                    break;
-                }
-                case "scroll_updown": {
-                    const up = document.getElementById("popupScrollUpDownUp").value || "🡅";
-                    const down = document.getElementById("popupScrollUpDownDown").value || "🡇";
-                    keyString = widthClass
-                        ? `scroll_updown:"${up}":"${down}":${widthClass}`
-                        : `scroll_updown:"${up}":"${down}"`;
-                    break;
-                }
-                case "scroll_up": {
-                    const label = labelInput.value || "🡅";
-                    keyString = widthClass ? `scroll_up:"${label}":${widthClass}` : `scroll_up:"${label}"`;
-                    break;
-                }
-                case "scroll_down": {
-                    const label = labelInput.value || "🡇";
-                    keyString = widthClass ? `scroll_down:"${label}":${widthClass}` : `scroll_down:"${label}"`;
-                    break;
-                }
-                case "mouse_side": {
-                    const m5 = document.getElementById("popupMouseSideM5").value || "M5";
-                    const m4 = document.getElementById("popupMouseSideM4").value || "M4";
-                    keyString = widthClass ? `mouse_side:"${m5}":"${m4}":${widthClass}` : `mouse_side:"${m5}":"${m4}"`;
-                    break;
-                }
-                case "mouse_pad": {
-                    const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
-                    const anchor = anchorSelect.value;
-                    keyString = `mouse_pad:${widthClass || "u1"}:${hClass}:${anchor}`;
-                    break;
-                }
-                case "gp_ls":
-                case "gp_rs": {
-                    const hClass = this.getWidthClass(parseInt(heightSlider.value)) || "u1";
-                    const anchor = anchorSelect.value;
-                    keyString = `gp_joystick:${keyName}:${widthClass || "u3"}:${hClass}:${anchor}`;
-                    break;
-                }
-                case "br":
-                    keyString = "br";
-                    break;
-                case "invisible":
-                case "dummy":
-                    keyString = widthClass ? `invisible:"invis":${widthClass}` : keyName;
-                    break;
-                default: {
-                    const label = labelInput.value || keyName.split("_")[1].toUpperCase();
-                    keyString = widthClass ? `${keyName}:"${label}":${widthClass}` : `${keyName}:"${label}"`;
-                }
-            }
-
-            if (!PIPE_UNSUPPORTED.has(keyName) && pipeKeys.length > 0)
-                keyString = pipeKeys.join("|") + "|" + keyString;
-
-            this._klPendingKeyString = keyString;
-
-            const targetInput = document.getElementById(`customLayout${currentTargetRow}`);
-            if (targetInput) {
-                if (editingIndex !== null) {
-                    const newParts = [...editingParts];
-                    newParts[editingIndex] = keyString;
-                    targetInput.value = newParts.join(", ");
-                } else {
-                    targetInput.value = originalValue ? `${originalValue}, ${keyString}` : keyString;
-                }
-                targetInput.dispatchEvent(new Event("input", { bubbles: true }));
-            }
-        };
-
-        const sliderHandler = (slider, display) => () => {
-            display.textContent = `${(parseInt(slider.value) / 100).toFixed(2)}u`;
-            updateKeyString();
-        };
-        widthSlider.addEventListener("input", sliderHandler(widthSlider, widthValue));
-        heightSlider.addEventListener("input", sliderHandler(heightSlider, heightValue));
-
-        keySelect.addEventListener("change", () => {
-            const key = keySelect.value;
-            scrollerLabels.style.display = "none";
-            scrollUpDownLabels.style.display = "none";
-            mouseSideLabels.style.display = "none";
-            anchorField.style.display = "none";
-            heightField.style.display = "none";
-            labelInput.parentElement.style.display = "block";
-            pipeSection.style.display = PIPE_UNSUPPORTED.has(key) ? "none" : "";
-
-            switch (key) {
-                case "scroller":
-                    labelInput.parentElement.style.display = "none";
-                    scrollerLabels.style.display = "block";
-                    document.getElementById("popupScrollerDefault").value = "M3";
-                    document.getElementById("popupScrollerUp").value = "🡅";
-                    document.getElementById("popupScrollerDown").value = "🡇";
-                    break;
-                case "scroll_updown":
-                    labelInput.parentElement.style.display = "none";
-                    scrollUpDownLabels.style.display = "block";
-                    document.getElementById("popupScrollUpDownUp").value = "🡅";
-                    document.getElementById("popupScrollUpDownDown").value = "🡇";
-                    break;
-                case "scroll_up":
-                    labelInput.value = "🡅";
-                    break;
-                case "scroll_down":
-                    labelInput.value = "🡇";
-                    break;
-                case "mouse_left":
-                    labelInput.value = "M1";
-                    break;
-                case "mouse_right":
-                    labelInput.value = "M2";
-                    break;
-                case "mouse_middle":
-                    labelInput.value = "M3";
-                    break;
-                case "mouse_4":
-                    labelInput.value = "M4";
-                    break;
-                case "mouse_5":
-                    labelInput.value = "M5";
-                    break;
-                case "mouse_side":
-                    labelInput.parentElement.style.display = "none";
-                    mouseSideLabels.style.display = "block";
-                    document.getElementById("popupMouseSideM5").value = "M5";
-                    document.getElementById("popupMouseSideM4").value = "M4";
-                    break;
-                case "mouse_pad":
-                    labelInput.parentElement.style.display = "none";
-                    heightField.style.display = "block";
-                    anchorField.style.display = "block";
-                    widthSlider.value = 500; widthValue.textContent = "5.00u";
-                    heightSlider.value = 300; heightValue.textContent = "3.00u";
-                    break;
-                case "gp_ls":
-                case "gp_rs":
-                    labelInput.parentElement.style.display = "none";
-                    heightField.style.display = "block";
-                    anchorField.style.display = "block";
-                    widthSlider.value = 300; widthValue.textContent = "3.00u";
-                    heightSlider.value = 300; heightValue.textContent = "3.00u";
-                    break;
-                case "br":
-                    labelInput.parentElement.style.display = "none";
-                    break;
-                case "invisible":
-                case "dummy":
-                    labelInput.value = "invisible";
-                    break;
-                default:
-                    labelInput.value = keySelect.options[keySelect.selectedIndex].text;
-            }
-            updateKeyString();
-        });
-
-        labelInput.addEventListener("input", updateKeyString);
-        anchorSelect.addEventListener("change", updateKeyString);
-        for (const id of ["popupScrollerDefault", "popupScrollerUp", "popupScrollerDown", "popupMouseSideM5", "popupMouseSideM4", "popupScrollUpDownUp", "popupScrollUpDownDown"])
-            document.getElementById(id).addEventListener("input", updateKeyString);
-
-        document.getElementById("popupPipeAddBtn").addEventListener("click", () => {
-            const key = pipeKeySelect.value;
-            if (key && !pipeKeys.includes(key) && key !== keySelect.value) {
-                pipeKeys.push(key);
-                renderPipeTags();
-                updateKeyString();
-            }
-        });
-
-        const rowMappings = [
-            ["addKey1", "Row1"], ["addKey2", "Row2"], ["addKey3", "Row3"],
-            ["addKey4", "Row4"], ["addKey5", "Row5"], ["addKeyMouse", "Mouse"],
-        ];
-
-        for (const [buttonId, rowId] of rowMappings) {
-            const btn = document.getElementById(buttonId);
-            if (!btn) continue;
-            btn.addEventListener("click", () => {
-                editingIndex = null;
-                editingParts = [];
-                pipeKeys = [];
-                addBtn.textContent = "add key";
-                isUpdating = false;
-                currentTargetRow = rowId;
-                originalValue = (document.getElementById(`customLayout${rowId}`)?.value || "").trim();
-
-                const rect = btn.getBoundingClientRect();
-                const pw = 340, ph = 500;
-                let left = rect.left - pw, top = rect.top;
-                if (left < 10) left = rect.right + 10;
-                if (left + pw > window.innerWidth - 10) left = Math.max(10, (window.innerWidth - pw) / 2);
-                if (top + ph > window.innerHeight - 10) top = Math.max(10, window.innerHeight - ph - 10);
-                if (top < 10) top = 10;
-
-                popup.style.cssText = `display:block;left:${left}px;top:${top}px;`;
-                keySelect.value = "key_a";
-                labelInput.value = "A";
-                widthSlider.value = 100; widthValue.textContent = "1.00u";
-                heightSlider.value = 100; heightValue.textContent = "1.00u";
-                heightField.style.display = "none";
-                scrollerLabels.style.display = "none";
-                scrollUpDownLabels.style.display = "none";
-                mouseSideLabels.style.display = "none";
-                anchorField.style.display = "none";
-                anchorSelect.value = "a-tl";
-                labelInput.parentElement.style.display = "block";
-                pipeSection.style.display = "";
-                renderPipeTags();
-                updateKeyString();
-            });
-        }
-
-        const prefillFromRaw = (raw) => {
-            const item = this.layoutParser.parseElementDef(raw.trim());
-            if (!item) return;
-            isUpdating = true;
-
-            if (item.keys && item.keys.length > 1) {
-                pipeKeys = item.type === "scroller"
-                    ? item.keys.filter(k => k !== "scroller")
-                    : item.keys.slice(0, -1);
-            } else {
-                pipeKeys = [];
-            }
-            renderPipeTags();
-
-            const setType = (val) => { keySelect.value = val; keySelect.dispatchEvent(new Event("change")); };
-
-            switch (item.type) {
-                case "scroller":
-                    setType("scroller");
-                    document.getElementById("popupScrollerDefault").value = item.labels?.[0] || "M3";
-                    document.getElementById("popupScrollerUp").value = item.labels?.[1] || "🡅";
-                    document.getElementById("popupScrollerDown").value = item.labels?.[2] || "🡇";
-                    break;
-                case "scroll_updown":
-                    setType("scroll_updown");
-                    document.getElementById("popupScrollUpDownUp").value = item.labels?.[0] || "🡅";
-                    document.getElementById("popupScrollUpDownDown").value = item.labels?.[1] || "🡇";
-                    break;
-                case "scroll_up":
-                    setType("scroll_up");
-                    labelInput.value = item.label || "🡅";
-                    break;
-                case "scroll_down":
-                    setType("scroll_down");
-                    labelInput.value = item.label || "🡇";
-                    break;
-                case "mouse_side":
-                    setType("mouse_side");
-                    document.getElementById("popupMouseSideM5").value = item.labels?.[0] || "M5";
-                    document.getElementById("popupMouseSideM4").value = item.labels?.[1] || "M4";
-                    break;
-                case "mouse_pad":
-                    setType("mouse_pad");
-                    widthSlider.value = this.widthClassToSlider(item.widthClass);
-                    heightSlider.value = this.widthClassToSlider(item.heightClass);
-                    anchorSelect.value = item.anchor || "a-tl";
-                    widthValue.textContent = `${(parseInt(widthSlider.value) / 100).toFixed(2)}u`;
-                    heightValue.textContent = `${(parseInt(heightSlider.value) / 100).toFixed(2)}u`;
-                    break;
-                case "gp_joystick":
-                    setType(item.stickId);
-                    widthSlider.value = this.widthClassToSlider(item.widthClass);
-                    heightSlider.value = this.widthClassToSlider(item.heightClass);
-                    anchorSelect.value = item.anchor || "a-tl";
-                    widthValue.textContent = `${(parseInt(widthSlider.value) / 100).toFixed(2)}u`;
-                    heightValue.textContent = `${(parseInt(heightSlider.value) / 100).toFixed(2)}u`;
-                    break;
-                case "dummy":
-                    setType("dummy");
-                    break;
-                case "br":
-                    setType("br");
-                    break;
-                default: {
-                    if (item.class?.includes("invisible") && !item.key) { setType("invisible"); break; }
-                    const keyVal = (item.keys?.length > 1 ? item.keys[item.keys.length - 1] : item.key) || "key_a";
-                    setType(keyVal);
-                    labelInput.value = item.label || "";
-                    const wcls = (item.class || "").split(" ").find(c => /^u[\d-]+$/.test(c)) || "";
-                    widthSlider.value = this.widthClassToSlider(wcls);
-                    widthValue.textContent = `${(parseInt(widthSlider.value) / 100).toFixed(2)}u`;
-                }
-            }
-
-            isUpdating = false;
-        };
-
-        this._openPopupForAdd = (rowId, triggerEl) => {
-            editingIndex = null;
-            editingParts = [];
-            pipeKeys = [];
-            addBtn.textContent = "add key";
-            isUpdating = false;
-            currentTargetRow = rowId;
-            originalValue = "";
-
-            const rect = triggerEl?.getBoundingClientRect() || { left: 100, right: 110, top: 100 };
-            const pw = 340, ph = 500;
-            let left = rect.left - pw, top = rect.top;
-            if (left < 10) left = rect.right + 10;
-            if (left + pw > window.innerWidth - 10) left = Math.max(10, (window.innerWidth - pw) / 2);
-            if (top + ph > window.innerHeight - 10) top = Math.max(10, window.innerHeight - ph - 10);
-            if (top < 10) top = 10;
-
-            popup.style.cssText = `display:block;left:${left}px;top:${top}px;`;
-            keySelect.value = "key_a";
-            labelInput.value = "A";
-            widthSlider.value = 100; widthValue.textContent = "1.00u";
-            heightSlider.value = 100; heightValue.textContent = "1.00u";
-            heightField.style.display = "none";
-            scrollerLabels.style.display = "none";
-            scrollUpDownLabels.style.display = "none";
-            mouseSideLabels.style.display = "none";
-            anchorField.style.display = "none";
-            anchorSelect.value = "a-tl";
-            labelInput.parentElement.style.display = "block";
-            pipeSection.style.display = "";
-            renderPipeTags();
-            updateKeyString();
-        };
-
-        const cancelPopup = () => {
-            editingIndex = null;
-            editingParts = [];
-            pipeKeys = [];
-            addBtn.textContent = "add key";
-            isUpdating = true;
-            popup.style.display = "none";
-        };
-
-        addBtn.addEventListener("click", () => {
-            if (this.keyLayoutMode && currentTargetRow === "KlMode") {
-                if (this._klPendingKeyString) {
-                    const def = this._rowKeyStringToDef(this._klPendingKeyString);
-                    if (def) {
-                        if (this.keyLayoutDefs.length) {
-                            const last = this.keyLayoutDefs[this.keyLayoutDefs.length - 1];
-                            def.x = last.x + last.w * 50 + 4;
-                            def.y = last.y;
-                        } else {
-                            def.x = LAYOUT_ORIGIN.x;
-                            def.y = LAYOUT_ORIGIN.y;
-                        }
-                        this.keyLayoutDefs.push(def);
-                        this._commitKeyLayoutDefs();
-                    }
-                }
-                this._klPendingKeyString = null;
-            }
-            editingIndex = null;
-            editingParts = [];
-            pipeKeys = [];
-            addBtn.textContent = "add key";
-            popup.style.display = "none";
-        });
-        cancelBtn.addEventListener("click", cancelPopup);
-        popup.addEventListener("click", (e) => { if (e.target === popup) cancelPopup(); });
-    }
-
-    widthClassToSlider(cls) {
-        if (!cls) return 100;
-        const m = /^u(\d+)(?:-(\d+))?$/.exec(cls);
-        if (!m) return 100;
-        const intPart = parseInt(m[1]);
-        if (!m[2]) return intPart * 100;
-        const decVal = m[2].length === 1 ? parseInt(m[2]) * 10 : parseInt(m[2]);
-        return intPart * 100 + decVal;
-    }
-
-    getTagLabel(item) {
-        if (!item) return "?";
-        switch (item.type) {
-            case "dummy": return "dummy";
-            case "br": return "↵ br";
-            case "scroller": return `scroller`;
-            case "scroll_updown": return `${item.labels?.[0] || "↑"}/${item.labels?.[1] || "↓"}`;
-            case "scroll_up": return item.label || "↑";
-            case "scroll_down": return item.label || "↓";
-            case "mouse_side": return `M4/M5`;
-            case "mouse_pad": return "mouse pad";
-            case "gp_joystick": return item.stickId === "gp_ls" ? "L stick" : "R stick";
-            default: return item.label || item.key || "?";
-        }
-    }
-
-    getWidthClass(value) {
-        if (value === 100) return "";
-        const units = value / 100;
-        const intPart = Math.floor(units);
-        const decNum = Math.round((units - intPart) * 100);
-        if (!decNum) return `u${intPart}`;
-        let dec = decNum.toString().padStart(2, "0");
-        if (dec.endsWith("0") && !dec.startsWith("0")) dec = dec.slice(0, -1);
-        return `u${intPart}-${dec}`;
     }
 
     setupKeyLayoutEditor() {
@@ -1296,12 +1040,13 @@ export class ConfiguratorMode {
             mouse_pad:     [5, 3.5],
             gp_joystick_ls: [3, 3],
             gp_joystick_rs: [3, 3],
+            input_history: [6, 2],
         };
 
         const CATS = [
             { id: "keyboard", label: "keyboard", groups: [
-                { label: "letters", tiles: [..."abcdefghijklmnopqrstuvwxyz"].map(l => [`key_${l}`, l.toUpperCase()]) },
-                { label: "numbers", tiles: [..."1234567890"].map(n => [`key_${n}`, n]) },
+                    { label: "letters", tiles: [..."abcdefghijklmnopqrstuvwxyz"].map(l => [`key_${l}`, l.toUpperCase()]) },
+                    { label: "numbers", tiles: [..."1234567890"].map(n => [`key_${n}`, n]) },
                 { label: "modifiers", tiles: [
                     ["key_leftshift","L⇧"], ["key_rightshift","R⇧"],
                     ["key_leftctrl","L^"], ["key_rightctrl","R^"],
@@ -1318,11 +1063,12 @@ export class ConfiguratorMode {
                 { label: "arrows", tiles: [
                     ["key_leftarrow","←"], ["key_uparrow","↑"], ["key_downarrow","↓"], ["key_rightarrow","→"],
                 ]},
-                { label: "function", tiles: Array.from({length: 12}, (_, i) => [`key_f${i+1}`, `F${i+1}`]) },
+                { label: "function", tiles: Array.from({length: 24}, (_, i) => [`key_f${i+1}`, `F${i+1}`]) },
                 { label: "symbols", tiles: [
                     ["key_minus","-"], ["key_equals","="], ["key_openbracket","["], ["key_closebracket","]"],
                     ["key_backslash","\\"], ["key_semicolon",";"], ["key_apostrophe","'"],
                     ["key_comma",","], ["key_period","."], ["key_slash","/"],
+                    ["key_iso_backslash","ISO\\"],
                 ]},
                 { label: "numpad", tiles: [
                     ["key_numpad_7","7"], ["key_numpad_8","8"], ["key_numpad_9","9"], ["key_numpad_divide","÷"],
@@ -1330,6 +1076,9 @@ export class ConfiguratorMode {
                     ["key_numpad_1","1"], ["key_numpad_2","2"], ["key_numpad_3","3"], ["key_numpad_subtract","−"],
                     ["key_numpad_0","0",2], ["key_numpad_decimal","."], ["key_numpad_add","+"],
                     ["key_numpad_enter","Ent"], ["key_numlock","NL"],
+                ]},
+                { label: "misc", tiles: [
+                    ["input_history","history",3]
                 ]},
             ]},
             { id: "mouse", label: "mouse", groups: [
@@ -1341,7 +1090,7 @@ export class ConfiguratorMode {
                     ["scroller","wheel"], ["scroll_updown","↑↓"], ["scroll_up","↑"], ["scroll_down","↓"],
                 ]},
                 { label: "pad", tiles: [
-                    ["mouse_pad","mouse pad",3],
+                    ["mouse_pad","mouse pad",3]
                 ]},
             ]},
             { id: "gamepad", label: "gamepad", groups: [
@@ -1357,7 +1106,7 @@ export class ConfiguratorMode {
             ]},
         ];
 
-        const NO_MULTIBIND = new Set(["mouse_pad", "gp_joystick_ls", "gp_joystick_rs"]);
+        const NO_MULTIBIND = new Set(["mouse_pad", "gp_joystick_ls", "gp_joystick_rs", "input_history"]);
         let selectedTypes = [];
 
         CATS.forEach((cat, ci) => {
@@ -1494,6 +1243,12 @@ export class ConfiguratorMode {
                 const inps = labelsEl.querySelectorAll("input");
                 const defs = LABEL_DEFAULTS[type] || [];
                 def.labels = Array.from(inps).map((inp, i) => inp.value || defs[i] || "");
+            } else if (type === "input_history") {
+                def.trackedKeys = ["key_a", "key_d"];
+                def.vertical = false;
+                def.scrollSpeed = 200;
+                def.highlightOverlap = false;
+                def.reverseDirection = false;
             }
 
             if (this.keyLayoutDefs.length) {
@@ -1577,7 +1332,6 @@ export class ConfiguratorMode {
                 ctx.beginPath(); ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY); ctx.stroke();
             }
         };
-        this._drawPreviewGrid = drawGrid;
 
         wrapper.addEventListener("mouseenter", () => { if (this.keyLayoutMode && this._klGridPx > 0) drawGrid(); });
         wrapper.addEventListener("mouseleave", () => { canvas.style.display = "none"; });
@@ -1586,16 +1340,6 @@ export class ConfiguratorMode {
             else canvas.style.display = "none";
         });
         scrollArea?.addEventListener("scroll", () => { if (canvas.style.display !== "none") drawGrid(); });
-    }
-
-    enterKeyLayoutMode() {
-        if (!this.keyLayoutParser) return;
-        this.keyLayoutMode = true;
-        if (!this.keyLayoutDefs.length) {
-            this.keyLayoutDefs = this._buildDefaultKeyLayoutDefs();
-        }
-        this._syncKeyLayoutEditorUI();
-        this._commitKeyLayoutDefs();
     }
 
     //lazy for now..
@@ -1625,19 +1369,11 @@ export class ConfiguratorMode {
             ["key_space", "SPACE", 3.25, 1, 162.5, 168.75],
             ["mouse_pad", 5, 3.63, 331.25, 37.5],
             ["mouse_left", "M1", 1.625, 0.63, 331.25, 0],
-            ["scroller", "-", "🡅", "🡇", 1.5, 0.63, 418.75, 0],
             ["mouse_right", "M2", 1.625, 0.63, 500, 0],
+            ["scroller", "-", "🡅", "🡇", 1.5, 0.63, 418.75, 0],
+            ["input_history", "key_a,key_d;1;100;1;1", 1, 3.25, -56.25, 56.25],
         ];
         return this.keyLayoutParser.parseAll(tuples);
-    }
-
-    _centerLayoutDefs(defs) {
-        if (!defs.length) return;
-        const minX = Math.min(...defs.map(d => d.x));
-        const minY = Math.min(...defs.map(d => d.y));
-        const offX = LAYOUT_ORIGIN.x - minX;
-        const offY = LAYOUT_ORIGIN.y - minY;
-        if (offX !== 0 || offY !== 0) defs.forEach(d => { d.x += offX; d.y += offY; });
     }
 
     _syncKeyLayoutEditorUI() {
@@ -1716,7 +1452,7 @@ export class ConfiguratorMode {
             nameEl.className = "kl-tree-name";
             nameEl.textContent = getShortName(def);
 
-const posEl = document.createElement("span");
+            const posEl = document.createElement("span");
             posEl.className = "kl-tree-pos";
             posEl.textContent = `${numFmt(def.x - LAYOUT_ORIGIN.x)},${numFmt(def.y - LAYOUT_ORIGIN.y)}`;
 
@@ -1745,10 +1481,11 @@ const posEl = document.createElement("span");
                 const inp = document.createElement("input");
                 inp.className = "kl-tree-attr-input";
                 inp.type = type;
-                inp.value = getValue();
+                if (type === "checkbox") inp.checked = !!getValue();
+                else inp.value = getValue();
                 if (type === "number") { inp.step = "0.25"; }
                 inp.addEventListener("change", () => {
-                    setValue(inp.value);
+                    setValue(type === "checkbox" ? inp.checked : inp.value);
                     posEl.textContent = `${numFmt(def.x - LAYOUT_ORIGIN.x)},${numFmt(def.y - LAYOUT_ORIGIN.y)}`;
                     nameEl.textContent = getShortName(def);
                     this._commitKeyLayoutDefs();
@@ -1764,6 +1501,7 @@ const posEl = document.createElement("span");
             if ("label" in def) {
                 attrList.appendChild(makeAttrRow("key", () => def.type, (v) => { def.type = v.trim() || "key_a"; }));
                 attrList.appendChild(makeAttrRow("label", () => def.label || "", (v) => { def.label = v; }));
+                attrList.appendChild(makeAttrRow("move to top when active", () => def.moveToTop, (v) => { def.moveToTop = v; }, "checkbox"));
             }
             if ("labels" in def) {
                 const baseType = def.type.split("|")[0];
@@ -1778,6 +1516,16 @@ const posEl = document.createElement("span");
                         def.type = extras.length ? [baseType, ...extras].join("|") : baseType;
                     }));
                 }
+                attrList.appendChild(makeAttrRow("move to top when active", () => def.moveToTop, (v) => { def.moveToTop = v; }, "checkbox"));
+            }
+            if (def.type === "input_history") {
+                attrList.appendChild(makeAttrRow("keys", () => (def.trackedKeys ?? []).join(" "), (v) => {
+                    def.trackedKeys = v.trim().split(/[|,\s]+/).filter(Boolean);
+                }));
+                attrList.appendChild(makeAttrRow("vertical", () => def.vertical, (v) => { def.vertical = v; }, "checkbox"));
+                attrList.appendChild(makeAttrRow("reverse direction", () => def.reverseDirection, (v) => { def.reverseDirection = v; }, "checkbox"));
+                attrList.appendChild(makeAttrRow("highlight overlap", () => def.highlightOverlap, (v) => { def.highlightOverlap = v; }, "checkbox"));
+                attrList.appendChild(makeAttrRow("scroll speed", () => def.scrollSpeed ?? 200, (v) => { def.scrollSpeed = Math.max(1, parseFloat(v) || 200); }, "number"));
             }
 
             itemDetails.appendChild(attrList);
@@ -1865,7 +1613,7 @@ const posEl = document.createElement("span");
             const defIdx = defIndices[ci];
             if (defIdx == null) return;
             child.dataset.klIdx = String(defIdx);
-            const isCanvas = child.classList.contains("mousepad-wrap") || child.classList.contains("joystick-wrap");
+            const isCanvas = child.classList.contains("mousepad-wrap") || child.classList.contains("joystick-wrap") || child.classList.contains("input-history-wrap");
             if (isCanvas) {
                 child.style.pointerEvents = "auto";
             } else {
@@ -1981,7 +1729,7 @@ const posEl = document.createElement("span");
         const gridPx = this._klGridPx || 0;
         const snap = (v, g) => g > 0 ? Math.round(v / g) * g : Math.round(v);
         const snapW = (px, g) => g > 0 ? Math.max(MIN * U, Math.round(px / g) * g) / U : Math.max(MIN, Math.round(px) / U);
-        const isCanvasWrap = ds.child.classList.contains("mousepad-wrap") || ds.child.classList.contains("joystick-wrap");
+        const isCanvasWrap = ds.child.classList.contains("mousepad-wrap") || ds.child.classList.contains("joystick-wrap") || ds.child.classList.contains("input-history-wrap");
 
         if (ds.mode === "move") {
             const newX = snap(ds.origX + dx, gridPx);
@@ -2019,7 +1767,7 @@ const posEl = document.createElement("span");
         }
     }
 
-    _onKlPointerUp(e) {
+    _onKlPointerUp() {
         const ds = this._klDragState;
         if (!ds) return;
         this._klDragState = null;
@@ -2040,65 +1788,6 @@ const posEl = document.createElement("span");
             def.h = ds._pendingH; def.y = ds._pendingY; changed = true;
         }
         if (changed) this._commitKeyLayoutDefs();
-    }
-
-    _rowKeyStringToDef(rawKeyString) {
-        const item = this.layoutParser.parseElementDef(rawKeyString?.trim());
-        if (!item || item.type === "br" || item.type === "dummy") return null;
-
-        const parseUStr = (uStr) => {
-            if (!uStr) return 1;
-            const m = uStr.match(/^u(\d+)(?:-(\d+))?$/);
-            if (!m) return 1;
-            const dec = m[2] ? (m[2].length === 1 ? parseInt(m[2]) * 10 : parseInt(m[2])) : 0;
-            return parseInt(m[1]) + dec / 100;
-        };
-        const LEGACY_WIDTH_U = { "wide": 1.5, "extra-wide": 2, "super-wide": 3.4 };
-        const parseWFromClass = (cls) => {
-            if (!cls) return 1;
-            for (const t of cls.split(/\s+/)) {
-                if (LEGACY_WIDTH_U[t] !== undefined) return LEGACY_WIDTH_U[t];
-                if (/^u\d/.test(t)) return parseUStr(t);
-                const wm = t.match(/^w-(\d+)(?:-(\d+))?u$/);
-                if (wm) {
-                    const dec = wm[2] ? (wm[2].length === 1 ? parseInt(wm[2]) * 10 : parseInt(wm[2])) : 0;
-                    return parseInt(wm[1]) + dec / 100;
-                }
-            }
-            return 1;
-        };
-
-        switch (item.type) {
-            case "mouse_pad":
-                return { type: "mouse_pad", w: parseUStr(item.widthClass) || 5, h: parseUStr(item.heightClass) || 3, x: 0, y: 0 };
-            case "gp_joystick":
-                return {
-                    type: item.stickId === "gp_ls" ? "gp_joystick_ls" : "gp_joystick_rs",
-                    w: parseUStr(item.widthClass) || 3, h: parseUStr(item.heightClass || item.widthClass) || 3, x: 0, y: 0
-                };
-            case "scroller":
-                return { type: "scroller", labels: item.labels ?? ["M3", "🡅", "🡇"], w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            case "scroll_updown":
-                return { type: "scroll_updown", labels: item.labels ?? ["🡅", "🡇"], w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            case "scroll_up":
-                return { type: "scroll_up", label: item.label ?? "🡅", w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            case "scroll_down":
-                return { type: "scroll_down", label: item.label ?? "🡇", w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            case "mouse_side":
-                return { type: "mouse_side", labels: item.labels ?? ["M5", "M4"], w: parseWFromClass(item.class), h: 1, x: 0, y: 0 };
-            default: {
-                const isInvis = item.class?.includes("invisible") || item.label === "invis";
-                if (isInvis) {
-                    return { type: "$", w: parseWFromClass(item.class?.replace("invisible", "").trim()) || 1, h: 1, x: 0, y: 0 };
-                }
-                return {
-                    type: item.keys?.length > 1 ? item.keys.join("|") : (item.key || item.keys?.[0] || "key_a"),
-                    label: item.label ?? "",
-                    w: parseWFromClass(item.class),
-                    h: 1, x: 0, y: 0,
-                };
-            }
-        }
     }
 
     _setupSidebarToggles() {

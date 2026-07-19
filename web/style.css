@@ -3,7 +3,7 @@
 @font-face {
     font-family: 'PerfectDOSVGA437';
     src: url('scripts/fonts/PerfectDOSVGA437Win.woff2') format('woff2'),
-         url('scripts/fonts/PerfectDOSVGA437Win.woff') format('woff');
+        url('scripts/fonts/PerfectDOSVGA437Win.woff') format('woff');
     font-weight: normal;
     font-style: normal;
 }
@@ -156,7 +156,7 @@ ul {
 }
 
 li {
-    margin-bottom: 3px;
+    margin-top: 20px;
 }
 
 #configurator {
@@ -253,11 +253,6 @@ li {
     color: #fff;
 }
 
-.cfg-flyouts {
-    display: flex;
-    flex-direction: column;
-}
-
 .cfg-accordion-toggle {
     display: none;
 }
@@ -314,7 +309,6 @@ li {
 }
 
 .cfg-accordion-inner {
-    padding: 14px 16px;
     font-size: 12px;
     color: var(--secondary-text);
     line-height: 1.6;
@@ -2025,6 +2019,7 @@ li {
 .key:hover .kl-delete-btn,
 .mousepad-wrap:hover .kl-delete-btn,
 .joystick-wrap:hover .kl-delete-btn,
+.input-history-wrap:hover .kl-delete-btn,
 .scroll-display:hover .kl-delete-btn,
 .mouse-side:hover .kl-delete-btn {
     display: flex;
@@ -2042,6 +2037,7 @@ li {
 .key:hover .kl-edge-handle,
 .mousepad-wrap:hover .kl-edge-handle,
 .joystick-wrap:hover .kl-edge-handle,
+.input-history-wrap:hover .kl-edge-handle,
 .scroll-display:hover .kl-edge-handle,
 .mouse-side:hover .kl-edge-handle {
     opacity: 0.5;
@@ -2188,6 +2184,48 @@ li {
     color: var(--disabled-text);
     text-shadow: var(--disabled-text-shadow) 1px 1px;
     pointer-events: none;
+}
+
+.texture-file-dialog {
+    position: relative;
+    right: auto;
+    top: auto;
+    min-width: 380px;
+    max-width: 640px;
+    width: 90vw;
+    height: 75vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.texture-file-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-ui);
+    font-size: 12px;
+}
+
+.texture-file-picker-item {
+    padding: 5px 8px;
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+
+.texture-file-picker-item:hover {
+    background: var(--secondary-accent);
+    color: #fff;
+}
+
+.texture-file-picker-empty {
+    padding: 8px;
+    color: var(--disabled-text);
+    font-style: italic;
 }
 
 .kl-add-props {
@@ -2485,4 +2523,139 @@ li {
 
 .kl-tree-node.kl-drop-after {
     border-bottom: 2px solid var(--accent) !important;
+}
+
+.cfg-mode-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cfg-mode-modal[hidden] {
+    display: none;
+}
+
+.cfg-mode-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+}
+
+.cfg-mode-dialog {
+    position: relative;
+    width: 640px;
+    max-width: calc(100vw - 32px);
+    background: var(--bg);
+    border: 1px solid;
+    border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    padding: 32px;
+}
+
+.cfg-mode-title {
+    font-size: 22px;
+    color: var(--text);
+    text-align: center;
+    margin: 0 0 24px;
+}
+
+.cfg-mode-options {
+    display: flex;
+    gap: 16px;
+}
+
+.cfg-mode-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg);
+    border: 1px solid;
+    border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    padding: 28px 16px 20px;
+    cursor: pointer;
+}
+
+.cfg-mode-btn:hover,
+.cfg-mode-btn:focus-visible {
+    background: var(--secondary-accent);
+    color: #fff;
+    outline: none;
+}
+
+.cfg-mode-btn:active {
+    border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+}
+
+.cfg-mode-icon {
+    line-height: 1;
+}
+
+.cfg-mode-icon svg {
+    width: 56px;
+    height: 56px;
+}
+
+.cfg-mode-label {
+    white-space: nowrap;
+}
+
+.cfg-mode-desc {
+    margin: 20px 0 0;
+    height: 220px;
+    overflow-y: auto;
+    font-size: 14px;
+    color: var(--text-3);
+    text-align: left;
+    line-height: 1.5;
+}
+
+.cfg-mode-summary {
+    color: var(--text);
+    text-align: center;
+    margin: 0 0 14px;
+}
+
+.cfg-mode-list {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+}
+
+.cfg-mode-list:last-child {
+    margin-bottom: 0;
+}
+
+.cfg-mode-list li {
+    position: relative;
+    padding-left: 22px;
+    margin: 5px 0;
+}
+
+.cfg-mode-list li::before {
+    position: absolute;
+    left: 0;
+}
+
+.cfg-mode-pros li::before {
+    content: "+";
+    color: var(--green);
+}
+
+.cfg-mode-cons li::before {
+    content: "\2212";
+    color: var(--red);
+}
+
+.cfg-mode-remember {
+    justify-content: center;
+    margin-top: 20px;
 }

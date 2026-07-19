@@ -11,29 +11,46 @@ fn stage_web_assets() {
         .join("../..")
         .canonicalize()
         .expect("failed to resolve repo root");
+
+    let web_src = repo_root.join("web");
     let staging = Path::new(&manifest_dir).join("web-bundle");
 
-    println!(
-        "cargo:rerun-if-changed={}",
-        repo_root.join("index.html").display()
-    );
-    println!(
-        "cargo:rerun-if-changed={}",
-        repo_root.join("style.css").display()
-    );
-    println!(
-        "cargo:rerun-if-changed={}",
-        repo_root.join("scripts").display()
-    );
+    println!("cargo:rerun-if-changed={}", web_src.display());
 
     if staging.exists() {
         std::fs::remove_dir_all(&staging).unwrap();
     }
-    std::fs::create_dir_all(&staging).unwrap();
 
-    std::fs::copy(repo_root.join("index.html"), staging.join("index.html")).unwrap();
-    std::fs::copy(repo_root.join("style.css"), staging.join("style.css")).unwrap();
-    copy_dir(&repo_root.join("scripts"), &staging.join("scripts"));
+    const SKIP: &[&str] = &["media", ".idea"];
+
+    std::fs::create_dir_all(&staging).unwrap();
+    for entry in std::fs::read_dir(&web_src).unwrap() {
+        let entry = entry.unwrap();
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if SKIP.iter().any(|s| *s == name_str.as_ref()) {
+            continue;
+        }
+        let dst = staging.join(&name);
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &dst);
+        } else {
+            std::fs::copy(entry.path(), dst).unwrap();
+        }
+    }
+
+    mark_local_instance(&staging);
+}
+
+fn mark_local_instance(staging: &Path) {
+    let consts_path = staging.join("scripts/consts.js");
+    let contents = std::fs::read_to_string(&consts_path).unwrap();
+    let patched = contents.replacen(
+        "export const LOCAL_INSTANCE = false;",
+        "export const LOCAL_INSTANCE = true;",
+        1,
+    );
+    std::fs::write(&consts_path, patched).unwrap();
 }
 
 fn copy_dir(src: &Path, dst: &Path) {
