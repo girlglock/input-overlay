@@ -97,68 +97,17 @@ jobs:
             -
 
             # **Setup:**
+
+            ## windows
+
             <details>
             <summary><b>obs plugin setup</b></summary>
             <br>
 
-            > [!IMPORTANT]
-            > the obs plugin version does **not** include all features, will **not** receive automatic update checks, and is only intended for **single pc setups** (obs and the game running on the same peesee)
-
-            <details>
-            <summary><b>windows setup</b></summary>
-            <br>
-
-            - download `input-overlay-obs-plugin.zip` and unzip it
-            - place the contents into `C:\Program Files\obs-studio\`
-            - launch obs with admin privileges
-            - add a new source via **Add Source -> Input Overlay**, then configure it in its properties
-
-            </details>
-
-            <details>
-            <summary><b>linux setup</b></summary>
-            <br>
-
-            - download `input-overlay-obs-plugin.zip` and unzip it
-            - place the contents into `~/.config/obs-studio/` *(or whereever your obs folder is :p)*
-
-            before launching obs, set up device permissions so the plugin can actually read your input devices:
-
-            **1. add yourself to the `input` group**
-
-            standard distros:
-            ```bash
-            sudo usermod -aG input $USER
-            ```
-
-            if the one above fails to add you to the group you might be on a immutable distro (bazzite, bluefin, openSUSE Aeon, etc etc). try this then:
-            ```bash
-            echo "input:x:$(getent group input | cut -d: -f3):$USER" | sudo tee -a /etc/group
-            ```
-
-            **2. set up analog support** *(optional)*
-
-            ```bash
-            printf '%s\n' \
-              'KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="31e3", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="1532", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="19f5", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="352d", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="3434", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="362d", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="373b", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="372e", MODE="0660", GROUP="input"' \
-              | sudo tee /etc/udev/rules.d/99-analog.rules
-            sudo udevadm control --reload-rules && sudo udevadm trigger
-            ```
-
-            **3. reboot**
-
-            **4. launch obs, add a new source via `Add Source -> Input Overlay`, then configure it in its properties**
-
-            </details>
+            1. download `input-overlay-obs-plugin.zip` and unzip it
+            2. merge the directory into your obs-studio install, eg `C:\Program Files\obs-studio\`
+            3. launch obs with admin
+            4. add a new source via **Add Source -> Input Overlay**, then configure it in its properties
 
             </details>
 
@@ -166,13 +115,9 @@ jobs:
             <summary><b>standalone ws server setup</b></summary>
             <br>
 
-            <details>
-            <summary><b>windows setup</b></summary>
-            <br>
-
-            - download `input-overlay-ws-windows.zip`
-            - unzip and run `input-overlay-ws.exe`
-            - right-click the tray icon for settings
+            1. download `input-overlay-ws-windows.zip`
+            2. unzip and run `input-overlay-ws.exe`
+            3. right-click the tray icon for settings
 
             > [!NOTE]
             > you might need to run the ws server as admin when tabbed into apps that run with admin elevations themselves
@@ -180,66 +125,86 @@ jobs:
 
             </details>
 
+            ## linux
+
             <details>
-            <summary><b>linux setup (experimental)</b></summary>
+            <summary><b>needed perms and rules</b></summary>
+            <br>
+
+            these steps let input-overlay read your keyboard/mouse devices. do this before using either setup method below.
+
+            1. add yourself to the `input` group
+
+               ```bash
+               sudo usermod -aG input $USER
+               ```
+
+               if the one above fails you might be on a immutable distro (bazzite, bluefin, openSUSE Aeon, etc etc). try this then:
+
+               ```bash
+               echo "input:x:$(getent group input | cut -d: -f3):$USER" | sudo tee -a /etc/group
+               ```
+
+            2. set up analog support *(optional)*:
+
+               ```bash
+               printf '%s\n' \
+                 'KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="input"' \
+                 'SUBSYSTEM=="usb", ATTRS{idVendor}=="31e3", MODE="0660", GROUP="input"' \
+                 'SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", MODE="0660", GROUP="input"' \
+                 'SUBSYSTEM=="usb", ATTRS{idVendor}=="1532", MODE="0660", GROUP="input"' \
+                 'SUBSYSTEM=="usb", ATTRS{idVendor}=="19f5", MODE="0660", GROUP="input"' \
+                 'SUBSYSTEM=="usb", ATTRS{idVendor}=="352d", MODE="0660", GROUP="input"' \
+                 'SUBSYSTEM=="usb", ATTRS{idVendor}=="3434", MODE="0660", GROUP="input"' \
+                 'SUBSYSTEM=="usb", ATTRS{idVendor}=="362d", MODE="0660", GROUP="input"' \
+                 'SUBSYSTEM=="usb", ATTRS{idVendor}=="373b", MODE="0660", GROUP="input"' \
+                 'SUBSYSTEM=="usb", ATTRS{idVendor}=="372e", MODE="0660", GROUP="input"' \
+                 | sudo tee /etc/udev/rules.d/99-analog.rules
+               sudo udevadm control --reload-rules && sudo udevadm trigger
+               ```
+
+            3. reboot
+
+            </details>
+
+            <details>
+            <summary><b>obs plugin setup</b></summary>
+            <br>
+
+            > [!IMPORTANT]
+            > the obs plugin version does **not** include all features, will **not** receive automatic update checks, and is only intended for **single pc setups** (obs and the game running on the same peesee)
+
+            1. download `input-overlay-obs-plugin.zip` and unzip it
+            2. merge the directory into your obs-studio install, eg `~/.config/obs-studio/` *(or whereever your obs folder is :p)*
+            3. launch obs, add a new source via `Add Source -> Input Overlay`, then configure it in its properties
+
+            </details>
+
+            <details>
+            <summary><b>standalone ws server setup (experimental)</b></summary>
             <br>
 
             download `input-overlay-ws-linux.zip` and unzip it, then follow the steps below.
 
-            **1. install runtime dependencies**
+            1. install runtime dependencies:
 
-            ```bash
-            # debian / ubuntu
-            sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0 libayatana-appindicator3-1 librsvg2-2
+               ```bash
+               # debian / ubuntu
+               sudo apt-get install libwebkit2gtk-4.1-0 libgtk-3-0 libayatana-appindicator3-1 librsvg2-2
 
-            # fedora
-            sudo dnf install webkit2gtk4.1 gtk3 libayatana-appindicator librsvg2
+               # fedora
+               sudo dnf install webkit2gtk4.1 gtk3 libayatana-appindicator librsvg2
 
-            # arch
-            sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator librsvg
-            ```
+               # arch
+               sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator librsvg
+               ```
 
-            an appimage build is also available which should run on most distros without installing dependencies at the cost of being hughmungous in comparison
+               an appimage build is also available which should run on most distros without installing dependencies at the cost of being hughmungous in comparison
 
-            **2. add yourself to the `input` group**
+            2. run `./input-overlay-ws`
+            3. right-click the tray icon and open settings -> devices to pick your keyboard and mouse evdev devices
 
-            standard distros:
-            ```bash
-            sudo usermod -aG input $USER
-            ```
-
-            if the one above fails to add you to the group you might be on a immutable distro (bazzite, bluefin, openSUSE Aeon, etc etc). try this then:
-            ```bash
-            echo "input:x:$(getent group input | cut -d: -f3):$USER" | sudo tee -a /etc/group
-            ```
-
-            **3. set up analog support** *(optional)*
-
-            ```bash
-            printf '%s\n' \
-              'KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="31e3", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="1532", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="19f5", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="352d", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="3434", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="362d", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="373b", MODE="0660", GROUP="input"' \
-              'SUBSYSTEM=="usb", ATTRS{idVendor}=="372e", MODE="0660", GROUP="input"' \
-              | sudo tee /etc/udev/rules.d/99-analog.rules
-            sudo udevadm control --reload-rules && sudo udevadm trigger
-            ```
-
-            **4. reboot**
-
-            **5. run `./input-overlay-ws`**
-
-            **6. right-click the tray icon and open settings -> devices to pick your keyboard and mouse evdev devices**
-
-            some mice and keyboards might show up duplicate (nkro, wireless dongle, keyboard mouse button emulation for macros, mouse keyboard macros etc etc), you will just kinda have to try and error them)
-
-            </details>
+               some mice and keyboards might show up duplicate (nkro, wireless dongle, keyboard mouse button emulation for macros, mouse keyboard macros etc etc), you will just kinda have to try and error them)
 
             </details>
 
@@ -250,5 +215,6 @@ jobs:
             > alternatively you can build the it yourself. see the readme for instructions :p
 
             ${{ steps.prev_tag.outputs.tag != '' && format('[CHANGELOG]({0}/{1}/compare/{2}...{3})', github.server_url, github.repository, steps.prev_tag.outputs.tag, github.ref_name) || 'First release.' }}
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
