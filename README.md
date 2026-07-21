@@ -21,6 +21,7 @@
 
 - **websocket connection with authentication** with support to stream your inputs to a secondary PC (e.g. a dedicated streaming PC)
 - **hall effect keyboard support** via the [AnalogSense SDK ported to rust](https://github.com/AnalogSense/JavaScript-SDK)
+  - if you want to PR/request a new device please do so on [AnalogSense](https://github.com/AnalogSense) instead this of repo.
 - **mouse movement tracking** via the RawInputBuffer windows api to keep track while tabbed into games
 - **customizable layouts and labels** (labels support html `img src` tags, not officially though)
 - **dual PC support** (e.g. gaming PC to dedicated streaming PC)
