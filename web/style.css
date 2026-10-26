@@ -2430,6 +2430,26 @@ li {
     color: var(--red);
 }
 
+.kl-tree-subgroup {
+    margin-left: 10px;
+    border-left: 1px solid var(--border-dark);
+    padding-left: 6px;
+}
+
+.kl-tree-subgroup > summary {
+    font-size: 10px;
+    color: var(--text-3);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 0;
+    user-select: none;
+}
+
+.kl-tree-subgroup > summary:hover {
+    color: var(--accent);
+}
+
 .kl-tree-pos {
     float: right;
     font-size: 9px;
@@ -2473,6 +2493,43 @@ li {
 
 .kl-tree-attr-input:focus {
     color: var(--accent);
+}
+
+.kl-tree-color-wrap, .kl-tree-slider-wrap {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.kl-tree-color-swatch {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid;
+    border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+    background: none;
+    cursor: pointer;
+}
+
+.kl-tree-color-hex {
+    flex: 1;
+    min-width: 0;
+}
+
+.kl-tree-attr-range {
+    flex: 1;
+    min-width: 0;
+}
+
+.kl-tree-attr-rangeval {
+    flex-shrink: 0;
+    font-size: 9px;
+    color: var(--text-3);
+    width: 28px;
+    text-align: right;
 }
 
 .kl-tree-empty {
@@ -2523,6 +2580,54 @@ li {
 
 .kl-tree-node.kl-drop-after {
     border-bottom: 2px solid var(--accent) !important;
+}
+
+.kl-tree-node.kl-selected>details>summary {
+    background: var(--accent-dim);
+}
+
+#preview-keyboard [data-kl-idx].kl-selected {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 1px;
+}
+
+.kl-marquee {
+    position: fixed;
+    display: none;
+    border: 1px solid var(--accent);
+    background: rgba(196, 181, 80, 0.15);
+    pointer-events: none;
+    z-index: 10000;
+}
+
+.kl-context-menu {
+    position: fixed;
+    z-index: 10001;
+    background: var(--secondary-bg);
+    border: 1px solid;
+    border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+    min-width: 160px;
+    padding: 2px;
+}
+
+.kl-context-menu-item {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    text-align: left;
+    padding: 5px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.kl-context-menu-item:hover {
+    background: var(--secondary-accent);
+    color: #fff;
 }
 
 .cfg-mode-modal {

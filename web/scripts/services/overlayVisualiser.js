@@ -156,45 +156,45 @@ export class OverlayVisualiser {
 
     applyStyles(opts) {
         this._cachedOpts = opts;
-        const pressscalevalue = parseInt(opts.pressscale) / 100;
-        const animDuration = `${0.15 * (100 / parseInt(opts.animationspeed))}s`;
-        const activeColorRgb = this.utils.hexToRgba(opts.activecolor, 1);
+        const key_press_scalevalue = parseInt(opts.key_press_scale) / 100;
+        const animDuration = `${0.15 * (100 / parseInt(opts.key_animation_speed))}s`;
+        const activeColorRgb = this.utils.hexToRgba(opts.key_glow_color, 1);
         const activeColorForGradient = activeColorRgb.replace(/, [\d.]+?\)/, ", 0.3)");
-        const fontWeight = opts.boldfont ? 999 : 1;
+        const fontWeight = opts.key_bold_font ? 999 : 1;
         this.fontWeight = fontWeight;
-        const gapModifier = (opts.gapmodifier / 100).toFixed(2);
+        const gapModifier = (opts.key_gap_scale / 100).toFixed(2);
 
-        this.pressScaleValue = pressscalevalue;
+        this.pressScaleValue = key_press_scalevalue;
         this.animDuration = animDuration;
-        this.scrollHoldMs = Math.round(250 * (100 / parseInt(opts.animationspeed)));
-        this.activeColor = opts.activecolor;
-        this.activeBgColor = opts.activebgcolor;
-        this.backgroundcolor = opts.backgroundcolor;
-        this.inactiveColor = opts.inactivecolor;
-        this.outlineColor = opts.outlinecolor;
-        this.fontColor = opts.fontcolor;
-        this.outlineScalePressed = parseFloat(opts.outlinescalepressed ?? opts.outlineScalePressed ?? 1);
-        this.outlineScaleUnpressed = parseFloat(opts.outlinescaleunpressed ?? opts.outlineScaleUnpressed ?? 1);
-        this.borderRadius = parseFloat(opts.borderradius ?? 8);
-        this.pressedRadius = parseFloat(opts.pressedradius ?? opts.borderradius ?? 8);
-        this.keyLegendMode = opts.keylegendmode || "fading";
-        this.forceDisableAnalog = opts.forcedisableanalog === true || opts.forcedisableanalog === "true" || opts.forcedisableanalog === "1";
-        this.analogDisplayMode = opts.analogdisplaymode || "fill";
-        this.analogSmoothing = opts.analogsmoothing === true || opts.analogsmoothing === "true" || opts.analogsmoothing === "1";
-        this.gamepadDeadzone = parseFloat(opts.gamepaddeadzone) / 100 || 0.03;
+        this.scrollHoldMs = Math.round(250 * (100 / parseInt(opts.key_animation_speed)));
+        this.activeColor = opts.key_glow_color;
+        this.activeBgColor = opts.key_active_bg_color;
+        this.key_inactive_bg_color = opts.key_inactive_bg_color;
+        this.inactiveColor = opts.key_inactive_font_color;
+        this.outlineColor = opts.key_outline_color;
+        this.fontColor = opts.key_active_font_color;
+        this.outlineScalePressed = parseFloat(opts.key_outline_width_pressed ?? opts.outlineScalePressed ?? 1);
+        this.outlineScaleUnpressed = parseFloat(opts.key_outline_width_idle ?? opts.outlineScaleUnpressed ?? 1);
+        this.borderRadius = parseFloat(opts.key_border_radius_idle ?? 8);
+        this.pressedRadius = parseFloat(opts.key_border_radius_pressed ?? opts.key_border_radius_idle ?? 8);
+        this.keyLegendMode = opts.analog_legend_fill_mode || "fading";
+        this.forceDisableAnalog = opts.analog_force_disable === true || opts.analog_force_disable === "true" || opts.analog_force_disable === "1";
+        this.analogDisplayMode = opts.analog_display_mode || "fill";
+        this.analogSmoothing = opts.analog_smoothing === true || opts.analog_smoothing === "true" || opts.analog_smoothing === "1";
+        this.gamepadDeadzone = parseFloat(opts.gamepad_deadzone) / 100 || 0.03;
 
-        this.MOUSEPAD_TRAIL_MS = opts.mousetrailfadeout != null ? parseInt(opts.mousetrailfadeout) : 600;
-        this.MOUSEPAD_SENSITIVITY = (parseInt(opts.mousetrailsensitivity) || 100) / 100;
-        this.MOUSEPAD_MODE = opts.mousetrailmode || "wrap";
-        this.MOUSEPAD_TRAIL_LENGTH = parseInt(opts.mousetraillength) || 150;
-        this.MOUSEPAD_M1_HIGHLIGHT = opts.mousetrailm1highlight === true || opts.mousetrailm1highlight === "true" || opts.mousetrailm1highlight === "1";
-        this.MOUSEPAD_SHOW_DISTANCE = opts.showmousedistance === true || opts.showmousedistance === "true" || opts.showmousedistance === "1";
-        this.MOUSEPAD_DPI = parseInt(opts.mousedistancedpi) || 400;
-        this.MOUSEPAD_RESET_DISTANCE_AFTER_FADE = opts.resetmousedistanceafterfade === true || opts.resetmousedistanceafterfade === "true" || opts.resetmousedistanceafterfade === "1";
+        this.MOUSEPAD_TRAIL_MS = opts.mouse_trail_fade_duration != null ? parseInt(opts.mouse_trail_fade_duration) : 600;
+        this.MOUSEPAD_SENSITIVITY = (parseInt(opts.mouse_trail_sensitivity) || 100) / 100;
+        this.MOUSEPAD_MODE = opts.mouse_trail_mode || "wrap";
+        this.MOUSEPAD_TRAIL_LENGTH = parseInt(opts.mouse_trail_length) || 150;
+        this.MOUSEPAD_M1_HIGHLIGHT = opts.mouse_trail_highlight_m1 === true || opts.mouse_trail_highlight_m1 === "true" || opts.mouse_trail_highlight_m1 === "1";
+        this.MOUSEPAD_SHOW_DISTANCE = opts.mouse_show_distance === true || opts.mouse_show_distance === "true" || opts.mouse_show_distance === "1";
+        this.MOUSEPAD_DPI = parseInt(opts.mouse_distance_dpi) || 400;
+        this.MOUSEPAD_RESET_DISTANCE_AFTER_FADE = opts.mouse_reset_distance_after_fade === true || opts.mouse_reset_distance_after_fade === "true" || opts.mouse_reset_distance_after_fade === "1";
 
-        const newTextureUrl = opts.mousepadtexture || "";
-        const newTextureZoom = parseFloat(opts.mousepadtexturezoom) || 1;
-        this.MOUSEPAD_TEXTURE_OPACITY = Math.min(1, Math.max(0, parseFloat(opts.mousepadtextureopacity) ?? 1));
+        const newTextureUrl = opts.mouse_pad_texture_url || "";
+        const newTextureZoom = parseFloat(opts.mouse_pad_texture_zoom) || 1;
+        this.MOUSEPAD_TEXTURE_OPACITY = Math.min(1, Math.max(0, parseFloat(opts.mouse_pad_texture_opacity) ?? 1));
         if (newTextureUrl !== this.MOUSEPAD_BG_TEXTURE || newTextureZoom !== this.MOUSEPAD_TEXTURE_ZOOM) {
             this.MOUSEPAD_BG_TEXTURE = newTextureUrl;
             this.MOUSEPAD_TEXTURE_ZOOM = newTextureZoom;
@@ -254,11 +254,11 @@ export class OverlayVisualiser {
             }
         }
 
-        const hex = opts.activecolor.replace("#", "");
+        const hex = opts.key_glow_color.replace("#", "");
         this._activeColorRGB = [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 
-        this.utils.applyFontStyles(opts.fontfamily);
-        this._fontFamilyKey = opts.fontfamily || "";
+        this.utils.applyFontStyles(opts.key_font_family);
+        this._fontFamilyKey = opts.key_font_family || "";
 
         let styleEl = document.getElementById("dynamic-styles");
         if (!styleEl) {
@@ -267,35 +267,35 @@ export class OverlayVisualiser {
             document.head.appendChild(styleEl);
         }
 
-        const activeTransform = this.analogMode ? "scaleX(1) scaleY(1)" : `scaleX(${pressscalevalue}) scaleY(${pressscalevalue})`;
+        const activeTransform = this.analogMode ? "scaleX(1) scaleY(1)" : `scaleX(${key_press_scalevalue}) scaleY(${key_press_scalevalue})`;
         const transitionStyle = (this.analogMode && this.analogDisplayMode !== "percent")
             ? `color ${animDuration} cubic-bezier(0.4,0,0.2,1), border-color ${animDuration} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDuration} cubic-bezier(0.4,0,0.2,1)`
             : `transform ${animDuration} cubic-bezier(0.4,0,0.2,1), border-radius ${animDuration} cubic-bezier(0.4,0,0.2,1), color ${animDuration} cubic-bezier(0.4,0,0.2,1), border-color ${animDuration} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDuration} cubic-bezier(0.4,0,0.2,1), background ${animDuration} cubic-bezier(0.4,0,0.2,1), border-width ${animDuration} cubic-bezier(0.4,0,0.2,1)`;
 
-        const fontColorInt = parseInt(opts.fontcolor.replace("#", ""), 16);
+        const fontColorInt = parseInt(opts.key_active_font_color.replace("#", ""), 16);
         const shadowColor = (fontColorInt > 0xFFFFFF / 2 ? "#000000" : "#ffffff") + "ff";
         const textShadow = `1px 0 1px ${shadowColor}, -1px 0 1px ${shadowColor}, 0 1px 2px ${shadowColor}, 0 -1px 1px ${shadowColor}`;
 
         styleEl.textContent = `
             :root {
-                --active-color: ${opts.activecolor};
+                --active-color: ${opts.key_glow_color};
                 --font-weight: ${fontWeight};
                 --gap-modifier: ${gapModifier};
-                --press-expansion: ${pressscalevalue - 1};
+                --press-expansion: ${key_press_scalevalue - 1};
             }
             .key, .mouse-btn, .scroll-display {
-                border-radius: ${opts.borderradius}px !important;
-                color: ${opts.inactivecolor} !important;
-                background: ${opts.backgroundcolor} !important;
+                border-radius: ${opts.key_border_radius_idle}px !important;
+                color: ${opts.key_inactive_font_color} !important;
+                background: ${opts.key_inactive_bg_color} !important;
                 background-clip: padding-box !important;
-                border-color: ${opts.outlinecolor} !important;
+                border-color: ${opts.key_outline_color} !important;
                 transition: ${transitionStyle} !important;
                 position: relative;
                 font-weight: ${fontWeight} !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                border-width: ${opts.outlinescaleunpressed ?? 1}px !important;
+                border-width: ${opts.key_outline_width_idle ?? 1}px !important;
                 transform: translateY(0) scaleX(1) scaleY(1) !important;
             }
             .key, .mouse-btn { overflow: hidden; }
@@ -314,21 +314,21 @@ export class OverlayVisualiser {
                 justify-content: center;
                 position: absolute;
                 inset: 0;
-                color: ${opts.fontcolor} !important;
+                color: ${opts.key_active_font_color} !important;
                 clip-path: inset(100% 0 0 0);
                 pointer-events: none;
                 z-index: 3;
             }
             .key.active, .mouse-btn.active, .scroll-display.active {
-                border-radius: ${opts.pressedradius ?? opts.borderradius}px !important;
-                color: ${opts.fontcolor} !important;
+                border-radius: ${opts.key_border_radius_pressed ?? opts.key_border_radius_idle}px !important;
+                color: ${opts.key_active_font_color} !important;
                 transform: ${activeTransform} !important;
-                border-color: ${opts.activecolor} !important;
-                box-shadow: 0 0 ${opts.glowradius}px ${opts.activecolor} !important;
-                border-width: ${opts.outlinescalepressed ?? 1}px !important;
+                border-color: ${opts.key_glow_color} !important;
+                box-shadow: 0 0 ${opts.key_glow_radius}px ${opts.key_glow_color} !important;
+                border-width: ${opts.key_outline_width_pressed ?? 1}px !important;
             }
             .key.active:not(.analog-key), .mouse-btn.active:not(.analog-key), .scroll-display.active:not(.analog-key) {
-                background: ${opts.activebgcolor} !important;
+                background: ${opts.key_active_bg_color} !important;
             }
             .key.active::before, .mouse-btn.active::before, .scroll-display.active::before {
                 background: linear-gradient(135deg, ${activeColorForGradient}, ${activeColorForGradient}) !important;
@@ -343,9 +343,9 @@ export class OverlayVisualiser {
             .scroll-arrow img { max-width: 90% !important; max-height: 90% !important; }
             .mouse-btn.mouse-side { padding: 5px; }
             .mouse-btn.mouse-side span {
-                background: ${opts.backgroundcolor} !important;
-                border-color: ${opts.outlinecolor} !important;
-                color: ${opts.inactivecolor} !important;
+                background: ${opts.key_inactive_bg_color} !important;
+                border-color: ${opts.key_outline_color} !important;
+                color: ${opts.key_inactive_font_color} !important;
                 width: 18px !important;
                 transition: all ${animDuration} cubic-bezier(0.4,0,0.2,1) !important;
                 display: flex !important;
@@ -353,19 +353,19 @@ export class OverlayVisualiser {
                 justify-content: center !important;
             }
             .mouse-btn.mouse-side span.active {
-                border-color: ${opts.activecolor} !important;
-                box-shadow: 0 0 ${opts.glowradius}px ${opts.activecolor} !important;
-                color: ${opts.fontcolor} !important;
-                background: ${opts.activebgcolor} !important;
-                transform: scale(${pressscalevalue}) !important;
+                border-color: ${opts.key_glow_color} !important;
+                box-shadow: 0 0 ${opts.key_glow_radius}px ${opts.key_glow_color} !important;
+                color: ${opts.key_active_font_color} !important;
+                background: ${opts.key_active_bg_color} !important;
+                transform: scale(${key_press_scalevalue}) !important;
             }
             .scroll-count {
-                color: ${opts.fontcolor} !important;
-                display: ${opts.hidescrollcombo ? "none" : "flex"} !important;
+                color: ${opts.key_active_font_color} !important;
+                display: ${opts.scroll_hide_combo ? "none" : "flex"} !important;
                 font-weight: ${fontWeight} !important;
                 text-shadow: ${textShadow} !important;
             }
-            .mouse-section { display: ${opts.hidemouse ? "none" : "flex"} !important; }
+            .mouse-section { display: ${opts.hide_mouse ? "none" : "flex"} !important; }
             .analog-depth-pct {
                 position: absolute;
                 bottom: 2px;
@@ -381,6 +381,32 @@ export class OverlayVisualiser {
             }
             .analog-depth-pct.visible { opacity: 0.8; }
         `;
+    }
+
+    _styleOverrideCssRules(overrideClass, style) {
+        if (!style || !Object.keys(style).length) return "";
+        const sel = `.${overrideClass}`;
+
+        const idle = [];
+        if (style.key_border_radius_idle != null) idle.push(`border-radius: ${style.key_border_radius_idle}px !important;`);
+        if (style.key_inactive_bg_color) idle.push(`background: ${style.key_inactive_bg_color} !important;`);
+        if (style.key_outline_color) idle.push(`border-color: ${style.key_outline_color} !important;`);
+        if (style.key_inactive_font_color) idle.push(`color: ${style.key_inactive_font_color} !important;`);
+
+        const active = [];
+        if (style.key_border_radius_pressed != null) active.push(`border-radius: ${style.key_border_radius_pressed}px !important;`);
+        if (style.key_glow_color) {
+            const glowRadius = this._cachedOpts?.key_glow_radius ?? 24;
+            active.push(`border-color: ${style.key_glow_color} !important;`);
+            active.push(`box-shadow: 0 0 ${glowRadius}px ${style.key_glow_color} !important;`);
+        }
+        if (style.key_active_font_color) active.push(`color: ${style.key_active_font_color} !important;`);
+        if (style.key_active_bg_color) active.push(`background: ${style.key_active_bg_color} !important;`);
+
+        let css = "";
+        if (idle.length) css += `${sel}.key, ${sel}.scroll-display { ${idle.join(" ")} }\n`;
+        if (active.length) css += `${sel}.key.active, ${sel}.scroll-display.active { ${active.join(" ")} }\n`;
+        return css;
     }
 
     createKeyOrButtonElement(elementDef) {
@@ -467,10 +493,13 @@ export class OverlayVisualiser {
         const U = 50;
         let maxRight = 0, maxBottom = 0;
         let zIdx = 0;
+        let overrideCss = "";
 
         for (const item of defs) {
             if (item.type === "$") continue;
             const zi = ++zIdx;
+            const overrideClass = item.style && Object.keys(item.style).length ? `kl-override-${zi}` : "";
+            if (overrideClass) overrideCss += this._styleOverrideCssRules(overrideClass, item.style);
 
             const widthPx = item.w * U;
             const heightPx = item.h * U;
@@ -479,6 +508,14 @@ export class OverlayVisualiser {
             maxBottom = Math.max(maxBottom, y + heightPx);
 
             const baseItemType = item.type.split("|")[0];
+            
+            const registerScrollAliases = (el) => {
+                item.type.split("|").slice(1).forEach(keyName => {
+                    const map = keyName.startsWith("mouse_") ? mouseElements : keyElements;
+                    register(map, keyName, el);
+                    if (!keyName.startsWith("mouse_") && !el.dataset.key) el.dataset.key = keyName;
+                });
+            };
             switch (baseItemType) {
                 case "mouse_pad": {
                     const el = this._buildMousePadElementAbs(item, x, y, widthPx, heightPx);
@@ -495,7 +532,7 @@ export class OverlayVisualiser {
                 }
                 case "input_history": {
                     const historyId = `hist_${zi}`;
-                    const el = this._buildInputHistoryElementAbs(item, historyId, x, y, widthPx, heightPx);
+                    const el = this._buildInputHistoryElementAbs(item, historyId, x, y, widthPx, heightPx, overrideClass);
                     container.appendChild(el);
                     for (const keyName of item.trackedKeys ?? []) {
                         let arr = this._historyByKey.get(keyName);
@@ -506,7 +543,7 @@ export class OverlayVisualiser {
                 }
                 case "scroller": {
                     const labels = item.labels ?? ["M3", "▲", "▼"];
-                    const disp = this.createScrollDisplay(labels, "");
+                    const disp = this.createScrollDisplay(labels, overrideClass);
                     Object.assign(disp.el.style, { position: "absolute", left: `${x}px`, top: `${y}px` });
                     disp.el.style.setProperty("--key-width", `${widthPx}px`);
                     disp.el.style.setProperty("--key-height-modifier", String(item.h));
@@ -515,19 +552,13 @@ export class OverlayVisualiser {
                     scrollArrows.push(disp.arrow);
                     scrollCounts.push(disp.count);
                     register(mouseElements, "mouse_middle", disp.el);
-                    const extraScrollKeys = item.type.split("|").filter(k => k !== "scroller");
-                    extraScrollKeys.forEach((keyName, idx) => {
-                        const map = keyName.startsWith("mouse_") ? mouseElements : keyElements;
-                        register(map, keyName, disp.el);
-                        if (!keyName.startsWith("mouse_") && !disp.el.dataset.key)
-                            disp.el.dataset.key = keyName;
-                        this.scrollerAliases.set(keyName, idx === 0 ? -1 : 1);
-                    });
+                    registerScrollAliases(disp.el);
+                    item.type.split("|").slice(1).forEach((keyName, idx) => this.scrollerAliases.set(keyName, idx === 0 ? -1 : 1));
                     break;
                 }
                 case "scroll_updown": {
                     const labels = item.labels ?? ["▲", "▼"];
-                    const disp = this.createScrollDisplay(["", labels[0], labels[1]], "");
+                    const disp = this.createScrollDisplay(["", labels[0], labels[1]], overrideClass);
                     Object.assign(disp.el.style, { position: "absolute", left: `${x}px`, top: `${y}px` });
                     disp.el.style.setProperty("--key-width", `${widthPx}px`);
                     disp.el.style.setProperty("--key-height-modifier", String(item.h));
@@ -535,11 +566,12 @@ export class OverlayVisualiser {
                     scrollDisplays.push(disp.el);
                     scrollArrows.push(disp.arrow);
                     scrollCounts.push(disp.count);
+                    registerScrollAliases(disp.el);
                     break;
                 }
                 case "scroll_up": {
                     const label = item.label ?? "▲";
-                    const disp = this.createScrollDisplay([label, label, ""], "");
+                    const disp = this.createScrollDisplay([label, label, ""], overrideClass);
                     disp.el.dataset.scrollDir = "up";
                     Object.assign(disp.el.style, { position: "absolute", left: `${x}px`, top: `${y}px` });
                     disp.el.style.setProperty("--key-width", `${widthPx}px`);
@@ -548,11 +580,12 @@ export class OverlayVisualiser {
                     scrollDisplays.push(disp.el);
                     scrollArrows.push(disp.arrow);
                     scrollCounts.push(disp.count);
+                    registerScrollAliases(disp.el);
                     break;
                 }
                 case "scroll_down": {
                     const label = item.label ?? "▼";
-                    const disp = this.createScrollDisplay([label, "", label], "");
+                    const disp = this.createScrollDisplay([label, "", label], overrideClass);
                     disp.el.dataset.scrollDir = "down";
                     Object.assign(disp.el.style, { position: "absolute", left: `${x}px`, top: `${y}px` });
                     disp.el.style.setProperty("--key-width", `${widthPx}px`);
@@ -561,6 +594,7 @@ export class OverlayVisualiser {
                     scrollDisplays.push(disp.el);
                     scrollArrows.push(disp.arrow);
                     scrollCounts.push(disp.count);
+                    registerScrollAliases(disp.el);
                     break;
                 }
                 case "mouse_side": {
@@ -576,7 +610,7 @@ export class OverlayVisualiser {
                 }
                 default: {
                     const keys = item.keys ?? (item.type.includes("|") ? item.type.split("|") : [item.type]);
-                    const el = this.createKeyOrButtonElement({ ...item, key: keys[0], class: "" });
+                    const el = this.createKeyOrButtonElement({ ...item, key: keys[0], class: overrideClass });
                     el.style.position = "absolute";
                     el.style.left = `${x}px`;
                     el.style.top = `${y}px`;
@@ -601,6 +635,16 @@ export class OverlayVisualiser {
 
         container.style.minWidth = `${maxRight}px`;
         container.style.minHeight = `${maxBottom}px`;
+
+        let overrideStyleEl = document.getElementById("dynamic-element-overrides");
+        
+        if (!overrideStyleEl) {
+            overrideStyleEl = document.createElement("style");
+            overrideStyleEl.id = "dynamic-element-overrides";
+        }
+
+        document.head.appendChild(overrideStyleEl);
+        overrideStyleEl.textContent = overrideCss;
 
         return {
             keyElements, mouseElements, gamepadElements,
@@ -675,11 +719,12 @@ export class OverlayVisualiser {
         return wrap;
     }
 
-    _buildInputHistoryElementAbs(item, historyId, x, y, widthPx, heightPx) {
+    _buildInputHistoryElementAbs(item, historyId, x, y, widthPx, heightPx, overrideClass) {
         const heightMod = (heightPx / 50).toFixed(4);
 
         const wrap = document.createElement("div");
-        wrap.className = "input-history-wrap key";
+
+        wrap.className = "input-history-wrap key" + (overrideClass ? " " + overrideClass : "");
         wrap.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${widthPx}px;height:${heightPx}px;overflow:hidden;pointer-events:none;z-index:50;box-sizing:border-box;`;
         wrap.style.setProperty("--key-width", `${widthPx}px`);
         wrap.style.setProperty("--key-height-modifier", heightMod);
@@ -689,6 +734,7 @@ export class OverlayVisualiser {
         canvas.style.cssText = "display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;";
         wrap.appendChild(canvas);
 
+        const style = item.style || {};
         this._historyCanvases[historyId] = {
             historyId,
             canvas, ctx: canvas.getContext("2d"),
@@ -698,6 +744,10 @@ export class OverlayVisualiser {
             scrollSpeed: item.scrollSpeed || 200,
             highlightOverlap: !!item.highlightOverlap,
             reverseDirection: !!item.reverseDirection,
+            perfectGapMs: item.perfectGapMs || 0,
+            barColor: style.key_active_bg_color || this.activeBgColor,
+            overlapColor: style.key_active_font_color || this.fontColor,
+            perfectColor: style.key_glow_color || this.activeColor,
             W: widthPx, H: heightPx,
             rafId: null,
         };
@@ -1461,10 +1511,24 @@ export class OverlayVisualiser {
         return ranges;
     }
 
+    _historyPerfectLinkedIndices(log, marginMs) {
+        const indices = new Set();
+        for (let i = 0; i < log.length - 1; i++) {
+            const a = log[i], b = log[i + 1];
+            if (a.key === b.key || a.end == null) continue;
+            if (b.start < a.end) continue; //overlapping
+            if (b.start - a.end <= marginMs) { indices.add(i); indices.add(i + 1); }
+        }
+        return indices;
+    }
+
     _drawInputHistory(historyId) {
         const state = this._historyCanvases[historyId];
         if (!state?.ctx) return false;
-        const { ctx, W, H, vertical, reverseDirection, scrollSpeed, trackedKeys, highlightOverlap } = state;
+        const {
+            ctx, W, H, vertical, reverseDirection, scrollSpeed, trackedKeys, highlightOverlap,
+            perfectGapMs, barColor, overlapColor, perfectColor,
+        } = state;
 
         ctx.clearRect(0, 0, W, H);
         if (!trackedKeys.length) return false;
@@ -1495,22 +1559,25 @@ export class OverlayVisualiser {
             else ctx.fillRect(0, p - 0.5, W, 1);
         }
 
-        ctx.fillStyle = this.utils.hexToRgba(this.activeColor || "#8b5cf6", 0.9);
+        const perfectIndices = perfectGapMs > 0 ? this._historyPerfectLinkedIndices(state.log, perfectGapMs) : null;
+        const barRgba = this.utils.hexToRgba(barColor || "#8b5cf6", 0.9);
+        const perfectRgba = this.utils.hexToRgba(perfectColor || "#8b5cf6", 0.9);
         let anyOpen = false;
 
         trackedKeys.forEach((keyName, i) => {
             const laneStart = i * laneSize + laneInset;
-            for (const entry of state.log) {
-                if (entry.key !== keyName) continue;
+            state.log.forEach((entry, logIdx) => {
+                if (entry.key !== keyName) return;
                 if (entry.end === null) anyOpen = true;
                 const [barStart, barLen] = barRange(entry);
+                ctx.fillStyle = perfectIndices?.has(logIdx) ? perfectRgba : barRgba;
                 if (vertical) ctx.fillRect(laneStart, barStart, barThickness, barLen);
                 else ctx.fillRect(barStart, laneStart, barLen, barThickness);
-            }
+            });
         });
 
         if (highlightOverlap) {
-            ctx.fillStyle = this.utils.hexToRgba(this.fontColor || "#ffffff", 1);
+            ctx.fillStyle = this.utils.hexToRgba(overlapColor || "#ffffff", 1);
             for (const [rangeStart, rangeEnd] of this._historyOverlapRanges(state.log, now)) {
                 const [barStart, barLen] = barRange({ start: rangeStart, end: rangeEnd });
                 if (vertical) ctx.fillRect(0, barStart, W, barLen);
@@ -1580,7 +1647,7 @@ export class OverlayVisualiser {
 
         const inactiveHex = this.inactiveColor || "#808080";
         const activeHex = this.activeColor || "#8b5cf6";
-        const bgHex = this.backgroundcolor || "#1a1a1ad1";
+        const bgHex = this.key_inactive_bg_color || "#1a1a1ad1";
         const outlineHex = this.outlineColor || "#4f4f4f";
 
         //joy bg

@@ -169,12 +169,12 @@ export const MOUSE_CODES = Object.assign(MOUSE_CODE_LIST, {
 });
 
 export const COLOR_PICKERS = [
-    { id: "activecolor", defaultColor: "#8b5cf6" },
-    { id: "backgroundcolor", defaultColor: "#1a1a1ad1" },
-    { id: "activebgcolor", defaultColor: "#202020" },
-    { id: "outlinecolor", defaultColor: "#4f4f4f" },
-    { id: "fontcolor", defaultColor: "#ffffff" },
-    { id: "inactivecolor", defaultColor: "#808080" }
+    { id: "key_glow_color", defaultColor: "#8b5cf6" },
+    { id: "key_inactive_bg_color", defaultColor: "#1a1a1ad1" },
+    { id: "key_active_bg_color", defaultColor: "#202020" },
+    { id: "key_outline_color", defaultColor: "#4f4f4f" },
+    { id: "key_active_font_color", defaultColor: "#ffffff" },
+    { id: "key_inactive_font_color", defaultColor: "#808080" }
 ];
 
 export const FONT_FAMILY_LINKS = {

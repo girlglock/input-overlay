@@ -1,5 +1,7 @@
 //guh
 import { KEY_CODES, MOUSE_CODES, COLOR_PICKERS, LOCAL_INSTANCE } from "../consts.js";
+import { STYLE_OVERRIDE_KEYS, normalizePipeType } from "./keyLayoutParser.js";
+import { LEGACY_TO_CURRENT } from "./settingsFieldMap.js";
 
 const LAYOUT_ORIGIN = { x: 0, y: 0 };
 
@@ -10,7 +12,7 @@ function flashBtn(btn, label, original, ms = 2000) {
 }
 
 export function convertLegacyRows(settings, layoutParser) {
-    const U = 50, GAP = 8 * (parseFloat(settings.gapmodifier) / 100 || 1);
+    const U = 50, GAP = 8 * (parseFloat(settings.key_gap_scale) / 100 || 1);
     const defs = [];
 
     const parseUStr = (uStr) => {
@@ -154,6 +156,10 @@ export class ConfiguratorMode {
         this.keyLayoutDefs = [];
         this._klDragState = null;
         this._klGridPx = 6.25;
+        this.selectedIndices = new Set();
+        this._klUndoStack = [];
+        this._klRedoStack = [];
+        this._klLastSnapshot = [];
 
         document.getElementById("configurator").style.display = "flex";
         document.getElementById("overlay").classList.remove("show");
@@ -245,32 +251,33 @@ export class ConfiguratorMode {
     applyDefaultSettings() {
         this.applySettings({
             wsaddress: "localhost", wsport: "4455",
-            activecolor: "#5cf67d", inactivecolor: "#808080",
-            backgroundcolor: "#1a1a1ad1", activebgcolor: "#47bd61",
-            outlinecolor: "#4f4f4f", fontcolor: "#ffffff",
-            glowradius: "40", borderradius: "10", pressedradius: "10",
-            pressscale: "110", animationspeed: "300",
-            fontfamily: "ArialPixel",
-            hidemouse: false, hidescrollcombo: false, boldfont: true,
-            analogmode: false, gapmodifier: "100",
-            outlinescalepressed: "3", outlinescaleunpressed: "2",
-            analogdisplaymode: "fill", analogsmoothing: false, keylegendmode: "inverting", forcedisableanalog: false,
-            gamepaddeadzone: "3",
-            mousetrailsensitivity: "100",
-            mousetrailfadeout: "600",
-            mousetrailmode: "wrap",
-            mousetraillength: "150",
-            mousetrailm1highlight: true,
-            mousepadtexture: "",
-            mousepadtexturezoom: "1",
-            mousepadtextureopacity: "1",
-            showmousedistance: true,
-            mousedistancedpi: "400",
-            resetmousedistanceafterfade: false,
+            key_glow_color: "#5cf67d", key_inactive_font_color: "#808080",
+            key_inactive_bg_color: "#1a1a1ad1", key_active_bg_color: "#47bd61",
+            key_outline_color: "#4f4f4f", key_active_font_color: "#ffffff",
+            key_glow_radius: "40", key_border_radius_idle: "10", key_border_radius_pressed: "10",
+            key_press_scale: "110", key_animation_speed: "300",
+            key_font_family: "ArialPixel",
+            hide_mouse: false, scroll_hide_combo: false, key_bold_font: true,
+            key_gap_scale: "100",
+            key_outline_width_pressed: "3", key_outline_width_idle: "2",
+            analog_display_mode: "fill", analog_smoothing: false, analog_legend_fill_mode: "inverting", analog_force_disable: false,
+            gamepad_deadzone: "3",
+            mouse_trail_sensitivity: "100",
+            mouse_trail_fade_duration: "600",
+            mouse_trail_mode: "wrap",
+            mouse_trail_length: "150",
+            mouse_trail_highlight_m1: true,
+            mouse_pad_texture_url: "",
+            mouse_pad_texture_zoom: "1",
+            mouse_pad_texture_opacity: "1",
+            mouse_show_distance: true,
+            mouse_distance_dpi: "400",
+            mouse_reset_distance_after_fade: false,
         });
         if (this.keyLayoutParser) {
             this.keyLayoutMode = true;
             this.keyLayoutDefs = this._buildDefaultKeyLayoutDefs();
+            this._resetKlEditorState();
             this._syncKeyLayoutEditorUI();
         }
     }
@@ -284,41 +291,40 @@ export class ConfiguratorMode {
             wsaddress: val("wsaddress") || "localhost",
             wsport: val("wsport") || "4455",
             wsauth: val("wsauth"),
-            activecolor: val("activecolorhex"),
-            inactivecolor: val("inactivecolorhex"),
-            backgroundcolor: val("backgroundcolorhex"),
-            activebgcolor: val("activebgcolorhex"),
-            outlinecolor: val("outlinecolorhex"),
-            fontcolor: val("fontcolorhex"),
-            glowradius: val("glowradius"),
-            borderradius: val("borderradius"),
-            pressedradius: val("pressedradius"),
-            pressscale: val("pressscale"),
-            animationspeed: val("animationspeed"),
-            fontfamily: val("fontfamily"),
-            hidemouse: chk("hidemouse"),
-            hidescrollcombo: chk("hidescrollcombo"),
-            boldfont: chk("boldfont"),
-            analogmode: chk("analogmode"),
-            gapmodifier: val("gapmodifier") || "100",
-            outlinescalepressed: val("outlinescalepressed") || "2",
-            outlinescaleunpressed: val("outlinescaleunpressed") || "2",
-            analogdisplaymode: val("analogdisplaymode") || "fill",
-            analogsmoothing: chk("analogsmoothing"),
-            keylegendmode: val("keylegendmode") || "inverting",
-            forcedisableanalog: chk("forcedisableanalog"),
-            gamepaddeadzone: val("gamepaddeadzone") || "3",
-            mousetrailsensitivity: val("mousetrailsensitivity") || "100",
-            mousetrailfadeout: val("mousetrailfadeout") !== "" ? val("mousetrailfadeout") : "600",
-            mousetrailmode: val("mousetrailmode") || "wrap",
-            mousetraillength: val("mousetraillength") || "150",
-            mousetrailm1highlight: chk("mousetrailm1highlight"),
-            mousepadtexture: val("mousepadtexture"),
-            mousepadtexturezoom: val("mousepadtexturezoom") || "1",
-            mousepadtextureopacity: val("mousepadtextureopacity") || "1",
-            showmousedistance: chk("showmousedistance"),
-            mousedistancedpi: val("mousedistancedpi") || "400",
-            resetmousedistanceafterfade: chk("resetmousedistanceafterfade"),
+            key_glow_color: val("key_glow_colorhex"),
+            key_inactive_font_color: val("key_inactive_font_colorhex"),
+            key_inactive_bg_color: val("key_inactive_bg_colorhex"),
+            key_active_bg_color: val("key_active_bg_colorhex"),
+            key_outline_color: val("key_outline_colorhex"),
+            key_active_font_color: val("key_active_font_colorhex"),
+            key_glow_radius: val("key_glow_radius"),
+            key_border_radius_idle: val("key_border_radius_idle"),
+            key_border_radius_pressed: val("key_border_radius_pressed"),
+            key_press_scale: val("key_press_scale"),
+            key_animation_speed: val("key_animation_speed"),
+            key_font_family: val("key_font_family"),
+            hide_mouse: chk("hide_mouse"),
+            scroll_hide_combo: chk("scroll_hide_combo"),
+            key_bold_font: chk("key_bold_font"),
+            key_gap_scale: val("key_gap_scale") || "100",
+            key_outline_width_pressed: val("key_outline_width_pressed") || "2",
+            key_outline_width_idle: val("key_outline_width_idle") || "2",
+            analog_display_mode: val("analog_display_mode") || "fill",
+            analog_smoothing: chk("analog_smoothing"),
+            analog_legend_fill_mode: val("analog_legend_fill_mode") || "inverting",
+            analog_force_disable: chk("analog_force_disable"),
+            gamepad_deadzone: val("gamepad_deadzone") || "3",
+            mouse_trail_sensitivity: val("mouse_trail_sensitivity") || "100",
+            mouse_trail_fade_duration: val("mouse_trail_fade_duration") !== "" ? val("mouse_trail_fade_duration") : "600",
+            mouse_trail_mode: val("mouse_trail_mode") || "wrap",
+            mouse_trail_length: val("mouse_trail_length") || "150",
+            mouse_trail_highlight_m1: chk("mouse_trail_highlight_m1"),
+            mouse_pad_texture_url: val("mouse_pad_texture_url"),
+            mouse_pad_texture_zoom: val("mouse_pad_texture_zoom") || "1",
+            mouse_pad_texture_opacity: val("mouse_pad_texture_opacity") || "1",
+            mouse_show_distance: chk("mouse_show_distance"),
+            mouse_distance_dpi: val("mouse_distance_dpi") || "400",
+            mouse_reset_distance_after_fade: chk("mouse_reset_distance_after_fade"),
             keyLayout: this._getKeyLayoutParam(),
         };
     }
@@ -335,26 +341,27 @@ export class ConfiguratorMode {
         if (!label) return;
 
         const id = input.id;
-        if (id === "outlinescalepressed" || id === "outlinescaleunpressed") {
+        if (id === "key_outline_width_pressed" || id === "key_outline_width_idle") {
             label.textContent = input.value + "px"; return;
         }
-        if (id === "mousetrailsensitivity") {
+        if (id === "mouse_trail_sensitivity") {
             label.textContent = (input.value / 100).toFixed(1) + "x"; return;
         }
-        if (id === "mousetrailfadeout") {
+        if (id === "mouse_trail_fade_duration") {
             label.textContent = input.value + "ms"; return;
         }
-        if (id === "mousetraillength") {
+        if (id === "mouse_trail_length") {
             label.textContent = input.value + "pts"; return;
         }
-        if (id === "mousedistancedpi") {
+        if (id === "mouse_distance_dpi") {
             label.textContent = input.value + " DPI"; return;
         }
 
         let suffix = "", val = input.value;
         if (id.includes("radius")) suffix = "px";
-        else if (id.includes("scale")) { suffix = "x"; val = id === "pressscale" ? (val / 100).toFixed(2) : (val / 100).toFixed(1); }
-        else if (id === "opacity" || id.includes("speed") || id.includes("modifier") || id.includes("deadzone")) suffix = "%";
+        else if (id === "key_gap_scale") suffix = "%";
+        else if (id.includes("scale")) { suffix = "x"; val = id === "key_press_scale" ? (val / 100).toFixed(2) : (val / 100).toFixed(1); }
+        else if (id === "opacity" || id.includes("speed") || id.includes("deadzone")) suffix = "%";
 
         label.textContent = val + suffix;
     }
@@ -386,40 +393,40 @@ export class ConfiguratorMode {
 
         applyValue("wsaddress", settings.wsaddress);
         applyValue("wsport", settings.wsport);
-        applyValue("activecolorhex", settings.activecolor);
-        applyValue("inactivecolorhex", settings.inactivecolor);
-        applyValue("backgroundcolorhex", settings.backgroundcolor);
-        applyValue("activebgcolorhex", settings.activebgcolor);
-        applyValue("outlinecolorhex", settings.outlinecolor);
-        applyValue("fontcolorhex", settings.fontcolor);
-        applyValue("glowradius", settings.glow || settings.glowradius);
-        applyValue("borderradius", settings.radius || settings.borderradius);
-        applyValue("pressedradius", settings.pressedradius ?? settings.radius ?? settings.borderradius);
-        applyValue("pressscale", settings.pressscale);
-        applyValue("animationspeed", settings.speed || settings.animationspeed);
-        applyValue("fontfamily", settings.fontfamily);
-        applyValue("hidemouse", settings.hidemouse);
-        applyValue("hidescrollcombo", settings.hidescrollcombo);
-        applyValue("boldfont", settings.boldfont);
-        applyValue("outlinescalepressed", settings.outlinescalepressed ?? "2");
-        applyValue("outlinescaleunpressed", settings.outlinescaleunpressed ?? "2");
-        applyValue("gapmodifier", settings.gapmodifier);
-        applyValue("analogdisplaymode", settings.analogdisplaymode ?? "fill");
-        applyValue("analogsmoothing", settings.analogsmoothing ?? false);
-        applyValue("keylegendmode", settings.keylegendmode);
-        applyValue("forcedisableanalog", settings.forcedisableanalog);
-        applyValue("gamepaddeadzone", settings.gamepaddeadzone ?? "3");
-        applyValue("mousetrailsensitivity", settings.mousetrailsensitivity ?? "100");
-        applyValue("mousetrailfadeout", settings.mousetrailfadeout ?? "600");
-        applyValue("mousetrailmode", settings.mousetrailmode ?? "wrap");
-        applyValue("mousetraillength", settings.mousetraillength ?? "150");
-        applyValue("mousetrailm1highlight", settings.mousetrailm1highlight ?? false);
-        applyValue("mousepadtexture", settings.mousepadtexture ?? "");
-        applyValue("mousepadtexturezoom", settings.mousepadtexturezoom ?? "1");
-        applyValue("mousepadtextureopacity", settings.mousepadtextureopacity ?? "1");
-        applyValue("showmousedistance", settings.showmousedistance ?? false);
-        applyValue("mousedistancedpi", settings.mousedistancedpi ?? "400");
-        applyValue("resetmousedistanceafterfade", settings.resetmousedistanceafterfade ?? false);
+        applyValue("key_glow_colorhex", settings.key_glow_color);
+        applyValue("key_inactive_font_colorhex", settings.key_inactive_font_color);
+        applyValue("key_inactive_bg_colorhex", settings.key_inactive_bg_color);
+        applyValue("key_active_bg_colorhex", settings.key_active_bg_color);
+        applyValue("key_outline_colorhex", settings.key_outline_color);
+        applyValue("key_active_font_colorhex", settings.key_active_font_color);
+        applyValue("key_glow_radius", settings.key_glow_radius);
+        applyValue("key_border_radius_idle", settings.key_border_radius_idle);
+        applyValue("key_border_radius_pressed", settings.key_border_radius_pressed ?? settings.key_border_radius_idle);
+        applyValue("key_press_scale", settings.key_press_scale);
+        applyValue("key_animation_speed", settings.key_animation_speed);
+        applyValue("key_font_family", settings.key_font_family);
+        applyValue("hide_mouse", settings.hide_mouse);
+        applyValue("scroll_hide_combo", settings.scroll_hide_combo);
+        applyValue("key_bold_font", settings.key_bold_font);
+        applyValue("key_outline_width_pressed", settings.key_outline_width_pressed ?? "2");
+        applyValue("key_outline_width_idle", settings.key_outline_width_idle ?? "2");
+        applyValue("key_gap_scale", settings.key_gap_scale);
+        applyValue("analog_display_mode", settings.analog_display_mode ?? "fill");
+        applyValue("analog_smoothing", settings.analog_smoothing ?? false);
+        applyValue("analog_legend_fill_mode", settings.analog_legend_fill_mode);
+        applyValue("analog_force_disable", settings.analog_force_disable);
+        applyValue("gamepad_deadzone", settings.gamepad_deadzone ?? "3");
+        applyValue("mouse_trail_sensitivity", settings.mouse_trail_sensitivity ?? "100");
+        applyValue("mouse_trail_fade_duration", settings.mouse_trail_fade_duration ?? "600");
+        applyValue("mouse_trail_mode", settings.mouse_trail_mode ?? "wrap");
+        applyValue("mouse_trail_length", settings.mouse_trail_length ?? "150");
+        applyValue("mouse_trail_highlight_m1", settings.mouse_trail_highlight_m1 ?? false);
+        applyValue("mouse_pad_texture_url", settings.mouse_pad_texture_url ?? "");
+        applyValue("mouse_pad_texture_zoom", settings.mouse_pad_texture_zoom ?? "1");
+        applyValue("mouse_pad_texture_opacity", settings.mouse_pad_texture_opacity ?? "1");
+        applyValue("mouse_show_distance", settings.mouse_show_distance ?? false);
+        applyValue("mouse_distance_dpi", settings.mouse_distance_dpi ?? "400");
+        applyValue("mouse_reset_distance_after_fade", settings.mouse_reset_distance_after_fade ?? false);
     }
 
     updateState(settings = null) {
@@ -515,14 +522,15 @@ export class ConfiguratorMode {
                 if (key === "ws") continue;
                 let value = sourceParams.get(key);
                 if (value == null || value === "") continue;
-                if (key.includes("color")) value = this.utils.normalizeColorValue(value);
-                settings[key] = value;
+                const currentKey = LEGACY_TO_CURRENT[key] ?? key;
+                if (currentKey.includes("color")) value = this.utils.normalizeColorValue(value);
+                settings[currentKey] = value;
             }
 
             settings.wsaddress = wsAddress;
             settings.wsport = wsPort;
-            if (!settings.keylegendmode) settings.keylegendmode = "fading";
-            if (settings.forcedisableanalog == null) settings.forcedisableanalog = false;
+            if (!settings.analog_legend_fill_mode) settings.analog_legend_fill_mode = "fading";
+            if (settings.analog_force_disable == null) settings.analog_force_disable = false;
 
             if (!Object.keys(settings).length) { flash("no params"); return; }
 
@@ -532,6 +540,7 @@ export class ConfiguratorMode {
                 if (!tuples) { try { tuples = JSON.parse(klParam); } catch { tuples = null; } }
                 if (tuples) {
                     this.keyLayoutDefs = this.keyLayoutParser.parseAll(tuples);
+                    this._resetKlEditorState();
                     this.keyLayoutMode = true;
                     settings.keyLayout = this._getKeyLayoutParam();
                     this._syncKeyLayoutEditorUI();
@@ -539,6 +548,7 @@ export class ConfiguratorMode {
             } else if (this.keyLayoutParser) {
                 const converted = this._convertRowsToKeyLayout(settings);
                 this.keyLayoutDefs = converted.length ? converted : this._buildDefaultKeyLayoutDefs();
+                this._resetKlEditorState();
                 this.keyLayoutMode = true;
                 this._syncKeyLayoutEditorUI();
             }
@@ -603,11 +613,11 @@ export class ConfiguratorMode {
         if (savedAuth && !wsauthEl.value) wsauthEl.value = savedAuth;
         wsauthEl.addEventListener("input", () => localStorage.setItem("overlay_wsauth", wsauthEl.value));
 
-        const distanceCheckbox = document.getElementById("showmousedistance");
-        const distanceResetCheckbox = document.getElementById("resetmousedistanceafterfade");
-        const distanceResetLabel = document.getElementById("resetmousedistanceafterfadelabel");
-        const dpiSlider = document.getElementById("mousedistancedpi");
-        const dpiLabel = document.getElementById("mousedistancedpivalue");
+        const distanceCheckbox = document.getElementById("mouse_show_distance");
+        const distanceResetCheckbox = document.getElementById("mouse_reset_distance_after_fade");
+        const distanceResetLabel = document.getElementById("mouse_reset_distance_after_fadelabel");
+        const dpiSlider = document.getElementById("mouse_distance_dpi");
+        const dpiLabel = document.getElementById("mouse_distance_dpivalue");
         const syncDpiState = () => {
             const enabled = distanceCheckbox?.checked ?? false;
             if (dpiSlider) { dpiSlider.disabled = !enabled; dpiSlider.style.opacity = enabled ? "1" : "0.5"; }
@@ -619,11 +629,11 @@ export class ConfiguratorMode {
         distanceCheckbox?.addEventListener("change", syncDpiState);
         syncDpiState();
 
-        const textureBrowseBtn = document.getElementById("mousepadtextureBrowseBtn");
-        const textureUrlInput = document.getElementById("mousepadtexture");
-        const texturePopup = document.getElementById("mousepadtextureFilePopup");
-        const textureFileList = document.getElementById("mousepadtextureFileList");
-        const texturePopupCloseBtn = document.getElementById("mousepadtextureFilePopupCloseBtn");
+        const textureBrowseBtn = document.getElementById("mouse_pad_texture_urlBrowseBtn");
+        const textureUrlInput = document.getElementById("mouse_pad_texture_url");
+        const texturePopup = document.getElementById("mouse_pad_texture_urlFilePopup");
+        const textureFileList = document.getElementById("mouse_pad_texture_urlFileList");
+        const texturePopupCloseBtn = document.getElementById("mouse_pad_texture_urlFilePopupCloseBtn");
         if (LOCAL_INSTANCE && textureBrowseBtn && textureUrlInput && texturePopup && textureFileList) {
             textureBrowseBtn.style.display = "";
 
@@ -851,7 +861,7 @@ export class ConfiguratorMode {
     }
 
     getPluginConfig() {
-        const { wsaddress, wsport, wsauth, keyLayout, ...rest } = this.getCurrentSettings();
+        const { wsaddress, wsport, wsauth, keyLayout, hide_mouse, ...rest } = this.getCurrentSettings();
         return {
             ...rest,
             keyLayout: this.keyLayoutMode && this.keyLayoutParser ? this.keyLayoutParser.serializeAll(this.keyLayoutDefs) : [],
@@ -890,6 +900,7 @@ export class ConfiguratorMode {
 
             if (Array.isArray(json.keyLayout) && this.keyLayoutParser) {
                 this.keyLayoutDefs = this.keyLayoutParser.parseAll(json.keyLayout);
+                this._resetKlEditorState();
                 this.keyLayoutMode = true;
                 settings.keyLayout = this._getKeyLayoutParam();
                 this._syncKeyLayoutEditorUI();
@@ -917,7 +928,7 @@ export class ConfiguratorMode {
         const handleAnalogReport = (activeKeys) => {
             const viz = this.visualizer;
             if (!viz.previewElements) return;
-            if (document.getElementById("forcedisableanalog")?.checked) return;
+            if (document.getElementById("analog_force_disable")?.checked) return;
 
             const currentScancodes = new Set(activeKeys.map(k => String(k.scancode)));
 
@@ -994,6 +1005,7 @@ export class ConfiguratorMode {
 
         klClearBtn?.addEventListener("click", () => {
             this.keyLayoutDefs = [];
+            this.selectedIndices = new Set();
             this._commitKeyLayoutDefs();
         });
 
@@ -1016,94 +1028,182 @@ export class ConfiguratorMode {
 
         document.addEventListener("pointermove", (e) => this._onKlPointerMove(e));
         document.addEventListener("pointerup", (e) => this._onKlPointerUp(e));
+        const previewScrollArea = document.getElementById("previewScrollArea");
+        previewScrollArea?.addEventListener("pointerdown", (e) => {
+            if (e.button !== 0) return;
+            if (e.target.closest("[data-kl-idx]")) return;
+            e.preventDefault();
+            previewScrollArea.setPointerCapture(e.pointerId);
+            const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+            this._klMarquee = {
+                startX: e.clientX, startY: e.clientY,
+                moved: false,
+                additive,
+                baseSelection: additive ? new Set(this.selectedIndices) : new Set(),
+            };
+            this._ensureMarqueeEl();
+        });
+
+        previewScrollArea?.addEventListener("contextmenu", (e) => {
+            const elTarget = e.target.closest("[data-kl-idx]");
+            if (elTarget) {
+                const idx = +elTarget.dataset.klIdx;
+                if (!this.selectedIndices.has(idx)) this._selectOnly(idx);
+            } else if (!this.selectedIndices.size) {
+                return;
+            }
+            e.preventDefault();
+            this._showKlContextMenu(e.clientX, e.clientY);
+        });
+
+        const klUndoBtn = document.getElementById("klUndoBtn");
+        const klRedoBtn = document.getElementById("klRedoBtn");
+        klUndoBtn?.addEventListener("click", () => this._klUndo());
+        klRedoBtn?.addEventListener("click", () => this._klRedo());
+        this._updateUndoRedoButtons();
+
+        document.addEventListener("keydown", (e) => {
+            if (!this.keyLayoutMode) return;
+            const isTyping = e.target.matches("input[type='text'], input[type='number'], textarea, .color-hex-input, .kl-inline-label-edit, .kl-tree-attr-input");
+            if (isTyping) return;
+
+            const ctrlOrCmd = e.ctrlKey || e.metaKey;
+            if (ctrlOrCmd && e.key.toLowerCase() === "z") {
+                e.preventDefault();
+                if (e.shiftKey) this._klRedo(); else this._klUndo();
+                return;
+            }
+            if (ctrlOrCmd && e.key.toLowerCase() === "y") {
+                e.preventDefault();
+                this._klRedo();
+                return;
+            }
+            if (e.key === "Delete" || e.key === "Backspace") {
+                if (!this.selectedIndices.size) return;
+                e.preventDefault();
+                this._deleteSelectedKlElements();
+                return;
+            }
+            if (e.key === "Escape") {
+                this._clearSelection();
+            }
+        });
 
         this._syncKeyLayoutEditorUI();
     }
 
     _setupKlAddPopup() {
-        const popup      = document.getElementById("klAddPopup");
-        const tabsEl     = document.getElementById("klAddTabs");
-        const labelRow   = document.getElementById("klAddLabelRow");
-        const labelHdr   = document.getElementById("klAddLabelHdr");
-        const labelsEl   = document.getElementById("klAddLabelInputs");
-        const wInput     = document.getElementById("klAddW");
-        const hInput     = document.getElementById("klAddH");
+        const popup = document.getElementById("klAddPopup");
+        const tabsEl = document.getElementById("klAddTabs");
+        const labelRow = document.getElementById("klAddLabelRow");
+        const labelHdr = document.getElementById("klAddLabelHdr");
+        const labelsEl = document.getElementById("klAddLabelInputs");
+        const wInput = document.getElementById("klAddW");
+        const hInput = document.getElementById("klAddH");
         const confirmBtn = document.getElementById("klAddConfirmBtn");
         if (!popup || !tabsEl) return;
 
         const LABEL_DEFAULTS = {
-            scroller:      ["M3", "🡅", "🡇"],
+            scroller: ["M3", "🡅", "🡇"],
             scroll_updown: ["🡅", "🡇"],
         };
 
         const SIZE_DEFAULTS = {
-            mouse_pad:     [5, 3.5],
+            mouse_pad: [5, 3.5],
             gp_joystick_ls: [3, 3],
             gp_joystick_rs: [3, 3],
             input_history: [6, 2],
         };
 
         const CATS = [
-            { id: "keyboard", label: "keyboard", groups: [
+            {
+                id: "keyboard", label: "keyboard", groups: [
                     { label: "letters", tiles: [..."abcdefghijklmnopqrstuvwxyz"].map(l => [`key_${l}`, l.toUpperCase()]) },
                     { label: "numbers", tiles: [..."1234567890"].map(n => [`key_${n}`, n]) },
-                { label: "modifiers", tiles: [
-                    ["key_leftshift","L⇧"], ["key_rightshift","R⇧"],
-                    ["key_leftctrl","L^"], ["key_rightctrl","R^"],
-                    ["key_leftalt","LAlt"], ["key_rightalt","RAlt"],
-                    ["key_leftwin","Win"], ["key_menu","Menu"],
-                    ["key_capslock","Caps"], ["key_tab","Tab"], ["key_escape","Esc"],
-                ]},
-                { label: "editing", tiles: [
-                    ["key_space","Space",3], ["key_enter","Enter",2], ["key_backspace","BS",2],
-                    ["key_delete","Del"], ["key_insert","Ins"],
-                    ["key_home","Home"], ["key_end","End"],
-                    ["key_pageup","PgUp"], ["key_pagedown","PgDn"],
-                ]},
-                { label: "arrows", tiles: [
-                    ["key_leftarrow","←"], ["key_uparrow","↑"], ["key_downarrow","↓"], ["key_rightarrow","→"],
-                ]},
-                { label: "function", tiles: Array.from({length: 24}, (_, i) => [`key_f${i+1}`, `F${i+1}`]) },
-                { label: "symbols", tiles: [
-                    ["key_minus","-"], ["key_equals","="], ["key_openbracket","["], ["key_closebracket","]"],
-                    ["key_backslash","\\"], ["key_semicolon",";"], ["key_apostrophe","'"],
-                    ["key_comma",","], ["key_period","."], ["key_slash","/"],
-                    ["key_iso_backslash","ISO\\"],
-                ]},
-                { label: "numpad", tiles: [
-                    ["key_numpad_7","7"], ["key_numpad_8","8"], ["key_numpad_9","9"], ["key_numpad_divide","÷"],
-                    ["key_numpad_4","4"], ["key_numpad_5","5"], ["key_numpad_6","6"], ["key_numpad_multiply","×"],
-                    ["key_numpad_1","1"], ["key_numpad_2","2"], ["key_numpad_3","3"], ["key_numpad_subtract","−"],
-                    ["key_numpad_0","0",2], ["key_numpad_decimal","."], ["key_numpad_add","+"],
-                    ["key_numpad_enter","Ent"], ["key_numlock","NL"],
-                ]},
-                { label: "misc", tiles: [
-                    ["input_history","history",3]
-                ]},
-            ]},
-            { id: "mouse", label: "mouse", groups: [
-                { label: "buttons", tiles: [
-                    ["mouse_left","M1"], ["mouse_right","M2"], ["mouse_middle","M3"],
-                    ["mouse_4","M4"], ["mouse_5","M5"],
-                ]},
-                { label: "scroll", tiles: [
-                    ["scroller","wheel"], ["scroll_updown","↑↓"], ["scroll_up","↑"], ["scroll_down","↓"],
-                ]},
-                { label: "pad", tiles: [
-                    ["mouse_pad","mouse pad",3]
-                ]},
-            ]},
-            { id: "gamepad", label: "gamepad", groups: [
-                { label: "face", tiles: [["gp_a","A"],["gp_b","B"],["gp_x","X"],["gp_y","Y"]] },
-                { label: "shoulders", tiles: [["gp_lb","LB"],["gp_rb","RB"],["gp_lt","LT"],["gp_rt","RT"]] },
-                { label: "d-pad", tiles: [["gp_up","↑"],["gp_down","↓"],["gp_left","←"],["gp_right","→"]] },
-                { label: "system", tiles: [
-                    ["gp_select","Back"],["gp_start","Menu"],["gp_guide","Home"],["gp_ls","LS"],["gp_rs","RS"],
-                ]},
-                { label: "sticks", tiles: [
-                    ["gp_joystick_ls","L stick",2], ["gp_joystick_rs","R stick",2],
-                ]},
-            ]},
+                    {
+                        label: "modifiers", tiles: [
+                            ["key_leftshift", "L SHIFT"], ["key_rightshift", "R SHIFT"],
+                            ["key_leftctrl", "L CTRL"], ["key_rightctrl", "R CTRL"],
+                            ["key_leftalt", "L Alt"], ["key_rightalt", "R Alt"],
+                            ["key_leftwin", "Win"], ["key_menu", "Menu"],
+                            ["key_capslock", "Caps"], ["key_tab", "Tab"], ["key_escape", "Esc"],
+                        ]
+                    },
+                    {
+                        label: "editing", tiles: [
+                            ["key_space", "Space", 3], ["key_enter", "Enter", 2], ["key_backspace", "BS", 2],
+                            ["key_delete", "Del"], ["key_insert", "Ins"],
+                            ["key_home", "Home"], ["key_end", "End"],
+                            ["key_pageup", "PgUp"], ["key_pagedown", "PgDn"],
+                        ]
+                    },
+                    {
+                        label: "arrows", tiles: [
+                            ["key_leftarrow", "←"], ["key_uparrow", "↑"], ["key_downarrow", "↓"], ["key_rightarrow", "→"],
+                        ]
+                    },
+                    { label: "function", tiles: Array.from({ length: 24 }, (_, i) => [`key_f${i + 1}`, `F${i + 1}`]) },
+                    {
+                        label: "symbols", tiles: [
+                            ["key_minus", "-"], ["key_equals", "="], ["key_openbracket", "["], ["key_closebracket", "]"],
+                            ["key_backslash", "\\"], ["key_semicolon", ";"], ["key_apostrophe", "'"],
+                            ["key_comma", ","], ["key_period", "."], ["key_slash", "/"],
+                            ["key_iso_backslash", "ISO\\"],
+                        ]
+                    },
+                    {
+                        label: "numpad", tiles: [
+                            ["key_numpad_7", "7"], ["key_numpad_8", "8"], ["key_numpad_9", "9"], ["key_numpad_divide", "÷"],
+                            ["key_numpad_4", "4"], ["key_numpad_5", "5"], ["key_numpad_6", "6"], ["key_numpad_multiply", "×"],
+                            ["key_numpad_1", "1"], ["key_numpad_2", "2"], ["key_numpad_3", "3"], ["key_numpad_subtract", "−"],
+                            ["key_numpad_0", "0", 2], ["key_numpad_decimal", "."], ["key_numpad_add", "+"],
+                            ["key_numpad_enter", "Ent"], ["key_numlock", "NL"],
+                        ]
+                    },
+                    {
+                        label: "misc", tiles: [
+                            ["input_history", "history", 3]
+                        ]
+                    },
+                ]
+            },
+            {
+                id: "mouse", label: "mouse", groups: [
+                    {
+                        label: "buttons", tiles: [
+                            ["mouse_left", "M1"], ["mouse_right", "M2"], ["mouse_middle", "M3"],
+                            ["mouse_4", "M4"], ["mouse_5", "M5"],
+                        ]
+                    },
+                    {
+                        label: "scroll", tiles: [
+                            ["scroller", "wheel"], ["scroll_updown", "↑↓"], ["scroll_up", "↑"], ["scroll_down", "↓"],
+                        ]
+                    },
+                    {
+                        label: "pad", tiles: [
+                            ["mouse_pad", "mouse pad", 3]
+                        ]
+                    },
+                ]
+            },
+            {
+                id: "gamepad", label: "gamepad", groups: [
+                    { label: "face", tiles: [["gp_a", "A"], ["gp_b", "B"], ["gp_x", "X"], ["gp_y", "Y"]] },
+                    { label: "shoulders", tiles: [["gp_lb", "LB"], ["gp_rb", "RB"], ["gp_lt", "LT"], ["gp_rt", "RT"]] },
+                    { label: "d-pad", tiles: [["gp_up", "↑"], ["gp_down", "↓"], ["gp_left", "←"], ["gp_right", "→"]] },
+                    {
+                        label: "system", tiles: [
+                            ["gp_select", "Back"], ["gp_start", "Menu"], ["gp_guide", "Home"], ["gp_ls", "LS"], ["gp_rs", "RS"],
+                        ]
+                    },
+                    {
+                        label: "sticks", tiles: [
+                            ["gp_joystick_ls", "L stick", 2], ["gp_joystick_rs", "R stick", 2],
+                        ]
+                    },
+                ]
+            },
         ];
 
         const NO_MULTIBIND = new Set(["mouse_pad", "gp_joystick_ls", "gp_joystick_rs", "input_history"]);
@@ -1153,7 +1253,7 @@ export class ConfiguratorMode {
             tabsEl.appendChild(panel);
         });
 
-        const primaryType = () => selectedTypes[0] ?? null;
+        const primaryType = () => selectedTypes.length ? normalizePipeType(selectedTypes.join("|")).split("|")[0] : null;
         const primaryName = () => tabsEl.querySelector(`.kl-add-tile[data-type="${primaryType()}"]`)?.dataset.name ?? primaryType() ?? "";
 
         const updateConfirmState = () => {
@@ -1202,7 +1302,7 @@ export class ConfiguratorMode {
 
         const toggleTile = (type, btn) => {
             const idx = selectedTypes.indexOf(type);
-            const wasEmpty = selectedTypes.length === 0;
+            const prevPrimary = primaryType();
             if (idx === -1) {
                 selectedTypes.push(type);
                 btn?.classList.add("kl-add-tile--selected");
@@ -1212,7 +1312,8 @@ export class ConfiguratorMode {
             }
             updateDisabledTiles();
             updateConfirmState();
-            if (wasEmpty || idx === 0) { updateLabels(); updateSize(); }
+            const primary = primaryType();
+            if (primary !== prevPrimary) { updateLabels(); updateSize(); }
         };
 
         updateLabels();
@@ -1233,7 +1334,7 @@ export class ConfiguratorMode {
             const arity = this.keyLayoutParser.getLabelArity(type);
             const w = Math.max(0.25, parseFloat(wInput.value) || 1);
             const h = Math.max(0.25, parseFloat(hInput.value) || 1);
-            const compositeType = selectedTypes.join("|");
+            const compositeType = normalizePipeType(selectedTypes.join("|"));
             const def = { type: compositeType, w, h, x: LAYOUT_ORIGIN.x, y: LAYOUT_ORIGIN.y };
 
             if (arity === 1) {
@@ -1385,7 +1486,192 @@ export class ConfiguratorMode {
     }
 
     _commitKeyLayoutDefs() {
+        this._klUndoStack.push(this._klLastSnapshot);
+        if (this._klUndoStack.length > 50) this._klUndoStack.shift();
+        this._klRedoStack = [];
+        this._klLastSnapshot = structuredClone(this.keyLayoutDefs);
+        this._updateUndoRedoButtons();
         this.updateState();
+    }
+
+    _resetKlEditorState() {
+        this.selectedIndices = new Set();
+        this._klUndoStack = [];
+        this._klRedoStack = [];
+        this._klLastSnapshot = structuredClone(this.keyLayoutDefs);
+        this._updateUndoRedoButtons();
+    }
+
+    _klUndo() {
+        if (!this._klUndoStack.length) return;
+        const prev = this._klUndoStack.pop();
+        this._klRedoStack.push(structuredClone(this.keyLayoutDefs));
+        if (this._klRedoStack.length > 50) this._klRedoStack.shift();
+        this.keyLayoutDefs = prev;
+        this._klLastSnapshot = structuredClone(prev);
+        this.selectedIndices = new Set();
+        this._updateUndoRedoButtons();
+        this.updateState();
+    }
+
+    _klRedo() {
+        if (!this._klRedoStack.length) return;
+        const next = this._klRedoStack.pop();
+        this._klUndoStack.push(structuredClone(this.keyLayoutDefs));
+        if (this._klUndoStack.length > 50) this._klUndoStack.shift();
+        this.keyLayoutDefs = next;
+        this._klLastSnapshot = structuredClone(next);
+        this.selectedIndices = new Set();
+        this._updateUndoRedoButtons();
+        this.updateState();
+    }
+
+    _updateUndoRedoButtons() {
+        const undoBtn = document.getElementById("klUndoBtn");
+        const redoBtn = document.getElementById("klRedoBtn");
+        if (undoBtn) undoBtn.disabled = !this._klUndoStack.length;
+        if (redoBtn) redoBtn.disabled = !this._klRedoStack.length;
+    }
+
+    _deleteSelectedKlElements() {
+        if (!this.selectedIndices.size) return;
+        const toDelete = [...this.selectedIndices].sort((a, b) => b - a);
+        for (const idx of toDelete) this.keyLayoutDefs.splice(idx, 1);
+        this.selectedIndices = new Set();
+        this._commitKeyLayoutDefs();
+    }
+
+    _hideKlContextMenu() {
+        if (this._klContextMenuCloseHandler) {
+            document.removeEventListener("pointerdown", this._klContextMenuCloseHandler);
+            document.removeEventListener("keydown", this._klContextMenuKeyHandler);
+            this._klContextMenuCloseHandler = null;
+            this._klContextMenuKeyHandler = null;
+        }
+        this._klContextMenuEl?.remove();
+        this._klContextMenuEl = null;
+    }
+
+    _showKlContextMenu(clientX, clientY) {
+        this._hideKlContextMenu();
+
+        const menu = document.createElement("div");
+        menu.className = "kl-context-menu";
+
+        const count = this.selectedIndices.size;
+        const delItem = document.createElement("button");
+        delItem.className = "kl-context-menu-item";
+        delItem.textContent = count > 1 ? `delete ${count} elements` : "delete element";
+        
+        delItem.addEventListener("click", () => {
+            this._deleteSelectedKlElements();
+            this._hideKlContextMenu();
+        });
+        
+        menu.appendChild(delItem);
+
+        document.body.appendChild(menu);
+        this._klContextMenuEl = menu;
+
+        const rect = menu.getBoundingClientRect();
+        const left = Math.min(clientX, window.innerWidth - rect.width - 4);
+        const top = Math.min(clientY, window.innerHeight - rect.height - 4);
+        menu.style.left = `${Math.max(4, left)}px`;
+        menu.style.top = `${Math.max(4, top)}px`;
+
+        this._klContextMenuCloseHandler = (e) => {
+            if (!menu.contains(e.target)) this._hideKlContextMenu();
+        };
+        
+        this._klContextMenuKeyHandler = (e) => {
+            if (e.key === "Escape") this._hideKlContextMenu();
+        };
+
+        setTimeout(() => {
+            document.addEventListener("pointerdown", this._klContextMenuCloseHandler);
+            document.addEventListener("keydown", this._klContextMenuKeyHandler);
+        }, 0);
+    }
+
+    _selectOnly(idx) {
+        this.selectedIndices = new Set([idx]);
+        this._applySelectionClasses();
+    }
+
+    _clearSelection() {
+        if (!this.selectedIndices.size) return;
+        this.selectedIndices = new Set();
+        this._applySelectionClasses();
+    }
+
+    _applySelectionClasses() {
+        const canvas = document.getElementById("preview-keyboard");
+        const sidebarList = document.getElementById("klElementList");
+        
+        canvas?.querySelectorAll("[data-kl-idx]").forEach(el => {
+            el.classList.toggle("kl-selected", this.selectedIndices.has(+el.dataset.klIdx));
+        });
+        
+        sidebarList?.querySelectorAll(".kl-tree-node[data-kl-idx]").forEach(el => {
+            el.classList.toggle("kl-selected", this.selectedIndices.has(+el.dataset.klIdx));
+        });
+    }
+
+    _ensureMarqueeEl() {
+        if (this._klMarqueeEl) return;
+        const el = document.createElement("div");
+        el.className = "kl-marquee";
+        document.body.appendChild(el);
+        this._klMarqueeEl = el;
+    }
+
+    _updateKlMarquee(e) {
+        const m = this._klMarquee;
+        if (!m) return;
+
+        if (!m.moved && (Math.abs(e.clientX - m.startX) > 3 || Math.abs(e.clientY - m.startY) > 3)) {
+            m.moved = true;
+        }
+
+        const left = Math.min(m.startX, e.clientX);
+        const top = Math.min(m.startY, e.clientY);
+        const width = Math.abs(e.clientX - m.startX);
+        const height = Math.abs(e.clientY - m.startY);
+        if (this._klMarqueeEl) {
+            Object.assign(this._klMarqueeEl.style, {
+                left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px`,
+                display: m.moved ? "block" : "none",
+            });
+        }
+
+        if (!m.moved) return;
+        const box = { left, top, right: left + width, bottom: top + height };
+        const next = new Set(m.baseSelection);
+        document.querySelectorAll('#preview-keyboard [data-kl-idx]').forEach(el => {
+            const r = el.getBoundingClientRect();
+            const intersects = r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top;
+            if (intersects) next.add(+el.dataset.klIdx);
+        });
+        this.selectedIndices = next;
+        this._applySelectionClasses();
+    }
+
+    _finishKlMarquee() {
+        const m = this._klMarquee;
+        if (!m) return;
+        this._klMarquee = null;
+        this._klMarqueeEl?.remove();
+        this._klMarqueeEl = null;
+        if (!m.moved && !m.additive) this._clearSelection();
+    }
+
+    _removeIndexAndShiftSelection(removedIdx) {
+        const next = new Set();
+        for (const idx of this.selectedIndices) {
+            if (idx === removedIdx) continue;
+            next.add(idx > removedIdx ? idx - 1 : idx);
+        }
+        this.selectedIndices = next;
     }
 
     _renderKeyLayoutList() {
@@ -1394,9 +1680,14 @@ export class ConfiguratorMode {
 
         //save open state before clearing
         const openItems = new Set();
+        const openSubgroups = new Set(); //`${idx}:${subgroupLabel}`
         list.querySelectorAll('.kl-tree-node[data-kl-idx]').forEach(node => {
+            const idx = node.dataset.klIdx;
             const det = node.querySelector(':scope > details');
-            if (det?.open) openItems.add(node.dataset.klIdx);
+            if (det?.open) openItems.add(idx);
+            node.querySelectorAll('.kl-tree-subgroup').forEach(sub => {
+                if (sub.open) openSubgroups.add(`${idx}:${sub.querySelector('summary')?.textContent}`);
+            });
         });
 
         list.innerHTML = "";
@@ -1464,13 +1755,20 @@ export class ConfiguratorMode {
                 e.stopPropagation();
                 e.preventDefault();
                 this.keyLayoutDefs.splice(idx, 1);
+                this._removeIndexAndShiftSelection(idx);
                 this._commitKeyLayoutDefs();
             });
+
+            const styleBaseType = def.type.split("|")[0];
+            const styleSupported = ("label" in def)
+                || (("labels" in def) && styleBaseType !== "mouse_side")
+                || def.type === "input_history";
 
             summary.append(handle, delBtn, posEl, nameEl);
             itemDetails.appendChild(summary);
 
             const attrList = document.createElement("ul");
+            attrList.draggable = false;
 
             const makeAttrRow = (labelText, getValue, setValue, type = "text") => {
                 const li = document.createElement("li");
@@ -1494,12 +1792,106 @@ export class ConfiguratorMode {
                 return li;
             };
 
+            const makeColorOverrideRow = (labelText, styleKey) => {
+                const li = document.createElement("li");
+                li.className = "kl-tree-attr kl-tree-attr--color";
+                const lbl = document.createElement("span");
+                lbl.className = "kl-tree-attr-label";
+                lbl.textContent = labelText;
+
+                const wrap = document.createElement("div");
+                wrap.className = "kl-tree-color-wrap";
+
+                const swatch = document.createElement("input");
+                swatch.type = "color";
+                swatch.className = "kl-tree-color-swatch";
+
+                const hexInput = document.createElement("input");
+                hexInput.type = "text";
+                hexInput.className = "kl-tree-attr-input kl-tree-color-hex";
+                hexInput.maxLength = 9;
+
+                const globalDefault = () => document.getElementById(`${styleKey}hex`)?.value || "#000000";
+                hexInput.placeholder = globalDefault();
+
+                const hex6 = (v) => /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v) ? v.slice(0, 7) : "#000000";
+                const refresh = () => {
+                    const v = def.style?.[styleKey] ?? "";
+                    hexInput.value = v;
+                    swatch.value = hex6(v || globalDefault());
+                };
+                refresh();
+
+                const commit = (v) => {
+                    if (!v) {
+                        if (def.style) delete def.style[styleKey];
+                    } else {
+                        def.style = def.style || {};
+                        def.style[styleKey] = v;
+                    }
+                    this._commitKeyLayoutDefs();
+                };
+
+                swatch.addEventListener("input", () => { hexInput.value = swatch.value; });
+                swatch.addEventListener("change", () => commit(swatch.value));
+                hexInput.addEventListener("change", () => {
+                    const v = hexInput.value.trim();
+                    hexInput.value = v;
+                    swatch.value = hex6(v || globalDefault());
+                    commit(v);
+                });
+
+                wrap.append(swatch, hexInput);
+                li.append(lbl, wrap);
+                return li;
+            };
+
+            const makeRadiusOverrideRow = (labelText, styleKey, globalInputId) => {
+                const li = document.createElement("li");
+                li.className = "kl-tree-attr kl-tree-attr--slider";
+                const lbl = document.createElement("span");
+                lbl.className = "kl-tree-attr-label";
+                lbl.textContent = labelText;
+
+                const wrap = document.createElement("div");
+                wrap.className = "kl-tree-slider-wrap";
+
+                const range = document.createElement("input");
+                range.type = "range";
+                range.min = "0";
+                range.max = "40";
+                range.step = "1";
+                range.className = "cfg-range kl-tree-attr-range";
+                range.draggable = false;
+
+                const val = document.createElement("span");
+                val.className = "kl-tree-attr-rangeval";
+
+                const globalDefault = document.getElementById(globalInputId)?.value ?? "10";
+                const initial = def.style?.[styleKey] ?? globalDefault;
+                range.value = String(initial);
+                val.textContent = `${initial}px`;
+
+                range.addEventListener("input", () => {
+                    val.textContent = `${range.value}px`;
+                });
+                range.addEventListener("change", () => {
+                    def.style = def.style || {};
+                    def.style[styleKey] = parseFloat(range.value);
+                    this._commitKeyLayoutDefs();
+                });
+
+                wrap.append(range, val);
+                li.append(lbl, wrap);
+                return li;
+            };
+
             attrList.appendChild(makeAttrRow("x", () => numFmt(def.x - LAYOUT_ORIGIN.x), (v) => { def.x = parseFloat(v) + LAYOUT_ORIGIN.x; }, "number"));
             attrList.appendChild(makeAttrRow("y", () => numFmt(def.y - LAYOUT_ORIGIN.y), (v) => { def.y = parseFloat(v) + LAYOUT_ORIGIN.y; }, "number"));
             attrList.appendChild(makeAttrRow("w", () => numFmt(def.w), (v) => { def.w = Math.max(0.25, parseFloat(v) || 1); }, "number"));
             attrList.appendChild(makeAttrRow("h", () => numFmt(def.h), (v) => { def.h = Math.max(0.25, parseFloat(v) || 1); }, "number"));
             if ("label" in def) {
-                attrList.appendChild(makeAttrRow("key", () => def.type, (v) => { def.type = v.trim() || "key_a"; }));
+                attrList.appendChild(makeAttrRow("key", () => def.type, (v) => { def.type = normalizePipeType(v.trim() || "key_a"); }));
                 attrList.appendChild(makeAttrRow("label", () => def.label || "", (v) => { def.label = v; }));
                 attrList.appendChild(makeAttrRow("move to top when active", () => def.moveToTop, (v) => { def.moveToTop = v; }, "checkbox"));
             }
@@ -1526,9 +1918,55 @@ export class ConfiguratorMode {
                 attrList.appendChild(makeAttrRow("reverse direction", () => def.reverseDirection, (v) => { def.reverseDirection = v; }, "checkbox"));
                 attrList.appendChild(makeAttrRow("highlight overlap", () => def.highlightOverlap, (v) => { def.highlightOverlap = v; }, "checkbox"));
                 attrList.appendChild(makeAttrRow("scroll speed", () => def.scrollSpeed ?? 200, (v) => { def.scrollSpeed = Math.max(1, parseFloat(v) || 200); }, "number"));
+                attrList.appendChild(makeAttrRow("perfect gap (ms)", () => def.perfectGapMs ?? 0, (v) => { def.perfectGapMs = Math.max(0, parseFloat(v) || 0); }, "number"));
             }
 
-            itemDetails.appendChild(attrList);
+            const optionsDetails = document.createElement("details");
+            optionsDetails.className = "kl-tree-subgroup";
+            optionsDetails.open = true;
+            const optionsSummary = document.createElement("summary");
+            optionsSummary.textContent = "options";
+            optionsDetails.append(optionsSummary, attrList);
+
+            if (styleSupported) {
+                const KEY_STYLE_LABELS = {
+                    key_inactive_bg_color: "bg color", key_active_bg_color: "active bg color",
+                    key_outline_color: "outline color", key_glow_color: "glow / active color",
+                    key_active_font_color: "active font color", key_inactive_font_color: "inactive font color",
+                    key_border_radius_idle: "border radius", key_border_radius_pressed: "pressed radius",
+                };
+                const HISTORY_STYLE_LABELS = {
+                    key_inactive_bg_color: "lane background", key_active_bg_color: "press bar color",
+                    key_outline_color: "lane border", key_glow_color: "perfect gap color",
+                    key_active_font_color: "overlap highlight", key_border_radius_idle: "lane corner radius",
+                };
+                const isHistory = def.type === "input_history";
+                const STYLE_LABELS = isHistory ? HISTORY_STYLE_LABELS : KEY_STYLE_LABELS;
+                const RADIUS_GLOBAL_ID = {
+                    key_border_radius_idle: "key_border_radius_idle",
+                    key_border_radius_pressed: "key_border_radius_pressed",
+                };
+
+                const overridesList = document.createElement("ul");
+                overridesList.draggable = false; //same slider-drag-hijack concern as attrList above
+                for (const styleKey of STYLE_OVERRIDE_KEYS) {
+                    if (!(styleKey in STYLE_LABELS)) continue; //e.g. input_history has no "pressed" state or label text
+                    if (styleKey in RADIUS_GLOBAL_ID) {
+                        overridesList.appendChild(makeRadiusOverrideRow(STYLE_LABELS[styleKey], styleKey, RADIUS_GLOBAL_ID[styleKey]));
+                    } else {
+                        overridesList.appendChild(makeColorOverrideRow(STYLE_LABELS[styleKey], styleKey));
+                    }
+                }
+
+                const overridesDetails = document.createElement("details");
+                overridesDetails.className = "kl-tree-subgroup kl-tree-subgroup--nested";
+                const overridesSummary = document.createElement("summary");
+                overridesSummary.textContent = "style overrides";
+                overridesDetails.append(overridesSummary, overridesList);
+                optionsDetails.appendChild(overridesDetails);
+            }
+
+            itemDetails.appendChild(optionsDetails);
             node.appendChild(itemDetails);
             node.draggable = true;
             node.addEventListener("dragstart", (e) => {
@@ -1568,6 +2006,7 @@ export class ConfiguratorMode {
                 const [item] = this.keyLayoutDefs.splice(dragSrcIdx, 1);
                 const adjTgt = dragSrcIdx < tgtIdx ? tgtIdx - 1 : tgtIdx;
                 this.keyLayoutDefs.splice(above ? adjTgt + 1 : adjTgt, 0, item);
+                this._clearSelection();
                 this._commitKeyLayoutDefs();
             });
 
@@ -1589,11 +2028,18 @@ export class ConfiguratorMode {
 
         //Restore open state
         list.querySelectorAll('.kl-tree-node[data-kl-idx]').forEach(node => {
-            if (openItems.has(node.dataset.klIdx)) {
+            const idx = node.dataset.klIdx;
+            if (openItems.has(idx)) {
                 const det = node.querySelector(':scope > details');
                 if (det) det.open = true;
             }
+            node.querySelectorAll('.kl-tree-subgroup').forEach(sub => {
+                const label = sub.querySelector('summary')?.textContent;
+                if (openSubgroups.has(`${idx}:${label}`)) sub.open = true;
+            });
         });
+
+        this._applySelectionClasses();
     }
 
     _attachKeyLayoutDragHandles() {
@@ -1640,6 +2086,7 @@ export class ConfiguratorMode {
                 e.stopPropagation();
                 e.preventDefault();
                 this.keyLayoutDefs.splice(defIdx, 1);
+                this._removeIndexAndShiftSelection(defIdx);
                 this._commitKeyLayoutDefs();
             });
             child.appendChild(del);
@@ -1679,6 +2126,7 @@ export class ConfiguratorMode {
                 handle.className = `kl-edge-handle kl-edge-handle--${edge.side}`;
                 handle.style.cssText = edge.style + "z-index:150;";
                 handle.addEventListener("pointerdown", (e) => {
+                    if (e.button !== 0) return;
                     e.preventDefault();
                     e.stopPropagation();
                     handle.setPointerCapture(e.pointerId);
@@ -1696,19 +2144,38 @@ export class ConfiguratorMode {
 
             //drag
             child.addEventListener("pointerdown", (e) => {
+                if (e.button !== 0) return; //right-click opens the context menu instead of arming a drag
                 if (e.target.classList.contains("kl-edge-handle") || e.target.classList.contains("kl-delete-btn") || e.target.classList.contains("kl-inline-label-edit")) return;
                 e.preventDefault();
                 child.setPointerCapture(e.pointerId);
                 child.style.setProperty("transition", "none", "important");
+                
+                if (!this.selectedIndices.has(defIdx)) {
+                    this._selectOnly(defIdx);
+                }
+
                 const def = this.keyLayoutDefs[defIdx];
+                const groupIndices = this.selectedIndices.has(defIdx) ? this.selectedIndices : new Set([defIdx]);
+                const groupOrigins = new Map();
+                for (const gIdx of groupIndices) {
+                    const gDef = this.keyLayoutDefs[gIdx];
+                    if (!gDef) continue;
+                    const gChild = gIdx === defIdx ? child : container.querySelector(`[data-kl-idx="${gIdx}"]`);
+                    if (!gChild) continue;
+                    groupOrigins.set(gIdx, { x: gDef.x, y: gDef.y, child: gChild });
+                }
+
                 this._klDragState = {
                     mode: "move",
                     defIdx, startX: e.clientX, startY: e.clientY,
                     origX: def.x, origY: def.y,
                     child,
+                    groupOrigins,
                 };
             });
         });
+
+        this._applySelectionClasses();
     }
 
     _getPreviewContentScale() {
@@ -1720,6 +2187,10 @@ export class ConfiguratorMode {
     }
 
     _onKlPointerMove(e) {
+        if (this._klMarquee) {
+            this._updateKlMarquee(e);
+            return;
+        }
         const ds = this._klDragState;
         if (!ds) return;
         const scale = this._getPreviewContentScale();
@@ -1738,6 +2209,16 @@ export class ConfiguratorMode {
             ds.child.style.top = `${newY}px`;
             ds._pendingX = newX;
             ds._pendingY = newY;
+
+            if (ds.groupOrigins && ds.groupOrigins.size > 1) {
+                const deltaX = newX - ds.origX;
+                const deltaY = newY - ds.origY;
+                for (const [gIdx, origin] of ds.groupOrigins) {
+                    if (gIdx === ds.defIdx) continue;
+                    origin.child.style.left = `${origin.x + deltaX}px`;
+                    origin.child.style.top = `${origin.y + deltaY}px`;
+                }
+            }
         } else if (ds.mode === "resize-right") {
             const newW = snapW(ds.origW * U + dx, gridPx);
             ds.child.style.setProperty("--key-width", `${newW * U}px`);
@@ -1768,6 +2249,10 @@ export class ConfiguratorMode {
     }
 
     _onKlPointerUp() {
+        if (this._klMarquee) {
+            this._finishKlMarquee();
+            return;
+        }
         const ds = this._klDragState;
         if (!ds) return;
         this._klDragState = null;
@@ -1777,7 +2262,19 @@ export class ConfiguratorMode {
 
         let changed = false;
         if (ds.mode === "move" && ds._pendingX != null) {
-            def.x = ds._pendingX; def.y = ds._pendingY; changed = true;
+            if (ds.groupOrigins && ds.groupOrigins.size > 1) {
+                const deltaX = ds._pendingX - ds.origX;
+                const deltaY = ds._pendingY - ds.origY;
+                for (const [gIdx, origin] of ds.groupOrigins) {
+                    const gDef = this.keyLayoutDefs[gIdx];
+                    if (!gDef) continue;
+                    gDef.x = origin.x + deltaX;
+                    gDef.y = origin.y + deltaY;
+                }
+            } else {
+                def.x = ds._pendingX; def.y = ds._pendingY;
+            }
+            changed = true;
         } else if (ds.mode === "resize-right" && ds._pendingW != null) {
             def.w = ds._pendingW; changed = true;
         } else if (ds.mode === "resize-bottom" && ds._pendingH != null) {

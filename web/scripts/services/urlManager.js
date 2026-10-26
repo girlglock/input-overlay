@@ -1,4 +1,6 @@
 //guh
+import { getAliasedParam } from "./settingsFieldMap.js";
+
 export class UrlManager {
     constructor(utils) {
         this.urlParams = new URLSearchParams(window.location.search);
@@ -47,94 +49,94 @@ export class UrlManager {
         }
 
         const colorSettings = {
-            activecolor: settings.activecolor,
-            inactivecolor: settings.inactivecolor,
-            backgroundcolor: settings.backgroundcolor,
-            activebgcolor: settings.activebgcolor,
-            outlinecolor: settings.outlinecolor,
-            fontcolor: settings.fontcolor
+            key_glow_color: settings.key_glow_color,
+            key_inactive_font_color: settings.key_inactive_font_color,
+            key_inactive_bg_color: settings.key_inactive_bg_color,
+            key_active_bg_color: settings.key_active_bg_color,
+            key_outline_color: settings.key_outline_color,
+            key_active_font_color: settings.key_active_font_color,
         };
 
-        Object.entries(colorSettings).forEach(([key, value]) => {
+        Object.entries(colorSettings).forEach(([wireKey, value]) => {
             if (value !== undefined && value !== null && value !== "") {
-                addParam(key, value.toLowerCase().replace("#", ""));
+                addParam(wireKey, value.toLowerCase().replace("#", ""));
             }
         });
 
-        if (settings.glowradius && settings.glowradius !== "24") addParam("glow", settings.glowradius);
-        if (settings.borderradius && settings.borderradius !== "8") addParam("radius", settings.borderradius);
-        if (settings.pressedradius && settings.pressedradius !== (settings.borderradius || "8")) addParam("pressedradius", settings.pressedradius);
-        if (settings.pressscale && settings.pressscale !== "105") addParam("pressscale", settings.pressscale);
-        if (settings.animationspeed && settings.animationspeed !== "100") addParam("speed", settings.animationspeed);
+        if (settings.key_glow_radius && settings.key_glow_radius !== "24") addParam("key_glow_radius", settings.key_glow_radius);
+        if (settings.key_border_radius_idle && settings.key_border_radius_idle !== "8") addParam("key_border_radius_idle", settings.key_border_radius_idle);
+        if (settings.key_border_radius_pressed && settings.key_border_radius_pressed !== (settings.key_border_radius_idle || "8")) addParam("key_border_radius_pressed", settings.key_border_radius_pressed);
+        if (settings.key_press_scale && settings.key_press_scale !== "105") addParam("key_press_scale", settings.key_press_scale);
+        if (settings.key_animation_speed && settings.key_animation_speed !== "100") addParam("key_animation_speed", settings.key_animation_speed);
         if (settings.scale && settings.scale !== "100") addParam("scale", settings.scale);
         if (settings.opacity && settings.opacity !== "100") addParam("opacity", settings.opacity);
 
-        if (settings.analogdisplaymode && settings.analogdisplaymode !== "fill") {
-            addParam("analogdisplaymode", settings.analogdisplaymode);
+        if (settings.analog_display_mode && settings.analog_display_mode !== "fill") {
+            addParam("analog_display_mode", settings.analog_display_mode);
         }
-        if (settings.analogsmoothing === true || settings.analogsmoothing === "true" || settings.analogsmoothing === "1") {
-            params.push("analogsmoothing=1");
+        if (settings.analog_smoothing === true || settings.analog_smoothing === "true" || settings.analog_smoothing === "1") {
+            params.push("analog_smoothing=1");
         }
-        if (settings.keylegendmode && settings.keylegendmode !== "fading") {
-            addParam("keylegendmode", settings.keylegendmode);
+        if (settings.analog_legend_fill_mode && settings.analog_legend_fill_mode !== "fading") {
+            addParam("analog_legend_fill_mode", settings.analog_legend_fill_mode);
         }
-        if (settings.forcedisableanalog === true || settings.forcedisableanalog === "true" || settings.forcedisableanalog === "1") {
-            params.push("forcedisableanalog=1");
+        if (settings.analog_force_disable === true || settings.analog_force_disable === "true" || settings.analog_force_disable === "1") {
+            params.push("analog_force_disable=1");
         }
-        if (settings.gamepaddeadzone && settings.gamepaddeadzone !== "3") {
-            addParam("gamepaddeadzone", settings.gamepaddeadzone);
-        }
-
-        if (settings.outlinescalepressed && settings.outlinescalepressed !== "2") addParam("outlinescalepressed", settings.outlinescalepressed);
-        if (settings.outlinescaleunpressed && settings.outlinescaleunpressed !== "2") addParam("outlinescaleunpressed", settings.outlinescaleunpressed);
-
-        if (settings.fontfamily && settings.fontfamily.trim() !== "") {
-            addParam("fontfamily", settings.fontfamily.replace(/ /g, "+"));
+        if (settings.gamepad_deadzone && settings.gamepad_deadzone !== "3") {
+            addParam("gamepad_deadzone", settings.gamepad_deadzone);
         }
 
-        if (settings.boldfont === true || settings.boldfont === "true" || settings.boldfont === "1") {
-            params.push("boldfont=1");
+        if (settings.key_outline_width_pressed && settings.key_outline_width_pressed !== "2") addParam("key_outline_width_pressed", settings.key_outline_width_pressed);
+        if (settings.key_outline_width_idle && settings.key_outline_width_idle !== "2") addParam("key_outline_width_idle", settings.key_outline_width_idle);
+
+        if (settings.key_font_family && settings.key_font_family.trim() !== "") {
+            addParam("key_font_family", settings.key_font_family.replace(/ /g, "+"));
         }
 
-        if (settings.hidemouse === true || settings.hidemouse === "true" || settings.hidemouse === "1") {
-            params.push("hidemouse=1");
-        }
-        if (settings.hidescrollcombo === true || settings.hidescrollcombo === "true" || settings.hidescrollcombo === "1") {
-            params.push("hidescrollcombo=1");
+        if (settings.key_bold_font === true || settings.key_bold_font === "true" || settings.key_bold_font === "1") {
+            params.push("key_bold_font=1");
         }
 
-        if (settings.mousetrailsensitivity && settings.mousetrailsensitivity !== "100") {
-            addParam("mousetrailsensitivity", settings.mousetrailsensitivity);
+        if (settings.hide_mouse === true || settings.hide_mouse === "true" || settings.hide_mouse === "1") {
+            params.push("hide_mouse=1");
         }
-        if (settings.mousetrailfadeout != null && settings.mousetrailfadeout !== "600") {
-            addParam("mousetrailfadeout", settings.mousetrailfadeout);
+        if (settings.scroll_hide_combo === true || settings.scroll_hide_combo === "true" || settings.scroll_hide_combo === "1") {
+            params.push("scroll_hide_combo=1");
         }
-        if (settings.mousetrailmode && settings.mousetrailmode !== "wrap") {
-            addParam("mousetrailmode", settings.mousetrailmode);
+
+        if (settings.mouse_trail_sensitivity && settings.mouse_trail_sensitivity !== "100") {
+            addParam("mouse_trail_sensitivity", settings.mouse_trail_sensitivity);
         }
-        if (settings.mousetraillength && settings.mousetraillength !== "150") {
-            addParam("mousetraillength", settings.mousetraillength);
+        if (settings.mouse_trail_fade_duration != null && settings.mouse_trail_fade_duration !== "600") {
+            addParam("mouse_trail_fade_duration", settings.mouse_trail_fade_duration);
         }
-        if (settings.mousetrailm1highlight === true || settings.mousetrailm1highlight === "true" || settings.mousetrailm1highlight === "1") {
-            params.push("mousetrailm1highlight=1");
+        if (settings.mouse_trail_mode && settings.mouse_trail_mode !== "wrap") {
+            addParam("mouse_trail_mode", settings.mouse_trail_mode);
         }
-        if (settings.mousepadtexture && settings.mousepadtexture.trim() !== "") {
-            addParam("mousepadtexture", encodeURIComponent(settings.mousepadtexture.trim()));
+        if (settings.mouse_trail_length && settings.mouse_trail_length !== "150") {
+            addParam("mouse_trail_length", settings.mouse_trail_length);
         }
-        if (settings.mousepadtexturezoom && parseFloat(settings.mousepadtexturezoom) !== 1) {
-            addParam("mousepadtexturezoom", settings.mousepadtexturezoom);
+        if (settings.mouse_trail_highlight_m1 === true || settings.mouse_trail_highlight_m1 === "true" || settings.mouse_trail_highlight_m1 === "1") {
+            params.push("mouse_trail_highlight_m1=1");
         }
-        if (settings.mousepadtextureopacity && parseFloat(settings.mousepadtextureopacity) !== 1) {
-            addParam("mousepadtextureopacity", settings.mousepadtextureopacity);
+        if (settings.mouse_pad_texture_url && settings.mouse_pad_texture_url.trim() !== "") {
+            addParam("mouse_pad_texture_url", encodeURIComponent(settings.mouse_pad_texture_url.trim()));
         }
-        if (settings.showmousedistance === true || settings.showmousedistance === "true" || settings.showmousedistance === "1") {
-            params.push("showmousedistance=1");
+        if (settings.mouse_pad_texture_zoom && parseFloat(settings.mouse_pad_texture_zoom) !== 1) {
+            addParam("mouse_pad_texture_zoom", settings.mouse_pad_texture_zoom);
         }
-        if (settings.mousedistancedpi && settings.mousedistancedpi !== "400") {
-            addParam("mousedistancedpi", settings.mousedistancedpi);
+        if (settings.mouse_pad_texture_opacity && parseFloat(settings.mouse_pad_texture_opacity) !== 1) {
+            addParam("mouse_pad_texture_opacity", settings.mouse_pad_texture_opacity);
         }
-        if (settings.resetmousedistanceafterfade === true || settings.resetmousedistanceafterfade === "true" || settings.resetmousedistanceafterfade === "1") {
-            params.push("resetmousedistanceafterfade=1");
+        if (settings.mouse_show_distance === true || settings.mouse_show_distance === "true" || settings.mouse_show_distance === "1") {
+            params.push("mouse_show_distance=1");
+        }
+        if (settings.mouse_distance_dpi && settings.mouse_distance_dpi !== "400") {
+            addParam("mouse_distance_dpi", settings.mouse_distance_dpi);
+        }
+        if (settings.mouse_reset_distance_after_fade === true || settings.mouse_reset_distance_after_fade === "true" || settings.mouse_reset_distance_after_fade === "1") {
+            params.push("mouse_reset_distance_after_fade=1");
         }
 
         if (settings.keyLayout) {
@@ -142,6 +144,56 @@ export class UrlManager {
         }
 
         return params.join("&");
+    }
+
+    _settingsFromParams(get, keyLayoutFallback) {
+        const key_border_radius_idle = get("key_border_radius_idle") || "8";
+        return {
+            key_glow_color: this.utils.normalizeColorValue(get("key_glow_color")) || "#8b5cf6",
+            key_inactive_font_color: this.utils.normalizeColorValue(get("key_inactive_font_color")) || "#808080",
+            key_inactive_bg_color: this.utils.normalizeColorValue(get("key_inactive_bg_color")) || "#1a1a1ad1",
+            key_active_bg_color: this.utils.normalizeColorValue(get("key_active_bg_color")) || "#202020",
+            key_outline_color: this.utils.normalizeColorValue(get("key_outline_color")) || "#4f4f4f",
+            key_active_font_color: this.utils.normalizeColorValue(get("key_active_font_color")) || "#ffffff",
+            key_glow_radius: get("key_glow_radius") || "24",
+            key_border_radius_idle,
+            key_border_radius_pressed: get("key_border_radius_pressed") || key_border_radius_idle,
+            key_press_scale: get("key_press_scale") || "105",
+            key_animation_speed: get("key_animation_speed") || "100",
+            scale: get("scale") || "100",
+            opacity: get("opacity") || "100",
+            key_font_family: get("key_font_family") || "",
+            key_bold_font: get("key_bold_font") === "1",
+            hide_mouse: get("hide_mouse") === "1",
+            scroll_hide_combo: get("scroll_hide_combo") === "1",
+            mouse_trail_sensitivity: get("mouse_trail_sensitivity") || "100",
+            mouse_trail_fade_duration: get("mouse_trail_fade_duration") ?? "600",
+            mouse_trail_mode: get("mouse_trail_mode") || "wrap",
+            mouse_trail_length: get("mouse_trail_length") || "150",
+            mouse_trail_highlight_m1: get("mouse_trail_highlight_m1") === "1",
+            mouse_pad_texture_url: get("mouse_pad_texture_url") ? decodeURIComponent(get("mouse_pad_texture_url")) : "",
+            mouse_pad_texture_zoom: get("mouse_pad_texture_zoom") || "1",
+            mouse_pad_texture_opacity: get("mouse_pad_texture_opacity") || "1",
+            mouse_show_distance: get("mouse_show_distance") === "1",
+            mouse_distance_dpi: get("mouse_distance_dpi") || "400",
+            mouse_reset_distance_after_fade: get("mouse_reset_distance_after_fade") === "1",
+            key_gap_scale: get("key_gap_scale") || "100",
+            key_outline_width_pressed: get("key_outline_width_pressed") || "2",
+            key_outline_width_idle: get("key_outline_width_idle") || "2",
+            analog_display_mode: get("analog_display_mode") || "fill",
+            analog_smoothing: get("analog_smoothing") === "1",
+            analog_legend_fill_mode: get("analog_legend_fill_mode") || "fading",
+            analog_force_disable: get("analog_force_disable") === "1",
+            gamepad_deadzone: get("gamepad_deadzone") || "3",
+            wsauth: get("wsauth") || "",
+            keyLayout: get("keyLayout") || keyLayoutFallback?.get("keyLayout") || null,
+            customLayoutRow1: get("customLayoutRow1") || null,
+            customLayoutRow2: get("customLayoutRow2") || null,
+            customLayoutRow3: get("customLayoutRow3") || null,
+            customLayoutRow4: get("customLayoutRow4") || null,
+            customLayoutRow5: get("customLayoutRow5") || null,
+            customLayoutMouse: get("customLayoutMouse") || null,
+        };
     }
 
     getOverlaySettings() {
@@ -152,102 +204,12 @@ export class UrlManager {
 
             if (decompressed) {
                 const decompressedParams = new URLSearchParams(decompressed);
-                const rad = decompressedParams.get("radius");
-                return {
-                    activecolor: this.utils.normalizeColorValue(decompressedParams.get("activecolor")) || "#8b5cf6",
-                    inactivecolor: this.utils.normalizeColorValue(decompressedParams.get("inactivecolor")) || "#808080",
-                    backgroundcolor: this.utils.normalizeColorValue(decompressedParams.get("backgroundcolor")) || "#1a1a1ad1",
-                    activebgcolor: this.utils.normalizeColorValue(decompressedParams.get("activebgcolor")) || "#202020",
-                    outlinecolor: this.utils.normalizeColorValue(decompressedParams.get("outlinecolor")) || "#4f4f4f",
-                    fontcolor: this.utils.normalizeColorValue(decompressedParams.get("fontcolor")) || "#ffffff",
-                    glowradius: decompressedParams.get("glow") || "24",
-                    borderradius: rad || "8",
-                    pressedradius: decompressedParams.get("pressedradius") || rad || "8",
-                    pressscale: decompressedParams.get("pressscale") || "105",
-                    animationspeed: decompressedParams.get("speed") || "100",
-                    scale: decompressedParams.get("scale") || "100",
-                    opacity: decompressedParams.get("opacity") || "100",
-                    fontfamily: decompressedParams.get("fontfamily") || "",
-                    boldfont: decompressedParams.get("boldfont") === "1",
-                    hidemouse: decompressedParams.get("hidemouse") === "1",
-                    hidescrollcombo: decompressedParams.get("hidescrollcombo") === "1",
-                    mousetrailsensitivity: decompressedParams.get("mousetrailsensitivity") || "100",
-                    mousetrailfadeout: decompressedParams.get("mousetrailfadeout") ?? "600",
-                    mousetrailmode: decompressedParams.get("mousetrailmode") || "wrap",
-                    mousetraillength: decompressedParams.get("mousetraillength") || "150",
-                    mousetrailm1highlight: decompressedParams.get("mousetrailm1highlight") === "1",
-                    mousepadtexture: decompressedParams.get("mousepadtexture") ? decodeURIComponent(decompressedParams.get("mousepadtexture")) : "",
-                    mousepadtexturezoom: decompressedParams.get("mousepadtexturezoom") || "1",
-                    mousepadtextureopacity: decompressedParams.get("mousepadtextureopacity") || "1",
-                    showmousedistance: decompressedParams.get("showmousedistance") === "1",
-                    mousedistancedpi: decompressedParams.get("mousedistancedpi") || "400",
-                    resetmousedistanceafterfade: decompressedParams.get("resetmousedistanceafterfade") === "1",
-                    gapmodifier: decompressedParams.get("gapmodifier") || "100",
-                    outlinescalepressed: decompressedParams.get("outlinescalepressed") || "2",
-                    outlinescaleunpressed: decompressedParams.get("outlinescaleunpressed") || "2",
-                    analogdisplaymode: decompressedParams.get("analogdisplaymode") || "fill",
-                    analogsmoothing: decompressedParams.get("analogsmoothing") === "1",
-                    keylegendmode: decompressedParams.get("keylegendmode") || "fading",
-                    forcedisableanalog: decompressedParams.get("forcedisableanalog") === "1",
-                    gamepaddeadzone: decompressedParams.get("gamepaddeadzone") || "3",
-                    wsauth: decompressedParams.get("wsauth") || "",
-                    keyLayout: decompressedParams.get("keyLayout") || this.urlParams.get("keyLayout") || null,
-                    customLayoutRow1: decompressedParams.get("customLayoutRow1") || null,
-                    customLayoutRow2: decompressedParams.get("customLayoutRow2") || null,
-                    customLayoutRow3: decompressedParams.get("customLayoutRow3") || null,
-                    customLayoutRow4: decompressedParams.get("customLayoutRow4") || null,
-                    customLayoutRow5: decompressedParams.get("customLayoutRow5") || null,
-                    customLayoutMouse: decompressedParams.get("customLayoutMouse") || null,
-                };
+                const get = (key) => getAliasedParam((k) => decompressedParams.get(k), key);
+                return this._settingsFromParams(get, this.urlParams);
             }
         }
 
-        const rad = params.get("radius");
-        return {
-            activecolor: this.utils.normalizeColorValue(params.get("activecolor")) || "#8b5cf6",
-            inactivecolor: this.utils.normalizeColorValue(params.get("inactivecolor")) || "#808080",
-            backgroundcolor: this.utils.normalizeColorValue(params.get("backgroundcolor")) || "#1a1a1ad1",
-            activebgcolor: this.utils.normalizeColorValue(params.get("activebgcolor")) || "#202020",
-            outlinecolor: this.utils.normalizeColorValue(params.get("outlinecolor")) || "#4f4f4f",
-            fontcolor: this.utils.normalizeColorValue(params.get("fontcolor")) || "#ffffff",
-            glowradius: params.get("glow") || "24",
-            borderradius: rad || "8",
-            pressedradius: params.get("pressedradius") || rad || "8",
-            pressscale: params.get("pressscale") || "105",
-            animationspeed: params.get("speed") || "100",
-            scale: params.get("scale") || "100",
-            opacity: params.get("opacity") || "100",
-            fontfamily: params.get("fontfamily") || "",
-            boldfont: params.get("boldfont") === "1",
-            hidemouse: params.get("hidemouse") === "1",
-            hidescrollcombo: params.get("hidescrollcombo") === "1",
-            mousetrailsensitivity: params.get("mousetrailsensitivity") || "100",
-            mousetrailfadeout: params.get("mousetrailfadeout") ?? "600",
-            mousetrailmode: params.get("mousetrailmode") || "wrap",
-            mousetraillength: params.get("mousetraillength") || "150",
-            mousetrailm1highlight: params.get("mousetrailm1highlight") === "1",
-            mousepadtexture: params.get("mousepadtexture") ? decodeURIComponent(params.get("mousepadtexture")) : "",
-            mousepadtexturezoom: params.get("mousepadtexturezoom") || "1",
-            mousepadtextureopacity: params.get("mousepadtextureopacity") || "1",
-            showmousedistance: params.get("showmousedistance") === "1",
-            mousedistancedpi: params.get("mousedistancedpi") || "400",
-            resetmousedistanceafterfade: params.get("resetmousedistanceafterfade") === "1",
-            gapmodifier: params.get("gapmodifier") || "100",
-            outlinescalepressed: params.get("outlinescalepressed") || "2",
-            outlinescaleunpressed: params.get("outlinescaleunpressed") || "2",
-            analogdisplaymode: params.get("analogdisplaymode") || "fill",
-            analogsmoothing: params.get("analogsmoothing") === "1",
-            keylegendmode: params.get("keylegendmode") || "fading",
-            forcedisableanalog: params.get("forcedisableanalog") === "1",
-            gamepaddeadzone: params.get("gamepaddeadzone") || "3",
-            wsauth: params.get("wsauth") || "",
-            keyLayout: this.urlParams.get("keyLayout") || null,
-            customLayoutRow1: params.get("customLayoutRow1") || null,
-            customLayoutRow2: params.get("customLayoutRow2") || null,
-            customLayoutRow3: params.get("customLayoutRow3") || null,
-            customLayoutRow4: params.get("customLayoutRow4") || null,
-            customLayoutRow5: params.get("customLayoutRow5") || null,
-            customLayoutMouse: params.get("customLayoutMouse") || null,
-        };
+        const get = (key) => getAliasedParam((k) => params.get(k), key);
+        return this._settingsFromParams(get, null);
     }
 }
