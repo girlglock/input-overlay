@@ -60,11 +60,18 @@ jobs:
           path: target/release/input-overlay-ws.exe
           retention-days: ${{ inputs.retention-days }}
 
+      - name: stage obs plugin package
+        shell: bash
+        run: |
+          mkdir -p target/obs-plugin-package
+          cp target/release/input_overlay_obs_plugin.dll target/obs-plugin-package/
+          cp -r obs-plugin/fonts target/obs-plugin-package/input-overlay-fonts
+
       - name: upload obs plugin artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.obs-plugin-artifact-name }}
-          path: target/release/input_overlay_obs_plugin.dll
+          path: target/obs-plugin-package/
           retention-days: ${{ inputs.retention-days }}
 
   build-linux:
@@ -129,9 +136,15 @@ jobs:
         with:
           subject-path: target/release/libinput_overlay_obs_plugin.so
 
+      - name: stage linux obs plugin package
+        run: |
+          mkdir -p target/obs-plugin-package
+          cp target/release/libinput_overlay_obs_plugin.so target/obs-plugin-package/
+          cp -r obs-plugin/fonts target/obs-plugin-package/input-overlay-fonts
+
       - name: upload linux obs plugin artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.obs-plugin-linux-artifact-name }}
-          path: target/release/libinput_overlay_obs_plugin.so
+          path: target/obs-plugin-package/
           retention-days: ${{ inputs.retention-days }}
