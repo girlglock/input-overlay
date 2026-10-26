@@ -11,6 +11,7 @@ mod mouse_pad;
 #[cfg(feature = "profiler")]
 pub mod profiler;
 mod scroller;
+mod system_fonts;
 mod text;
 mod texture;
 #[cfg(feature = "profiler")]
@@ -21,10 +22,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
-use fontdue::{Font, FontSettings};
+use fontdue::Font;
+use font_loader::LoadedFont;
 use tiny_skia::{Color, Pixmap, Rect};
 
-use crate::overlay_link::{LayoutElementDef, OverlaySettings};
+use crate::overlay_link::{LayoutElementDef, OverlaySettings, StyleOverride};
 use analog::{AnalogSmoother, AnalogVisual, DisplayMode, LegendMode};
 use color::parse_hex_color;
 use history::HistoryState;
@@ -65,9 +67,8 @@ pub struct Renderer {
     has_overlap: Vec<bool>,
     content_bounds: Option<Rect>,
     active: HashSet<String>,
-    style: KeyStyle,
+    element_styles: Vec<KeyStyle>,
     active_color: Color,
-    outline_color: Color,
     font_color: Color,
     mouse_pad: Option<(MousePadState, Rect)>,
     mouse_sensitivity: f32,
@@ -80,7 +81,8 @@ pub struct Renderer {
     scroll_hold_ms: f32,
     hide_scroll_count: bool,
     custom_font: Option<Font>,
-    font_rx: Option<Receiver<Option<Vec<u8>>>>,
+    custom_font_real_bold: bool,
+    font_rx: Option<Receiver<Option<LoadedFont>>>,
     bold_font: bool,
     label_images: LabelImageCache,
     key_transitions: Vec<Transition>,
@@ -95,43 +97,76 @@ pub struct Renderer {
     analog_legend_mode: LegendMode,
 }
 
+fn merge_style_override(base: &KeyStyle, ov: Option<&StyleOverride>) -> KeyStyle {
+    let Some(ov) = ov else {
+        return *base;
+    };
+    let mut merged = *base;
+    if let Some(c) = &ov.key_inactive_bg_color {
+        merged.background = parse_hex_color(c, 255);
+    }
+    if let Some(c) = &ov.key_active_bg_color {
+        merged.active_background = parse_hex_color(c, 255);
+    }
+    if let Some(c) = &ov.key_outline_color {
+        merged.outline = parse_hex_color(c, 255);
+    }
+    if let Some(c) = &ov.key_glow_color {
+        merged.active_outline = parse_hex_color(c, 255);
+        merged.glow = parse_hex_color(c, 255);
+    }
+    if let Some(c) = &ov.key_active_font_color {
+        merged.font_color = parse_hex_color(c, 255);
+    }
+    if let Some(c) = &ov.key_inactive_font_color {
+        merged.inactive_font_color = parse_hex_color(c, 255);
+    }
+    if let Some(r) = ov.key_border_radius_idle {
+        merged.border_radius = r as f32;
+    }
+    if let Some(r) = ov.key_border_radius_pressed {
+        merged.pressed_radius = r as f32;
+    }
+    merged
+}
+
 impl Renderer {
     pub fn new(layout: &[LayoutElementDef], settings: &OverlaySettings) -> Self {
         let elements = layout_elements(layout);
         let content_bounds = union_bounds(&elements);
 
         let style = KeyStyle {
-            background: parse_hex_color(&settings.backgroundcolor, 255),
-            active_background: parse_hex_color(&settings.activebgcolor, 255),
-            outline: parse_hex_color(&settings.outlinecolor, 255),
-            active_outline: parse_hex_color(&settings.activecolor, 255),
-            glow: parse_hex_color(&settings.activecolor, 255),
-            font_color: parse_hex_color(&settings.fontcolor, 255),
-            inactive_font_color: parse_hex_color(&settings.inactivecolor, 255),
-            border_radius: settings.borderradius as f32,
-            pressed_radius: settings.pressedradius as f32,
-            outline_width_unpressed: settings.outlinescaleunpressed as f32,
-            outline_width_pressed: settings.outlinescalepressed as f32,
-            press_scale: (settings.pressscale / 100.0) as f32,
-            glow_radius: settings.glowradius as f32,
+            background: parse_hex_color(&settings.key_inactive_bg_color, 255),
+            active_background: parse_hex_color(&settings.key_active_bg_color, 255),
+            outline: parse_hex_color(&settings.key_outline_color, 255),
+            active_outline: parse_hex_color(&settings.key_glow_color, 255),
+            glow: parse_hex_color(&settings.key_glow_color, 255),
+            font_color: parse_hex_color(&settings.key_active_font_color, 255),
+            inactive_font_color: parse_hex_color(&settings.key_inactive_font_color, 255),
+            border_radius: settings.key_border_radius_idle as f32,
+            pressed_radius: settings.key_border_radius_pressed as f32,
+            outline_width_unpressed: settings.key_outline_width_idle as f32,
+            outline_width_pressed: settings.key_outline_width_pressed as f32,
+            press_scale: (settings.key_press_scale / 100.0) as f32,
+            glow_radius: settings.key_glow_radius as f32,
             font_size: 16.0, //overlayVisualiser.js style.css:1580
             label_padding: 8.0,
         };
 
-        let active_color = parse_hex_color(&settings.activecolor, 255);
+        let active_color = parse_hex_color(&settings.key_glow_color, 255);
         let mouse_pad_config = MousePadConfig {
-            mode: if settings.mousetrailmode == "pan" {
+            mode: if settings.mouse_trail_mode == "pan" {
                 PadMode::Pan
             } else {
                 PadMode::Wrap
             },
-            m1_highlight: settings.mousetrailm1highlight,
-            show_distance: settings.showmousedistance,
-            dpi: settings.mousedistancedpi as f32,
-            reset_distance_after_fade: settings.resetmousedistanceafterfade,
-            texture_url: settings.mousepadtexture.clone(),
-            texture_zoom: settings.mousepadtexturezoom as f32,
-            texture_opacity: settings.mousepadtextureopacity as f32,
+            m1_highlight: settings.mouse_trail_highlight_m1,
+            show_distance: settings.mouse_show_distance,
+            dpi: settings.mouse_distance_dpi as f32,
+            reset_distance_after_fade: settings.mouse_reset_distance_after_fade,
+            texture_url: settings.mouse_pad_texture_url.clone(),
+            texture_zoom: settings.mouse_pad_texture_zoom as f32,
+            texture_opacity: settings.mouse_pad_texture_opacity as f32,
         };
 
         let mut mouse_pad = None;
@@ -158,6 +193,7 @@ impl Renderer {
                         el.def.scroll_speed as f32,
                         el.def.highlight_overlap,
                         el.def.reverse_direction,
+                        el.def.perfect_gap_ms as f32,
                     );
                     let idx = histories.len();
                     histories.push((history, el.rect));
@@ -196,15 +232,20 @@ impl Renderer {
             element_order.push(kind);
         }
 
+        let element_styles: Vec<KeyStyle> = elements
+            .iter()
+            .map(|el| merge_style_override(&style, el.def.style_override.as_ref()))
+            .collect();
+
         let has_overlap = compute_overlaps(&elements);
         let key_transitions = elements.iter().map(|_| Transition::new()).collect();
         let scroll_transitions = scroll_displays.iter().map(|_| Transition::new()).collect();
         let analog_smoothers = elements.iter().map(|_| AnalogSmoother::new()).collect();
         
-        let anim_duration_secs = if settings.animationspeed <= 0.0 { //overlayVisualiser.js:154
+        let anim_duration_secs = if settings.key_animation_speed <= 0.0 { //overlayVisualiser.js:154
             0.0
         } else {
-            0.15 * (100.0 / settings.animationspeed as f32)
+            0.15 * (100.0 / settings.key_animation_speed as f32)
         };
 
         let mut label_images = LabelImageCache::new();
@@ -223,39 +264,45 @@ impl Renderer {
             }
         }
 
+        let font_rx = font_loader::spawn_load(
+            &settings.key_font_family,
+            &settings.key_font_file_path,
+            settings.key_bold_font,
+        );
+
         Renderer {
             elements,
             element_order,
             has_overlap,
             content_bounds,
             active: HashSet::new(),
-            style,
+            element_styles,
             active_color,
-            outline_color: parse_hex_color(&settings.outlinecolor, 255),
-            font_color: parse_hex_color(&settings.fontcolor, 255),
+            font_color: parse_hex_color(&settings.key_active_font_color, 255),
             mouse_pad,
-            mouse_sensitivity: (settings.mousetrailsensitivity / 100.0) as f32,
-            mouse_trail_length: settings.mousetraillength as f32,
-            mouse_trail_fadeout_ms: settings.mousetrailfadeout as f32,
+            mouse_sensitivity: (settings.mouse_trail_sensitivity / 100.0) as f32,
+            mouse_trail_length: settings.mouse_trail_length as f32,
+            mouse_trail_fadeout_ms: settings.mouse_trail_fade_duration as f32,
             histories,
             glow_cache: GlowCache::new(),
             scroll_displays,
             scroll: ScrollState::new(),
-            scroll_hold_ms: 250.0 * (100.0 / (settings.animationspeed as f32).max(1.0)), //overlayVisualiser.js:163
-            hide_scroll_count: settings.hidescrollcombo,
+            scroll_hold_ms: 250.0 * (100.0 / (settings.key_animation_speed as f32).max(1.0)), //overlayVisualiser.js:163
+            hide_scroll_count: settings.scroll_hide_combo,
             custom_font: None,
-            font_rx: font_loader::spawn_load(&settings.fontfamily, settings.boldfont),
-            bold_font: settings.boldfont,
+            custom_font_real_bold: false,
+            font_rx,
+            bold_font: settings.key_bold_font,
             key_transitions,
             scroll_transitions,
             anim_duration_secs,
             analog_target: HashMap::new(),
             analog_smoothers,
             analog_mode: false,
-            force_disable_analog: settings.forcedisableanalog,
-            analog_smoothing: settings.analogsmoothing,
-            analog_display_mode: DisplayMode::parse(&settings.analogdisplaymode),
-            analog_legend_mode: LegendMode::parse(&settings.keylegendmode),
+            force_disable_analog: settings.analog_force_disable,
+            analog_smoothing: settings.analog_smoothing,
+            analog_display_mode: DisplayMode::parse(&settings.analog_display_mode),
+            analog_legend_mode: LegendMode::parse(&settings.analog_legend_fill_mode),
             label_images,
         }
     }
@@ -351,7 +398,7 @@ impl Renderer {
     ) {
         pixmap.fill(Color::TRANSPARENT);
         let (scale, tx, ty) = self.fit_transform(pixmap.width() as f32, pixmap.height() as f32);
-        let style = self.style.scaled(scale);
+        let styles: Vec<KeyStyle> = self.element_styles.iter().map(|s| s.scaled(scale)).collect();
 
         self.poll_font();
         self.label_images.poll();
@@ -362,7 +409,7 @@ impl Renderer {
         let font = primary_font.map(|primary| text::TextFont {
             primary,
             fallback: text::load_symbol_fallback_font(),
-            bold: self.bold_font,
+            bold: self.bold_font && !(self.custom_font.is_some() && self.custom_font_real_bold),
         });
         let font = font.as_ref();
 
@@ -411,9 +458,15 @@ impl Renderer {
 
         self.scroll.prune_expired();
         let mouse_middle_held = self.active.contains("mouse_middle");
+        let mut scroll_key_held = vec![false; self.scroll_displays.len()];
+        for (i, el) in self.elements.iter().enumerate() {
+            if let ElementKind::Scroll(idx) = self.element_order[i] {
+                scroll_key_held[idx] = el.def.keys.iter().skip(1).any(|k| self.active.contains(k));
+            }
+        }
         let mut scroll_ts: Vec<f32> = Vec::with_capacity(self.scroll_displays.len());
         for (i, (def, _)) in self.scroll_displays.iter().enumerate() {
-            let active = self.scroll.is_active(def, mouse_middle_held);
+            let active = self.scroll.is_active(def, mouse_middle_held) || scroll_key_held[i];
             self.scroll_transitions[i].set_active(active);
             scroll_ts.push(self.scroll_transitions[i].update(self.anim_duration_secs));
         }
@@ -429,7 +482,7 @@ impl Renderer {
                 ElementKind::Key => {
                     let t0 = Instant::now();
                     let t = key_ts[i];
-                    let glowing = t > 0.0 && style.glow_radius > 0.0;
+                    let glowing = t > 0.0 && styles[i].glow_radius > 0.0;
                     if !glowing || self.has_overlap[i] {
                         let label = el.def.label.as_deref().unwrap_or_default();
                         let rect = fit_rect(&el.rect, scale, tx, ty);
@@ -437,7 +490,7 @@ impl Renderer {
                             draw_key_glow(
                                 pixmap,
                                 &rect,
-                                &style,
+                                &styles[i],
                                 t,
                                 key_analog[i],
                                 &mut self.glow_cache,
@@ -447,7 +500,7 @@ impl Renderer {
                         draw_key_face(
                             pixmap,
                             &rect,
-                            &style,
+                            &styles[i],
                             t,
                             label,
                             font,
@@ -467,10 +520,10 @@ impl Renderer {
                             active_color: self.active_color,
                             font_color: self.font_color,
                             max_age_ms: self.mouse_trail_fadeout_ms,
-                            background: style.background,
-                            outline: style.outline,
-                            border_radius: style.border_radius,
-                            border_width: style.outline_width_unpressed,
+                            background: styles[i].background,
+                            outline: styles[i].outline,
+                            border_radius: styles[i].border_radius,
+                            border_width: styles[i].outline_width_unpressed,
                             font: font.copied(),
                         };
                         pad.draw(pixmap, &screen_rect, scale, &params);
@@ -482,12 +535,13 @@ impl Renderer {
                     let (history, rect) = &mut self.histories[idx];
                     let screen_rect = fit_rect(rect, scale, tx, ty);
                     let params = history::HistoryDrawParams {
-                        outline_color: self.outline_color,
-                        active_color: self.active_color,
-                        highlight_color: self.font_color,
-                        background: style.background,
-                        border_radius: style.border_radius,
-                        border_width: style.outline_width_unpressed,
+                        outline_color: styles[i].outline,
+                        active_color: styles[i].active_background,
+                        highlight_color: styles[i].font_color,
+                        perfect_color: styles[i].glow,
+                        background: styles[i].background,
+                        border_radius: styles[i].border_radius,
+                        border_width: styles[i].outline_width_unpressed,
                     };
                     history.draw(pixmap, &screen_rect, scale, &params);
                     hist_time += t0.elapsed();
@@ -495,7 +549,7 @@ impl Renderer {
                 ElementKind::Scroll(idx) => {
                     let t0 = Instant::now();
                     let t = scroll_ts[idx];
-                    let glowing = t > 0.0 && style.glow_radius > 0.0;
+                    let glowing = t > 0.0 && styles[i].glow_radius > 0.0;
                     if !glowing || self.has_overlap[i] {
                         let (def, rect) = &self.scroll_displays[idx];
                         let screen_rect = fit_rect(rect, scale, tx, ty);
@@ -503,7 +557,7 @@ impl Renderer {
                             draw_key_glow(
                                 pixmap,
                                 &screen_rect,
-                                &style,
+                                &styles[i],
                                 t,
                                 None,
                                 &mut self.glow_cache,
@@ -513,7 +567,7 @@ impl Renderer {
                         scroller::draw_scroll_display(
                             pixmap,
                             &screen_rect,
-                            &style,
+                            &styles[i],
                             def,
                             &self.scroll,
                             t,
@@ -540,13 +594,13 @@ impl Renderer {
             match self.element_order[i] {
                 ElementKind::Key => {
                     let t = key_ts[i];
-                    if t > 0.0 && style.glow_radius > 0.0 {
+                    if t > 0.0 && styles[i].glow_radius > 0.0 {
                         let label = el.def.label.as_deref().unwrap_or_default();
                         let rect = fit_rect(&el.rect, scale, tx, ty);
                         draw_key_glow(
                             pixmap,
                             &rect,
-                            &style,
+                            &styles[i],
                             t,
                             key_analog[i],
                             &mut self.glow_cache,
@@ -555,7 +609,7 @@ impl Renderer {
                         draw_key_face(
                             pixmap,
                             &rect,
-                            &style,
+                            &styles[i],
                             t,
                             label,
                             font,
@@ -567,13 +621,13 @@ impl Renderer {
                 }
                 ElementKind::Scroll(idx) => {
                     let t = scroll_ts[idx];
-                    if t > 0.0 && style.glow_radius > 0.0 {
+                    if t > 0.0 && styles[i].glow_radius > 0.0 {
                         let (def, rect) = &self.scroll_displays[idx];
                         let screen_rect = fit_rect(rect, scale, tx, ty);
                         draw_key_glow(
                             pixmap,
                             &screen_rect,
-                            &style,
+                            &styles[i],
                             t,
                             None,
                             &mut self.glow_cache,
@@ -582,7 +636,7 @@ impl Renderer {
                         scroller::draw_scroll_display(
                             pixmap,
                             &screen_rect,
-                            &style,
+                            &styles[i],
                             def,
                             &self.scroll,
                             t,
@@ -605,9 +659,9 @@ impl Renderer {
             return;
         };
         match rx.try_recv() {
-            Ok(bytes) => {
-                self.custom_font =
-                    bytes.and_then(|b| Font::from_bytes(b, FontSettings::default()).ok());
+            Ok(loaded) => {
+                self.custom_font_real_bold = loaded.as_ref().is_some_and(|l| l.real_bold);
+                self.custom_font = loaded.map(|l| l.font);
                 self.font_rx = None;
             }
             Err(TryRecvError::Empty) => {}

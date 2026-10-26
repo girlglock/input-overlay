@@ -22,6 +22,8 @@ flate2 = "1"
 base64 = "0.22"
 tiny-skia = "0.11"
 fontdue = "0.9"
+ttf-parser = "0.21"
+memmap2 = "0.9"
 ureq = "2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
 

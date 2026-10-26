@@ -156,6 +156,6 @@ cargo build --release --package input-overlay-obs-plugin
 
 output: `target/release/input_overlay_obs_plugin.dll/.so`
 
-place the output file in your obs-studio plugins folder: `obs-studio/obs-plugins/64bit/`
+place the output file in your obs-studio plugins folder: `obs-studio/obs-plugins/64bit/`, and copy `obs-plugin/fonts/` next to it
 
 </details>

@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tiny_skia::{Color, Pixmap, PixmapPaint, Rect, Transform};
 
@@ -16,6 +16,7 @@ pub struct HistoryDrawParams {
     pub outline_color: Color,
     pub active_color: Color,
     pub highlight_color: Color,
+    pub perfect_color: Color,
     pub background: Color,
     pub border_radius: f32,
     pub border_width: f32,
@@ -27,16 +28,19 @@ pub struct HistoryState {
     scroll_speed: f32,
     highlight_overlap: bool,
     reverse_direction: bool,
+    perfect_gap_ms: f32,
     log: VecDeque<LogEntry>,
 }
 
 impl HistoryState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         tracked_keys: Vec<String>,
         vertical: bool,
         scroll_speed: f32,
         highlight_overlap: bool,
         reverse_direction: bool,
+        perfect_gap_ms: f32,
     ) -> Self {
         HistoryState {
             tracked_keys,
@@ -44,6 +48,7 @@ impl HistoryState {
             scroll_speed,
             highlight_overlap,
             reverse_direction,
+            perfect_gap_ms,
             log: VecDeque::new(),
         }
     }
@@ -137,10 +142,17 @@ impl HistoryState {
             }
         }
 
+        let perfect_indices = if self.perfect_gap_ms > 0.0 {
+            perfect_linked_indices(&self.log, Duration::from_secs_f32(self.perfect_gap_ms / 1000.0))
+        } else {
+            std::collections::HashSet::new()
+        };
+
         let bar_color = with_alpha(params.active_color, 0.9);
+        let perfect_color = with_alpha(params.perfect_color, 0.9);
         for (i, key_name) in self.tracked_keys.iter().enumerate() {
             let lane_start = i as f32 * lane_size + lane_inset;
-            for entry in &self.log {
+            for (log_idx, entry) in self.log.iter().enumerate() {
                 if &entry.key != key_name {
                     continue;
                 }
@@ -151,7 +163,12 @@ impl HistoryState {
                     Rect::from_xywh(bar_start, lane_start, bar_len, bar_thickness)
                 };
                 if let Some(rect) = rect {
-                    fill_rect(&mut content, &rect, bar_color);
+                    let color = if perfect_indices.contains(&log_idx) {
+                        perfect_color
+                    } else {
+                        bar_color
+                    };
+                    fill_rect(&mut content, &rect, color);
                 }
             }
         }
@@ -212,6 +229,27 @@ fn overlap_ranges(log: &VecDeque<LogEntry>, now: Instant) -> Vec<(Instant, Insta
         }
     }
     ranges
+}
+
+fn perfect_linked_indices(log: &VecDeque<LogEntry>, margin: Duration) -> std::collections::HashSet<usize> {
+    let mut indices = std::collections::HashSet::new();
+    for (i, (a, b)) in log.iter().zip(log.iter().skip(1)).enumerate() {
+        if a.key == b.key {
+            continue;
+        }
+        
+        let Some(a_end) = a.end else { continue };
+        
+        if b.start < a_end {
+            continue; // overlapping, not a gap
+        }
+        
+        if b.start.duration_since(a_end) <= margin {
+            indices.insert(i);
+            indices.insert(i + 1);
+        }
+    }
+    indices
 }
 
 fn fill_rect(pixmap: &mut Pixmap, rect: &Rect, color: Color) {

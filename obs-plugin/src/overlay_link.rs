@@ -8,42 +8,56 @@ use serde_json::Value;
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct OverlaySettings {
-    pub activecolor: String,
-    pub inactivecolor: String,
-    pub backgroundcolor: String,
-    pub activebgcolor: String,
-    pub outlinecolor: String,
-    pub fontcolor: String,
-    pub glowradius: f64,
-    pub borderradius: f64,
-    pub pressedradius: f64,
-    pub pressscale: f64,
-    pub animationspeed: f64,
+    pub key_glow_color: String,
+    pub key_inactive_font_color: String,
+    pub key_inactive_bg_color: String,
+    pub key_active_bg_color: String,
+    pub key_outline_color: String,
+    pub key_active_font_color: String,
+    pub key_glow_radius: f64,
+    pub key_border_radius_idle: f64,
+    pub key_border_radius_pressed: f64,
+    pub key_press_scale: f64,
+    pub key_animation_speed: f64,
     pub scale: f64,
     pub opacity: f64,
-    pub fontfamily: String,
-    pub boldfont: bool,
-    pub hidemouse: bool,
-    pub hidescrollcombo: bool,
-    pub mousetrailsensitivity: f64,
-    pub mousetrailfadeout: f64,
-    pub mousetrailmode: String,
-    pub mousetraillength: f64,
-    pub mousetrailm1highlight: bool,
-    pub mousepadtexture: String,
-    pub mousepadtexturezoom: f64,
-    pub mousepadtextureopacity: f64,
-    pub showmousedistance: bool,
-    pub mousedistancedpi: f64,
-    pub resetmousedistanceafterfade: bool,
-    pub gapmodifier: f64,
-    pub outlinescalepressed: f64,
-    pub outlinescaleunpressed: f64,
-    pub analogdisplaymode: String,
-    pub analogsmoothing: bool,
-    pub keylegendmode: String,
-    pub forcedisableanalog: bool,
-    pub gamepaddeadzone: f64,
+    pub key_font_family: String,
+    pub key_font_file_path: String,
+    pub key_bold_font: bool,
+    pub hide_mouse: bool,
+    pub scroll_hide_combo: bool,
+    pub mouse_trail_sensitivity: f64,
+    pub mouse_trail_fade_duration: f64,
+    pub mouse_trail_mode: String,
+    pub mouse_trail_length: f64,
+    pub mouse_trail_highlight_m1: bool,
+    pub mouse_pad_texture_url: String,
+    pub mouse_pad_texture_zoom: f64,
+    pub mouse_pad_texture_opacity: f64,
+    pub mouse_show_distance: bool,
+    pub mouse_distance_dpi: f64,
+    pub mouse_reset_distance_after_fade: bool,
+    pub key_gap_scale: f64,
+    pub key_outline_width_pressed: f64,
+    pub key_outline_width_idle: f64,
+    pub analog_display_mode: String,
+    pub analog_smoothing: bool,
+    pub analog_legend_fill_mode: String,
+    pub analog_force_disable: bool,
+    pub gamepad_deadzone: f64,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Default)]
+pub struct StyleOverride {
+    pub key_inactive_bg_color: Option<String>,
+    pub key_active_bg_color: Option<String>,
+    pub key_outline_color: Option<String>,
+    pub key_glow_color: Option<String>,
+    pub key_active_font_color: Option<String>,
+    pub key_inactive_font_color: Option<String>,
+    pub key_border_radius_idle: Option<f64>,
+    pub key_border_radius_pressed: Option<f64>,
 }
 
 #[allow(dead_code)]
@@ -63,6 +77,8 @@ pub struct LayoutElementDef {
     pub scroll_speed: f64,
     pub highlight_overlap: bool,
     pub reverse_direction: bool,
+    pub perfect_gap_ms: f64,
+    pub style_override: Option<StyleOverride>,
 }
 
 pub struct DecodedLink {
@@ -74,34 +90,34 @@ pub struct DecodedLink {
 pub fn default_settings() -> OverlaySettings {
     let mut p: HashMap<String, String> = HashMap::new();
     for (k, v) in [
-        ("activecolor", "#5cf67d"),
-        ("inactivecolor", "#808080"),
-        ("backgroundcolor", "#1a1a1ad1"),
-        ("activebgcolor", "#47bd61"),
-        ("outlinecolor", "#4f4f4f"),
-        ("fontcolor", "#ffffff"),
-        ("glowradius", "40"),
-        ("borderradius", "10"),
-        ("pressedradius", "10"),
-        ("pressscale", "110"),
-        ("animationspeed", "300"),
-        ("fontfamily", "ArialPixel"),
-        ("boldfont", "1"),
-        ("gapmodifier", "100"),
-        ("outlinescalepressed", "3"),
-        ("outlinescaleunpressed", "2"),
-        ("analogdisplaymode", "fill"),
-        ("keylegendmode", "inverting"),
-        ("gamepaddeadzone", "3"),
-        ("mousetrailsensitivity", "100"),
-        ("mousetrailfadeout", "600"),
-        ("mousetrailmode", "wrap"),
-        ("mousetraillength", "150"),
-        ("mousetrailm1highlight", "1"),
-        ("mousepadtexturezoom", "1"),
-        ("mousepadtextureopacity", "1"),
-        ("showmousedistance", "1"),
-        ("mousedistancedpi", "400"),
+        ("key_glow_color", "#5cf67d"),
+        ("key_inactive_font_color", "#808080"),
+        ("key_inactive_bg_color", "#1a1a1ad1"),
+        ("key_active_bg_color", "#47bd61"),
+        ("key_outline_color", "#4f4f4f"),
+        ("key_active_font_color", "#ffffff"),
+        ("key_glow_radius", "40"),
+        ("key_border_radius_idle", "10"),
+        ("key_border_radius_pressed", "10"),
+        ("key_press_scale", "110"),
+        ("key_animation_speed", "300"),
+        ("key_font_family", "ArialPixel"),
+        ("key_bold_font", "1"),
+        ("key_gap_scale", "100"),
+        ("key_outline_width_pressed", "3"),
+        ("key_outline_width_idle", "2"),
+        ("analog_display_mode", "fill"),
+        ("analog_legend_fill_mode", "inverting"),
+        ("gamepad_deadzone", "3"),
+        ("mouse_trail_sensitivity", "100"),
+        ("mouse_trail_fade_duration", "600"),
+        ("mouse_trail_mode", "wrap"),
+        ("mouse_trail_length", "150"),
+        ("mouse_trail_highlight_m1", "1"),
+        ("mouse_pad_texture_zoom", "1"),
+        ("mouse_pad_texture_opacity", "1"),
+        ("mouse_show_distance", "1"),
+        ("mouse_distance_dpi", "400"),
     ] {
         p.insert(k.to_string(), v.to_string());
     }
@@ -172,6 +188,67 @@ pub fn default_layout() -> Vec<LayoutElementDef> {
     ]
 }
 
+const SETTING_KEYS: &[&str] = &[
+    "key_glow_color",
+    "key_inactive_font_color",
+    "key_inactive_bg_color",
+    "key_active_bg_color",
+    "key_outline_color",
+    "key_active_font_color",
+    "key_glow_radius",
+    "key_border_radius_idle",
+    "key_border_radius_pressed",
+    "key_press_scale",
+    "key_animation_speed",
+    "scale",
+    "opacity",
+    "key_font_family",
+    "key_font_file_path",
+    "key_bold_font",
+    "hide_mouse",
+    "scroll_hide_combo",
+    "mouse_trail_sensitivity",
+    "mouse_trail_fade_duration",
+    "mouse_trail_mode",
+    "mouse_trail_length",
+    "mouse_trail_highlight_m1",
+    "mouse_pad_texture_url",
+    "mouse_pad_texture_zoom",
+    "mouse_pad_texture_opacity",
+    "mouse_show_distance",
+    "mouse_distance_dpi",
+    "mouse_reset_distance_after_fade",
+    "key_gap_scale",
+    "key_outline_width_pressed",
+    "key_outline_width_idle",
+    "analog_display_mode",
+    "analog_smoothing",
+    "analog_legend_fill_mode",
+    "analog_force_disable",
+    "gamepad_deadzone",
+];
+
+const IGNORED_KEYS: &[&str] = &["keyLayout", "wsauth", "wsaddress", "wsport"];
+
+fn warn_unknown_keys<'a>(keys: impl Iterator<Item = &'a String>) {
+    for key in keys {
+        if !SETTING_KEYS.contains(&key.as_str()) && !IGNORED_KEYS.contains(&key.as_str()) {
+            tracing::warn!("config: unknown setting '{key}' ignored");
+        }
+    }
+}
+
+fn parse_layout(elements: &[Value]) -> Vec<LayoutElementDef> {
+    let layout: Vec<LayoutElementDef> = elements.iter().filter_map(parse_layout_element).collect();
+    if layout.len() < elements.len() {
+        tracing::warn!(
+            "config: {} keyLayout entries skipped - elements must be {{\"type\": ...}} objects",
+            elements.len() - layout.len()
+        );
+    }
+    layout
+}
+
 pub fn decode_json_config(json: &str) -> Option<DecodedLink> {
     let value: Value = serde_json::from_str(json).ok()?;
     let obj = value.as_object()?;
@@ -180,8 +257,8 @@ pub fn decode_json_config(json: &str) -> Option<DecodedLink> {
     let mut layout = Vec::new();
     for (key, val) in obj {
         if key == "keyLayout" {
-            if let Some(tuples) = val.as_array() {
-                layout = tuples.iter().filter_map(parse_tuple).collect();
+            if let Some(elements) = val.as_array() {
+                layout = parse_layout(elements);
             }
             continue;
         }
@@ -199,6 +276,7 @@ pub fn decode_json_config(json: &str) -> Option<DecodedLink> {
         };
         params.insert(key.clone(), s);
     }
+    warn_unknown_keys(obj.keys());
 
     Some(DecodedLink {
         settings: parse_overlay_settings(&params),
@@ -206,29 +284,34 @@ pub fn decode_json_config(json: &str) -> Option<DecodedLink> {
     })
 }
 
+//links are always ?cfg=<base64url zlib of the settings query> with keyLayout inside it as plain JSON
 pub fn decode_link(link: &str) -> DecodedLink {
     let query = extract_query(link);
     let params = parse_query(&query);
 
-    let (settings_params, key_layout_raw) =
-        match params.get("cfg").and_then(|cfg| decode_base64url_zlib(cfg)) {
-            Some(decompressed) => {
-                let inner = parse_query(&decompressed);
-                let kl = inner
-                    .get("keyLayout")
-                    .cloned()
-                    .or_else(|| params.get("keyLayout").cloned());
-                (inner, kl)
-            }
-            None => (params.clone(), params.get("keyLayout").cloned()),
+    let Some(inner) = params
+        .get("cfg")
+        .and_then(|cfg| decode_base64url_zlib(cfg))
+        .map(|d| parse_query(&d))
+    else {
+        tracing::warn!("config: link has no valid cfg= parameter, using defaults");
+        return DecodedLink {
+            settings: parse_overlay_settings(&HashMap::new()),
+            layout: Vec::new(),
         };
+    };
+    warn_unknown_keys(inner.keys());
 
-    let settings = parse_overlay_settings(&settings_params);
-    let layout = key_layout_raw
-        .map(|kl| decode_key_layout(&kl))
+    let layout = inner
+        .get("keyLayout")
+        .and_then(|kl| serde_json::from_str::<Vec<Value>>(kl).ok())
+        .map(|elements| parse_layout(&elements))
         .unwrap_or_default();
 
-    DecodedLink { settings, layout }
+    DecodedLink {
+        settings: parse_overlay_settings(&inner),
+        layout,
+    }
 }
 
 fn extract_query(link: &str) -> String {
@@ -307,19 +390,24 @@ fn decode_base64url_zlib(s: &str) -> Option<String> {
     Some(out)
 }
 
-fn decompress_tuples(s: &str) -> Option<Vec<Value>> {
-    if s.is_empty() || s.starts_with('[') || s.starts_with('{') {
-        return None;
-    }
-    let json_str = decode_base64url_zlib(s)?;
-    serde_json::from_str(&json_str).ok()
+pub fn parse_layout_element(value: &Value) -> Option<LayoutElementDef> {
+    parse_element_object(value.as_object()?)
 }
 
-fn decode_key_layout(raw: &str) -> Vec<LayoutElementDef> {
-    let tuples = decompress_tuples(raw).or_else(|| serde_json::from_str(raw).ok());
-    tuples
-        .map(|t| t.iter().filter_map(parse_tuple).collect())
-        .unwrap_or_default()
+const SCROLL_TYPES: [&str; 4] = ["scroller", "scroll_updown", "scroll_up", "scroll_down"];
+
+fn normalize_pipe_type(type_: &str) -> String {
+    if !type_.contains('|') {
+        return type_.to_string();
+    }
+    let parts: Vec<&str> = type_.split('|').collect();
+    match parts.iter().position(|p| SCROLL_TYPES.contains(p)) {
+        Some(idx) if idx > 0 => std::iter::once(parts[idx])
+            .chain(parts.iter().enumerate().filter(|&(i, _)| i != idx).map(|(_, p)| *p))
+            .collect::<Vec<_>>()
+            .join("|"),
+        _ => type_.to_string(),
+    }
 }
 
 fn label_arity(type_: &str) -> usize {
@@ -351,67 +439,91 @@ fn value_to_string(v: &Value) -> String {
     }
 }
 
-pub fn parse_tuple(tuple: &Value) -> Option<LayoutElementDef> {
-    let full = tuple.as_array()?;
-    if full.is_empty() {
+fn value_to_bool(v: Option<&Value>) -> bool {
+    matches!(v, Some(Value::Bool(true)))
+}
+
+fn value_to_string_array(v: Option<&Value>) -> Vec<String> {
+    v.and_then(Value::as_array)
+        .map(|arr| arr.iter().map(value_to_string).collect())
+        .unwrap_or_default()
+}
+
+fn value_to_f64_opt(v: Option<&Value>) -> Option<f64> {
+    match v {
+        Some(Value::Number(n)) => n.as_f64(),
+        Some(Value::String(s)) => s.parse().ok(),
+        _ => None,
+    }
+}
+
+fn parse_style_override(obj: &serde_json::Map<String, Value>) -> Option<StyleOverride> {
+    let style = obj.get("style")?.as_object()?;
+    let get_color = |key: &str| style.get(key).map(value_to_string).filter(|s| !s.is_empty());
+
+    let override_ = StyleOverride {
+        key_inactive_bg_color: get_color("key_inactive_bg_color"),
+        key_active_bg_color: get_color("key_active_bg_color"),
+        key_outline_color: get_color("key_outline_color"),
+        key_glow_color: get_color("key_glow_color"),
+        key_active_font_color: get_color("key_active_font_color"),
+        key_inactive_font_color: get_color("key_inactive_font_color"),
+        key_border_radius_idle: value_to_f64_opt(style.get("key_border_radius_idle")),
+        key_border_radius_pressed: value_to_f64_opt(style.get("key_border_radius_pressed")),
+    };
+
+    let is_empty = override_.key_inactive_bg_color.is_none()
+        && override_.key_active_bg_color.is_none()
+        && override_.key_outline_color.is_none()
+        && override_.key_glow_color.is_none()
+        && override_.key_active_font_color.is_none()
+        && override_.key_inactive_font_color.is_none()
+        && override_.key_border_radius_idle.is_none()
+        && override_.key_border_radius_pressed.is_none();
+
+    if is_empty {
+        None
+    } else {
+        Some(override_)
+    }
+}
+
+pub fn parse_element_object(obj: &serde_json::Map<String, Value>) -> Option<LayoutElementDef> {
+    let type_ = normalize_pipe_type(&obj.get("type").map(value_to_string).unwrap_or_default());
+    if type_.is_empty() {
         return None;
     }
-    let mut arr = full.as_slice();
-    let mut move_to_top = false;
-    if arr.len() > 1 && arr.last().and_then(Value::as_str) == Some("top") {
-        move_to_top = true;
-        arr = &arr[..arr.len() - 1];
-    }
 
-    let type_ = value_to_string(&arr[0]);
+    let w = value_to_f64(obj.get("w"), 1.0);
+    let h = value_to_f64(obj.get("h"), 1.0);
+    let x = value_to_f64(obj.get("x"), 0.0);
+    let y = value_to_f64(obj.get("y"), 0.0);
+    let move_to_top = value_to_bool(obj.get("moveToTop"));
+    let style_override = parse_style_override(obj);
 
     if type_ == "input_history" {
-        let rest = &arr[1..];
-        let cfg = rest.first().map(value_to_string).unwrap_or_default();
-        let w = value_to_f64(rest.get(1), 1.0);
-        let h = value_to_f64(rest.get(2), 1.0);
-        let x = value_to_f64(rest.get(3), 0.0);
-        let y = value_to_f64(rest.get(4), 0.0);
-
-        let parts: Vec<&str> = cfg.split(';').collect();
-        let tracked_keys = parts
-            .first()
-            .map(|s| {
-                s.split(',')
-                    .filter(|k| !k.is_empty())
-                    .map(String::from)
-                    .collect()
-            })
-            .unwrap_or_default();
-        let vertical = parts.get(1) == Some(&"1");
-        let scroll_speed = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(200.0);
-        let highlight_overlap = parts.get(3) == Some(&"1");
-        let reverse_direction = parts.get(4) == Some(&"1");
-
         return Some(LayoutElementDef {
             type_,
             w,
             h,
             x,
             y,
-            tracked_keys,
-            vertical,
-            scroll_speed,
-            highlight_overlap,
-            reverse_direction,
+            tracked_keys: value_to_string_array(obj.get("trackedKeys")),
+            vertical: value_to_bool(obj.get("vertical")),
+            scroll_speed: obj
+                .get("scrollSpeed")
+                .map(|v| value_to_f64(Some(v), 200.0))
+                .unwrap_or(200.0),
+            highlight_overlap: value_to_bool(obj.get("highlightOverlap")),
+            reverse_direction: value_to_bool(obj.get("reverseDirection")),
+            perfect_gap_ms: value_to_f64(obj.get("perfectGapMs"), 0.0),
             move_to_top,
+            style_override,
             ..Default::default()
         });
     }
 
     let arity = label_arity(&type_);
-    let labels: Vec<String> = arr[1..].iter().take(arity).map(value_to_string).collect();
-    let dims = &arr[(1 + arity).min(arr.len())..];
-    let w = value_to_f64(dims.first(), 1.0);
-    let h = value_to_f64(dims.get(1), 1.0);
-    let x = value_to_f64(dims.get(2), 0.0);
-    let y = value_to_f64(dims.get(3), 0.0);
-
     let keys = if type_.contains('|') {
         type_.split('|').map(String::from).collect()
     } else {
@@ -425,13 +537,18 @@ pub fn parse_tuple(tuple: &Value) -> Option<LayoutElementDef> {
         x,
         y,
         label: if arity == 1 {
-            Some(labels.first().cloned().unwrap_or_default())
+            Some(obj.get("label").map(value_to_string).unwrap_or_default())
         } else {
             None
         },
-        labels: if arity > 1 { labels } else { Vec::new() },
+        labels: if arity > 1 {
+            value_to_string_array(obj.get("labels"))
+        } else {
+            Vec::new()
+        },
         keys,
         move_to_top,
+        style_override,
         ..Default::default()
     })
 }
@@ -449,17 +566,6 @@ fn normalize_color_value(v: &str) -> Option<String> {
     Some(format!("#{}", v.to_lowercase()))
 }
 
-fn get_str(p: &HashMap<String, String>, key: &str, default: &str) -> String {
-    p.get(key)
-        .filter(|v| !v.is_empty())
-        .cloned()
-        .unwrap_or_else(|| default.to_string())
-}
-
-fn get_bool_flag(p: &HashMap<String, String>, key: &str) -> bool {
-    p.get(key).map(String::as_str) == Some("1")
-}
-
 fn get_f64(p: &HashMap<String, String>, key: &str, default: f64) -> f64 {
     p.get(key)
         .filter(|v| !v.is_empty())
@@ -467,60 +573,63 @@ fn get_f64(p: &HashMap<String, String>, key: &str, default: f64) -> f64 {
         .unwrap_or(default)
 }
 
-//urlManager.js buildURLParams renames some vars to save up on url chars
-fn get_f64_aliased(p: &HashMap<String, String>, keys: &[&str], default: f64) -> f64 {
-    keys.iter()
-        .find_map(|key| {
-            p.get(*key)
-                .filter(|v| !v.is_empty())
-                .and_then(|v| v.parse().ok())
-        })
-        .unwrap_or(default)
+fn get_bool(p: &HashMap<String, String>, key: &str) -> bool {
+    p.get(key).is_some_and(|v| v == "1")
+}
+
+fn get_str(p: &HashMap<String, String>, key: &str, default: &str) -> String {
+    p.get(key)
+        .filter(|v| !v.is_empty())
+        .cloned()
+        .unwrap_or_else(|| default.to_string())
+}
+
+fn get_color(p: &HashMap<String, String>, key: &str, default: &str) -> String {
+    p.get(key)
+        .and_then(|v| normalize_color_value(v))
+        .unwrap_or_else(|| default.to_string())
 }
 
 pub fn parse_overlay_settings(p: &HashMap<String, String>) -> OverlaySettings {
-    let color = |key: &str, default: &str| {
-        normalize_color_value(p.get(key).map(String::as_str).unwrap_or(""))
-            .unwrap_or_else(|| default.to_string())
-    };
-    let radius = get_f64_aliased(p, &["borderradius", "radius"], 8.0);
+    let radius = get_f64(p, "key_border_radius_idle", 8.0);
 
     OverlaySettings {
-        activecolor: color("activecolor", "#8b5cf6"),
-        inactivecolor: color("inactivecolor", "#808080"),
-        backgroundcolor: color("backgroundcolor", "#1a1a1ad1"),
-        activebgcolor: color("activebgcolor", "#202020"),
-        outlinecolor: color("outlinecolor", "#4f4f4f"),
-        fontcolor: color("fontcolor", "#ffffff"),
-        glowradius: get_f64_aliased(p, &["glowradius", "glow"], 24.0),
-        borderradius: radius,
-        pressedradius: get_f64(p, "pressedradius", radius),
-        pressscale: get_f64(p, "pressscale", 105.0),
-        animationspeed: get_f64_aliased(p, &["animationspeed", "speed"], 100.0),
+        key_glow_color: get_color(p, "key_glow_color", "#8b5cf6"),
+        key_inactive_font_color: get_color(p, "key_inactive_font_color", "#808080"),
+        key_inactive_bg_color: get_color(p, "key_inactive_bg_color", "#1a1a1ad1"),
+        key_active_bg_color: get_color(p, "key_active_bg_color", "#202020"),
+        key_outline_color: get_color(p, "key_outline_color", "#4f4f4f"),
+        key_active_font_color: get_color(p, "key_active_font_color", "#ffffff"),
+        key_glow_radius: get_f64(p, "key_glow_radius", 24.0),
+        key_border_radius_idle: radius,
+        key_border_radius_pressed: get_f64(p, "key_border_radius_pressed", radius),
+        key_press_scale: get_f64(p, "key_press_scale", 105.0),
+        key_animation_speed: get_f64(p, "key_animation_speed", 100.0),
         scale: get_f64(p, "scale", 100.0),
         opacity: get_f64(p, "opacity", 100.0),
-        fontfamily: get_str(p, "fontfamily", ""),
-        boldfont: get_bool_flag(p, "boldfont"),
-        hidemouse: get_bool_flag(p, "hidemouse"),
-        hidescrollcombo: get_bool_flag(p, "hidescrollcombo"),
-        mousetrailsensitivity: get_f64(p, "mousetrailsensitivity", 100.0),
-        mousetrailfadeout: get_f64(p, "mousetrailfadeout", 600.0),
-        mousetrailmode: get_str(p, "mousetrailmode", "wrap"),
-        mousetraillength: get_f64(p, "mousetraillength", 150.0),
-        mousetrailm1highlight: get_bool_flag(p, "mousetrailm1highlight"),
-        mousepadtexture: get_str(p, "mousepadtexture", ""),
-        mousepadtexturezoom: get_f64(p, "mousepadtexturezoom", 1.0),
-        mousepadtextureopacity: get_f64(p, "mousepadtextureopacity", 1.0),
-        showmousedistance: get_bool_flag(p, "showmousedistance"),
-        mousedistancedpi: get_f64(p, "mousedistancedpi", 400.0),
-        resetmousedistanceafterfade: get_bool_flag(p, "resetmousedistanceafterfade"),
-        gapmodifier: get_f64(p, "gapmodifier", 100.0),
-        outlinescalepressed: get_f64(p, "outlinescalepressed", 2.0),
-        outlinescaleunpressed: get_f64(p, "outlinescaleunpressed", 2.0),
-        analogdisplaymode: get_str(p, "analogdisplaymode", "fill"),
-        analogsmoothing: get_bool_flag(p, "analogsmoothing"),
-        keylegendmode: get_str(p, "keylegendmode", "fading"),
-        forcedisableanalog: get_bool_flag(p, "forcedisableanalog"),
-        gamepaddeadzone: get_f64(p, "gamepaddeadzone", 3.0),
+        key_font_family: get_str(p, "key_font_family", ""),
+        key_font_file_path: get_str(p, "key_font_file_path", ""),
+        key_bold_font: get_bool(p, "key_bold_font"),
+        hide_mouse: get_bool(p, "hide_mouse"),
+        scroll_hide_combo: get_bool(p, "scroll_hide_combo"),
+        mouse_trail_sensitivity: get_f64(p, "mouse_trail_sensitivity", 100.0),
+        mouse_trail_fade_duration: get_f64(p, "mouse_trail_fade_duration", 600.0),
+        mouse_trail_mode: get_str(p, "mouse_trail_mode", "wrap"),
+        mouse_trail_length: get_f64(p, "mouse_trail_length", 150.0),
+        mouse_trail_highlight_m1: get_bool(p, "mouse_trail_highlight_m1"),
+        mouse_pad_texture_url: get_str(p, "mouse_pad_texture_url", ""),
+        mouse_pad_texture_zoom: get_f64(p, "mouse_pad_texture_zoom", 1.0),
+        mouse_pad_texture_opacity: get_f64(p, "mouse_pad_texture_opacity", 1.0),
+        mouse_show_distance: get_bool(p, "mouse_show_distance"),
+        mouse_distance_dpi: get_f64(p, "mouse_distance_dpi", 400.0),
+        mouse_reset_distance_after_fade: get_bool(p, "mouse_reset_distance_after_fade"),
+        key_gap_scale: get_f64(p, "key_gap_scale", 100.0),
+        key_outline_width_pressed: get_f64(p, "key_outline_width_pressed", 2.0),
+        key_outline_width_idle: get_f64(p, "key_outline_width_idle", 2.0),
+        analog_display_mode: get_str(p, "analog_display_mode", "fill"),
+        analog_smoothing: get_bool(p, "analog_smoothing"),
+        analog_legend_fill_mode: get_str(p, "analog_legend_fill_mode", "fading"),
+        analog_force_disable: get_bool(p, "analog_force_disable"),
+        gamepad_deadzone: get_f64(p, "gamepad_deadzone", 3.0),
     }
 }

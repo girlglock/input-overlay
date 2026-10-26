@@ -34,3 +34,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# thingy majig to fetch fonts from constants
+obs-plugin/scripts/generate_fonts.py
+
+TODO

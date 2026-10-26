@@ -36,6 +36,8 @@ enum Protocol {
 }
 
 struct DeviceEntry {
+    vid: u16,
+    pid: u16,
     path: CString,
     proto: Protocol,
 }
@@ -94,43 +96,35 @@ fn flush_thread(tx: UnboundedSender<InputEvent>, state: SharedState, flush_hz: u
 //api
 pub struct AnalogThread {
     stop: Arc<AtomicBool>,
-    handles: Vec<thread::JoinHandle<()>>,
+    handles: Arc<Mutex<Vec<thread::JoinHandle<()>>>>,
 }
 
 impl AnalogThread {
     //filter is the analog_keyboard config value "auto" or a brandname.
     pub fn start(tx: UnboundedSender<InputEvent>, filter: &str, flush_hz: u32) -> Self {
         let stop = Arc::new(AtomicBool::new(false));
-        let mut handles = Vec::new();
+        let handles: Arc<Mutex<Vec<thread::JoinHandle<()>>>> = Arc::new(Mutex::new(Vec::new()));
         let state: SharedState = Arc::new(Mutex::new(HashMap::new()));
 
-        match find_devices(filter) {
-            Ok(devices) => {
-                for entry in devices {
-                    let state2 = Arc::clone(&state);
-                    let tx2 = tx.clone();
-                    let stop2 = Arc::clone(&stop);
-                    let h = thread::Builder::new()
-                        .name("AnalogHID".into())
-                        .spawn(move || device_thread(state2, tx2, entry, stop2, flush_hz))
-                        .expect("failed to spawn analog thread");
-                    handles.push(h);
-                }
-                if handles.is_empty() {
-                    tracing::info!("analog: no compatible keyboards found (filter={filter:?})");
-                }
-            }
-            Err(e) => tracing::warn!("analog: HID enumeration failed: {e}"),
-        }
+        let stop2 = Arc::clone(&stop);
+        let flush_handle = thread::Builder::new()
+            .name("AnalogFlush".into())
+            .spawn({
+                let state = Arc::clone(&state);
+                let tx = tx.clone();
+                move || flush_thread(tx, state, flush_hz, stop2)
+            })
+            .expect("failed to spawn analog flush thread");
+        handles.lock().unwrap().push(flush_handle);
 
-        if !handles.is_empty() {
-            let stop2 = Arc::clone(&stop);
-            let h = thread::Builder::new()
-                .name("AnalogFlush".into())
-                .spawn(move || flush_thread(tx, state, flush_hz, stop2))
-                .expect("failed to spawn analog flush thread");
-            handles.push(h);
-        }
+        let filter = filter.to_string();
+        let stop2 = Arc::clone(&stop);
+        let handles2 = Arc::clone(&handles);
+        let discovery_handle = thread::Builder::new()
+            .name("AnalogDiscovery".into())
+            .spawn(move || discovery_thread(state, tx, filter, stop2, flush_hz, handles2))
+            .expect("failed to spawn analog discovery thread");
+        handles.lock().unwrap().push(discovery_handle);
 
         AnalogThread { stop, handles }
     }
@@ -139,9 +133,64 @@ impl AnalogThread {
 impl Drop for AnalogThread {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
-        for h in self.handles.drain(..) {
+        let handles = std::mem::take(&mut *self.handles.lock().unwrap());
+        for h in handles {
             let _ = h.join();
         }
+    }
+}
+
+fn interruptible_sleep(total: Duration, stop: &AtomicBool) {
+    let step = Duration::from_millis(200);
+    let mut remaining = total;
+    while remaining > Duration::ZERO && !stop.load(Ordering::Relaxed) {
+        let this_step = remaining.min(step);
+        thread::sleep(this_step);
+        remaining = remaining.saturating_sub(this_step);
+    }
+}
+
+fn discovery_thread(
+    state: SharedState,
+    tx: UnboundedSender<InputEvent>,
+    filter: String,
+    stop: Arc<AtomicBool>,
+    flush_hz: u32,
+    handles: Arc<Mutex<Vec<thread::JoinHandle<()>>>>,
+) {
+    let mut known: std::collections::HashSet<(u16, u16)> = std::collections::HashSet::new();
+
+    while !stop.load(Ordering::Relaxed) {
+        match find_devices(&filter) {
+            Ok(devices) => {
+                for entry in devices {
+                    let key = (entry.vid, entry.pid);
+                    if !known.insert(key) {
+                        continue;
+                    }
+                    let state2 = Arc::clone(&state);
+                    let tx2 = tx.clone();
+                    let stop2 = Arc::clone(&stop);
+                    let h = thread::Builder::new()
+                        .name("AnalogHID".into())
+                        .spawn(move || device_thread(state2, tx2, entry, stop2, flush_hz))
+                        .expect("failed to spawn analog thread");
+                    handles.lock().unwrap().push(h);
+                }
+            }
+            Err(e) => tracing::warn!("analog: HID enumeration failed: {e}"),
+        }
+
+        if known.is_empty() {
+            tracing::debug!("analog: no compatible keyboards found yet (filter={filter:?})");
+        }
+
+        let interval = if known.is_empty() {
+            Duration::from_secs(3)
+        } else {
+            Duration::from_secs(15)
+        };
+        interruptible_sleep(interval, &stop);
     }
 }
 
@@ -164,7 +213,7 @@ fn find_devices(filter: &str) -> Result<Vec<DeviceEntry>, hidapi::HidError> {
 
         if let Ok(path) = CString::new(dev.path().to_bytes()) {
             tracing::info!("analog: found {brand} vid=0x{vid:04X} pid=0x{pid:04X}");
-            found.push(DeviceEntry { path, proto });
+            found.push(DeviceEntry { vid, pid, path, proto });
         }
     }
 
@@ -238,10 +287,16 @@ fn madlions_layout(pid: u16) -> Option<&'static [u16]> {
     }
 }
 
+fn rescan_path(api: &HidApi, vid: u16, pid: u16) -> Option<CString> {
+    api.device_list()
+        .find(|dev| dev.vendor_id() == vid && dev.product_id() == pid)
+        .and_then(|dev| CString::new(dev.path().to_bytes()).ok())
+}
+
 fn device_thread(
     state: SharedState,
     tx: UnboundedSender<InputEvent>,
-    entry: DeviceEntry,
+    mut entry: DeviceEntry,
     stop: Arc<AtomicBool>,
     flush_hz: u32,
 ) {
@@ -252,12 +307,24 @@ fn device_thread(
             Ok(a) => a,
             Err(e) => {
                 tracing::error!("analog: HidApi::new failed: {e}");
-                thread::sleep(backoff);
+                interruptible_sleep(backoff, &stop);
                 backoff = (backoff * 2).min(Duration::from_secs(16));
                 continue;
             }
         };
-        if let Ok(dev) = api.open_path(&entry.path) {
+
+        let mut opened = api.open_path(&entry.path);
+        if opened.is_err() {
+            if let Some(fresh_path) = rescan_path(&api, entry.vid, entry.pid) {
+                if fresh_path != entry.path {
+                    tracing::info!("analog: device path changed after reconnect, adopting new path");
+                    entry.path = fresh_path;
+                }
+                opened = api.open_path(&entry.path);
+            }
+        }
+
+        if let Ok(dev) = opened {
             backoff = Duration::from_secs(1);
             tracing::info!("analog: device connected");
             match &entry.proto {
@@ -278,7 +345,7 @@ fn device_thread(
             }
         }
         if !stop.load(Ordering::Relaxed) {
-            thread::sleep(backoff);
+            interruptible_sleep(backoff, &stop);
             backoff = (backoff * 2).min(Duration::from_secs(16));
         }
     }

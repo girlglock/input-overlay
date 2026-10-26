@@ -60,7 +60,7 @@ pub fn effective_depth(raw: f32) -> f32 {
     }
 }
 
-//overlayVisualiser.js:892-893 analogdisplaymode
+//overlayVisualiser.js:892-893 analog_display_mode
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum DisplayMode {
     Fill,
@@ -86,7 +86,7 @@ impl DisplayMode {
     }
 }
 
-//overlayVisualiser.js:950-962 keylegendmode
+//overlayVisualiser.js:950-962 analog_legend_fill_mode
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum LegendMode {
     Fading,

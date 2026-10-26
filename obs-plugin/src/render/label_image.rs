@@ -5,6 +5,8 @@ use tiny_skia::Pixmap;
 
 use super::texture;
 
+const MAX_IMAGES: usize = 64;
+
 enum Entry {
     Loading(Receiver<Option<Pixmap>>),
     Ready(Option<Pixmap>),
@@ -23,6 +25,10 @@ impl LabelImageCache {
 
     pub(super) fn ensure_loading(&mut self, src: &str) {
         if self.entries.contains_key(src) {
+            return;
+        }
+        if self.entries.len() >= MAX_IMAGES {
+            tracing::warn!("label images: more than {MAX_IMAGES} distinct images, skipping {src}");
             return;
         }
         let (tx, rx) = std::sync::mpsc::channel();
