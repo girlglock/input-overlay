@@ -94,13 +94,11 @@ SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="xxxx", ATTRS{idProduct}=
 <summary><b>standalone ws server setup (experimental)</b></summary>
 <br>
 
-download `input-overlay-ws-linux.zip` and unzip it, then follow the steps below.
+download `input-overlay-ws.AppImage` and make it executable with `chmod +x input-overlay-ws.AppImage`, then follow the steps below.
 
-1. the dependencies are X11/XWayland, OpenGL and fontconfig. the tray icon uses StatusNotifierItem, so with GNOME you will need the AppIndicator extension to see it.. on DEs without any tray support, run `./input-overlay-ws --notray`
+1. the dependencies are X11/XWayland, OpenGL, fontconfig and FUSE. the tray icon uses StatusNotifierItem, so with GNOME you will need the AppIndicator extension to see it.. on DEs without any tray support, run `./input-overlay-ws.AppImage --notray`
 
-   an appimage build is also there
-
-2. run `./input-overlay-ws`
+2. run `./input-overlay-ws.AppImage`
 3. right-click the tray icon and open settings -> devices to pick your keyboard and mouse evdev devices
 
    some mice and keyboards might show up duplicate (nkro, wireless dongle, keyboard mouse button emulation for macros, mouse keyboard macros etc etc), you will just kinda have to try and error them)

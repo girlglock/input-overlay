@@ -69,6 +69,6 @@
 - fixed phantom ctrl when pressing right alt closes #37 
 
 **linus**
-- an appimage is now added along the release which wont need you installing dependencies by hand at the cost of it being huge in comparison #34
+- the ws-server is now only released as an appimage, the plain binary zip is gone. its dependencies are small enough now that they dont bloat the appimage anymore after ditching webkit2gtk #34
 
 </details>

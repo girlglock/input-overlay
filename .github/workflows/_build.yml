@@ -6,9 +6,6 @@ on:
       windows-artifact-name:
         type: string
         default: windows-zip
-      linux-artifact-name:
-        type: string
-        default: linux-zip
       linux-appimage-artifact-name:
         type: string
         default: linux-appimage
@@ -107,18 +104,6 @@ jobs:
       - name: build ws-server binary
         run: cargo build --release --package input-overlay-ws
 
-      - name: attest linux build provenance
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-path: target/release/input-overlay-ws
-
-      - name: upload linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.linux-artifact-name }}
-          path: target/release/input-overlay-ws
-          retention-days: ${{ inputs.retention-days }}
-
       - name: build AppImage
         run: |
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
@@ -130,13 +115,18 @@ jobs:
           printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=Input Overlay WS' \
             'Exec=input-overlay-ws' 'Icon=input-overlay-ws' 'Categories=Utility;' 'Terminal=false' \
             > AppDir/input-overlay-ws.desktop
-          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir target/release/input-overlay-ws_x86_64.AppImage
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir target/release/input-overlay-ws.AppImage
+
+      - name: attest linux appimage build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: target/release/input-overlay-ws.AppImage
 
       - name: upload linux appimage artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.linux-appimage-artifact-name }}
-          path: target/release/input-overlay-ws_x86_64.AppImage
+          path: target/release/input-overlay-ws.AppImage
           retention-days: ${{ inputs.retention-days }}
 
       - name: build obs plugin (linux)
