@@ -34,7 +34,6 @@ hidapi = { version = "2", features = ["linux-static-hidraw"] }
 evdev = "0.12"
 libc = "0.2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls-native-roots"] }
-zip = { version = "2", default-features = false, features = ["deflate"] }
 tray-icon = { version = "0.26", default-features = false, features = ["ksni"] }
 zbus = "5.9"
 
