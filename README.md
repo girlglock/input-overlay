@@ -111,12 +111,13 @@
 **1. install prerequisites**
 
 - [Rust stable toolchain](https://rustup.rs)
+- [CMake](https://cmake.org) and a C++17 compiler
 
 <details>
 <summary><b>linux additional dependencies</b></summary>
 
 ```bash
-sudo apt install libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev
+sudo apt install build-essential cmake libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev libudev-dev
 ```
 
 </details>

@@ -68,6 +68,13 @@ pub unsafe fn list_item(api: &ObsApi, prop: *mut ObsProperty, label: &[u8], val:
     (api.property_list_add_string)(prop, label.as_ptr() as _, val.as_ptr() as _);
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub unsafe fn list_item_str(api: &ObsApi, prop: *mut ObsProperty, label: &str, val: &str) {
+    let clean = |s: &str| std::ffi::CString::new(s.replace('\0', "")).unwrap_or_default();
+    let (label, val) = (clean(label), clean(val));
+    (api.property_list_add_string)(prop, label.as_ptr() as _, val.as_ptr() as _);
+}
+
 pub unsafe fn group(
     api: &ObsApi,
     parent: *mut ObsProperties,

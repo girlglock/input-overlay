@@ -16,6 +16,8 @@ use crate::obs::{
 use crate::obs_helpers::{
     checkbox, file_path, group, info, list, list_item, read_str, set_visible, text,
 };
+#[cfg(target_os = "linux")]
+use crate::obs_helpers::list_item_str;
 use crate::overlay_link::{
     decode_json_config, decode_link, default_layout, default_settings, DecodedLink,
 };
@@ -327,25 +329,33 @@ unsafe extern "C" fn source_get_properties(data: *mut c_void) -> *mut ObsPropert
 
             #[cfg(target_os = "linux")]
             {
-                text(
-                    api,
-                    g2,
-                    b"linux_kbd_device\0",
-                    b"Keyboard Device\0",
-                    OBS_TEXT_DEFAULT,
-                );
-                text(
-                    api,
-                    g2,
-                    b"linux_mouse_device\0",
-                    b"Mouse Device\0",
-                    OBS_TEXT_DEFAULT,
-                );
+                use io_ws_common::services::linux::evdev_input;
+
+                for (id, label, devices) in [
+                    (&b"linux_kbd_device\0"[..], &b"Keyboard Device\0"[..], evdev_input::enum_keyboards()),
+                    (&b"linux_mouse_device\0"[..], &b"Mouse Device\0"[..], evdev_input::enum_mice()),
+                ] {
+                    let prop = list(api, g2, id, label);
+                    list_item(api, prop, b"None\0", b"\0");
+                    for (path, name) in devices {
+                        let node = path.rsplit('/').next().unwrap_or(&path);
+                        list_item_str(api, prop, &format!("{name} ({node})"), &path);
+                    }
+                }
+
+                let perms = evdev_input::check_permissions();
+                if !perms.is_empty() {
+                    let msg = format!("\u{26A0}\u{FE0F} {}", perms.join("<br>"));
+                    if let Ok(msg) = std::ffi::CString::new(msg) {
+                        info(api, g2, b"linux_perm_warn\0", msg.as_bytes_with_nul());
+                    }
+                }
+
                 info(
                     api,
                     g2,
                     b"linux_note\0",
-                    b"e.g. /dev/input/event0 - changes require restarting OBS.\0",
+                    b"Device changes require restarting OBS.\0",
                 );
             }
             #[cfg(windows)]

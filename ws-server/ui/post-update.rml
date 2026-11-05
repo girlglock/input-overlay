@@ -1,0 +1,29 @@
+<rml>
+<head>
+	<title>Update Complete</title>
+	<link type="text/rcss" href="base.rcss"/>
+	<link type="text/rcss" href="xp.rcss"/>
+	<link type="text/rcss" href="styles.rcss"/>
+</head>
+<body>
+	<div class="window">
+		<div class="title-bar" data-drag-region="">
+			<div class="title-bar-text" data-drag-region="">
+				<img src="assets/icon.png" style="width:16dp;height:16dp;vertical-align:middle;margin-right:4dp;"/>Update finished :3c
+			</div>
+			<div class="title-bar-controls">
+				<button aria-label="Close" id="close-btn"></button>
+			</div>
+		</div>
+		<div class="window-body">
+			<div class="done-body">
+				<img src="assets/dansi.gif" class="done-gif"/>
+				<p id="update-done-text"></p>
+			</div>
+			<div class="done-buttons">
+				<button id="ok-btn">OK</button>
+			</div>
+		</div>
+	</div>
+</body>
+</rml>

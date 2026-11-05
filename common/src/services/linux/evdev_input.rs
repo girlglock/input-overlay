@@ -157,7 +157,7 @@ pub fn enum_keyboards() -> Vec<(String, String)> {
     for (path, dev) in evdev::enumerate() {
         if dev
             .supported_keys()
-            .map_or(false, |k| k.contains(Key::KEY_A))
+            .is_some_and(|k| k.contains(Key::KEY_A))
         {
             results.push((
                 path.to_string_lossy().into_owned(),
@@ -171,7 +171,7 @@ pub fn enum_keyboards() -> Vec<(String, String)> {
 pub fn enum_mice() -> Vec<(String, String)> {
     let mut results = Vec::new();
     for (path, dev) in evdev::enumerate() {
-        let has_xy = dev.supported_relative_axes().map_or(false, |a| {
+        let has_xy = dev.supported_relative_axes().is_some_and(|a| {
             a.contains(RelativeAxisType::REL_X) && a.contains(RelativeAxisType::REL_Y)
         });
         if has_xy {
@@ -186,25 +186,17 @@ pub fn enum_mice() -> Vec<(String, String)> {
 
 pub fn check_permissions() -> Vec<String> {
     let mut missing = Vec::new();
-    if !is_in_input_group() {
-        missing.push("you are not in the 'input' group".to_string());
-        missing.push("keyboard and mouse capture won't work".to_string());
-        missing.push("run: sudo usermod -aG input $USER (then reboot)".to_string());
-        missing.push("see gh release page for more info".to_string());
+    if enum_keyboards().is_empty() {
+        missing.push("no readable keyboard devices found".to_string());
+    }
+    if enum_mice().is_empty() {
+        missing.push("no readable mouse devices found".to_string());
+    }
+    if !missing.is_empty() {
+        missing.push("your user needs read access to them, set up the udev rules (then reboot)".to_string());
+        missing.push("see the linux setup steps on the gh release page".to_string());
     }
     missing
-}
-
-fn is_in_input_group() -> bool {
-    std::process::Command::new("id")
-        .arg("-Gn")
-        .output()
-        .map(|o| {
-            String::from_utf8_lossy(&o.stdout)
-                .split_whitespace()
-                .any(|g| g == "input")
-        })
-        .unwrap_or(true)
 }
 
 pub struct EvdevInputThread {

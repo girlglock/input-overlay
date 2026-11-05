@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "common",
-    "ws-server/src-tauri",
+    "ws-server",
     "obs-plugin",
 ]
 resolver = "2"

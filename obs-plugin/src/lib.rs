@@ -142,6 +142,7 @@ pub extern "C" fn obs_module_load() -> bool {
 }
 
 #[no_mangle]
+#[cfg_attr(not(windows), allow(unused_mut))]
 pub extern "C" fn obs_module_unload() {
     let state = PLUGIN_STATE.lock().unwrap().take();
     if let Some(mut s) = state {

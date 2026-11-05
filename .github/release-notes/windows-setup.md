@@ -5,7 +5,9 @@
 <br>
 
 1. download `input-overlay-obs-plugin-windows.zip` and unzip it
-2. merge the directory into your obs-studio install, eg `C:\Program Files\obs-studio\`
+2. merge the `obs-studio` folder into `C:\ProgramData\` *(the plugin ends up in `C:\ProgramData\obs-studio\plugins\input_overlay_obs_plugin\`)*
+
+   if you installed an older version into `C:\Program Files\obs-studio\`, delete `obs-plugins\64bit\input_overlay_obs_plugin.dll` and `obs-plugins\64bit\input-overlay-fonts` from there, otherwise obs shows it as legacy
 3. launch obs with admin
 4. add a new source via **Add Source -> Input Overlay**, then configure it in its properties
 
