@@ -61,6 +61,19 @@ enum ElementKind {
     Skip,
 }
 
+pub fn fetch_media(url: &str) -> Option<Vec<u8>> {
+    texture::fetch_media(url)
+}
+
+pub fn local_media_path(url: &str) -> Option<std::path::PathBuf> {
+    let url = url.trim();
+    let lower = url.to_ascii_lowercase();
+    if lower.starts_with("https://") || lower.starts_with("http://") || texture::is_network_path(url) {
+        return None;
+    }
+    Some(std::path::PathBuf::from(url))
+}
+
 pub struct Renderer {
     elements: Vec<PositionedElement>,
     element_order: Vec<ElementKind>,
@@ -131,6 +144,16 @@ fn merge_style_override(base: &KeyStyle, ov: Option<&StyleOverride>) -> KeyStyle
 }
 
 impl Renderer {
+    pub fn mouse_pad_video_url(&self) -> Option<String> {
+        self.mouse_pad.as_ref().and_then(|(pad, _)| pad.video_url().map(str::to_string))
+    }
+
+    pub fn set_mouse_pad_video_frame(&mut self, frame: &image::RgbaImage, native_size: (u32, u32)) {
+        if let Some((pad, _)) = self.mouse_pad.as_mut() {
+            pad.set_video_frame(frame, native_size);
+        }
+    }
+
     pub fn new(layout: &[LayoutElementDef], settings: &OverlaySettings) -> Self {
         let elements = layout_elements(layout);
         let content_bounds = union_bounds(&elements);

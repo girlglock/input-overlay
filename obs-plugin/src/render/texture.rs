@@ -7,8 +7,10 @@ use tiny_skia::{Color, Pixmap};
 
 const VIDEO_EXTENSIONS: &[&str] = &["mp4", "webm", "ogv", "ogg", "mov", "mkv"];
 const MAX_BYTES: u64 = 20_000_000;
+const MAX_MEDIA_BYTES: u64 = 50_000_000;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const FETCH_TIMEOUT: Duration = Duration::from_secs(8);
+const MEDIA_FETCH_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_REDIRECTS: u32 = 3;
 const MAX_IMAGE_SIDE: u32 = 8192;
 const MAX_DECODE_ALLOC: u64 = 256 * 1024 * 1024;
@@ -16,9 +18,6 @@ const MAX_DECODE_ALLOC: u64 = 256 * 1024 * 1024;
 pub fn load(url: &str, tint: Color) -> Option<Pixmap> {
     let url = url.trim();
     if url.is_empty() || is_video(url) {
-        if is_video(url) {
-            tracing::info!("mouse_pad: video textures aren't supported natively yet, falling back to checkerboard");
-        }
         return None;
     }
 
@@ -79,7 +78,7 @@ pub(super) fn rgba_to_tinted_pixmap(img: &image::RgbaImage, tint: Color) -> Opti
     Some(pixmap)
 }
 
-fn is_video(url: &str) -> bool {
+pub(super) fn is_video(url: &str) -> bool {
     has_extension(url, VIDEO_EXTENSIONS)
 }
 
@@ -93,10 +92,19 @@ fn has_extension(url: &str, exts: &[&str]) -> bool {
 }
 
 pub(super) fn fetch(url: &str) -> Option<Vec<u8>> {
+    fetch_with(url, agent(), MAX_BYTES)
+}
+
+pub(super) fn fetch_media(url: &str) -> Option<Vec<u8>> {
+    fetch_with(url, media_agent(), MAX_MEDIA_BYTES)
+}
+
+fn fetch_with(url: &str, agent: &ureq::Agent, max_bytes: u64) -> Option<Vec<u8>> {
+    let url = url.trim();
     let lower = url.to_ascii_lowercase();
     
     if lower.starts_with("https://") {
-        return fetch_remote(url);
+        return fetch_remote(url, agent, max_bytes);
     }
 
     if lower.starts_with("http://") {
@@ -117,18 +125,25 @@ pub(crate) fn is_network_path(path: &str) -> bool {
     p.starts_with("\\\\") || p.starts_with("//") || p.starts_with("\\/") || p.starts_with("/\\")
 }
 
+fn build_agent(timeout: Duration) -> ureq::Agent {
+    ureq::AgentBuilder::new()
+        .https_only(true)
+        .redirects(MAX_REDIRECTS)
+        .timeout_connect(CONNECT_TIMEOUT)
+        .timeout(timeout)
+        .resolver(public_only_resolve)
+        .user_agent(concat!("input-overlay-obs-plugin/", env!("CARGO_PKG_VERSION")))
+        .build()
+}
+
 fn agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
-    AGENT.get_or_init(|| {
-        ureq::AgentBuilder::new()
-            .https_only(true)
-            .redirects(MAX_REDIRECTS)
-            .timeout_connect(CONNECT_TIMEOUT)
-            .timeout(FETCH_TIMEOUT)
-            .resolver(public_only_resolve)
-            .user_agent(concat!("input-overlay-obs-plugin/", env!("CARGO_PKG_VERSION")))
-            .build()
-    })
+    AGENT.get_or_init(|| build_agent(FETCH_TIMEOUT))
+}
+
+fn media_agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| build_agent(MEDIA_FETCH_TIMEOUT))
 }
 
 fn public_only_resolve(netloc: &str) -> std::io::Result<Vec<SocketAddr>> {
@@ -175,27 +190,28 @@ fn is_public_ip(ip: IpAddr) -> bool {
     }
 }
 
-fn fetch_remote(url: &str) -> Option<Vec<u8>> {
-    let response = agent()
+fn fetch_remote(url: &str, agent: &ureq::Agent, max_bytes: u64) -> Option<Vec<u8>> {
+    let response = agent
         .get(url)
         .call()
         .inspect_err(|e| tracing::warn!("image: request for {url} failed: {e}"))
         .ok()?;
     let declared: Option<u64> = response.header("Content-Length").and_then(|v| v.parse().ok());
     
-    if declared.is_some_and(|len| len > MAX_BYTES) {
-        tracing::warn!("image: {url} is larger than {MAX_BYTES} bytes, skipped");
+    if declared.is_some_and(|len| len > max_bytes) {
+        tracing::warn!("image: {url} is larger than {max_bytes} bytes, skipped");
         return None;
     }
 
     let mut bytes = Vec::new();
     response
         .into_reader()
-        .take(MAX_BYTES + 1)
+        .take(max_bytes + 1)
         .read_to_end(&mut bytes)
+        .inspect_err(|e| tracing::warn!("image: download of {url} failed: {e}"))
         .ok()?;
-    if bytes.len() as u64 > MAX_BYTES {
-        tracing::warn!("image: {url} is larger than {MAX_BYTES} bytes, skipped");
+    if bytes.len() as u64 > max_bytes {
+        tracing::warn!("image: {url} is larger than {max_bytes} bytes, skipped");
         return None;
     }
     Some(bytes)

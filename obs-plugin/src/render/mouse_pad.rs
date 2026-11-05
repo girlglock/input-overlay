@@ -69,8 +69,11 @@ pub struct MousePadState {
     total_distance_px: f32,
     was_live_trail: bool,
     texture: Option<Pixmap>,
+    video_size: Option<(f32, f32)>,
     texture_rx: Option<Receiver<Option<Pixmap>>>,
     gif: Option<GifTexture>,
+    video_url: Option<String>,
+    active_color: Color,
     texture_zoom: f32,
     texture_opacity: f32,
     m1_highlight: bool,
@@ -82,7 +85,8 @@ pub struct MousePadState {
 impl MousePadState {
     pub fn new(local_w: f32, local_h: f32, config: &MousePadConfig, active_color: Color) -> Self {
         let url = config.texture_url.trim();
-        let (texture_rx, gif) = if url.is_empty() {
+        let video_url = texture::is_video(url).then(|| url.to_string());
+        let (texture_rx, gif) = if url.is_empty() || video_url.is_some() {
             (None, None)
         } else if texture::is_gif(url) {
             (None, Some(GifTexture::spawn(url.to_string(), active_color)))
@@ -111,8 +115,11 @@ impl MousePadState {
             total_distance_px: 0.0,
             was_live_trail: false,
             texture: None,
+            video_size: None,
             texture_rx,
             gif,
+            video_url,
+            active_color,
             texture_zoom: config.texture_zoom.max(0.01),
             texture_opacity: config.texture_opacity,
             m1_highlight: config.m1_highlight,
@@ -256,7 +263,7 @@ impl MousePadState {
 
     // !!! bimportant overlayVisualiser.js:1323-1324
     pub fn is_live(&self, max_age_ms: f32) -> bool {
-        if self.texture_rx.is_some() || self.gif.as_ref().is_some_and(|g| g.is_live()) {
+        if self.texture_rx.is_some() || self.video_url.is_some() || self.gif.as_ref().is_some_and(|g| g.is_live()) {
             return true;
         }
         if self.trail.is_empty() {
@@ -269,6 +276,15 @@ impl MousePadState {
                 .and_then(|p| p.as_ref())
                 .is_some_and(|p| p.t.elapsed().as_secs_f32() * 1000.0 < max_age_ms);
         visually_live || self.show_distance
+    }
+
+    pub fn video_url(&self) -> Option<&str> {
+        self.video_url.as_deref()
+    }
+
+    pub fn set_video_frame(&mut self, frame: &image::RgbaImage, native_size: (u32, u32)) {
+        self.texture = texture::rgba_to_tinted_pixmap(frame, self.active_color);
+        self.video_size = Some((native_size.0 as f32, native_size.1 as f32));
     }
 
     fn poll_texture(&mut self) {
@@ -491,10 +507,14 @@ impl MousePadState {
         };
 
         if let Some(texture) = &self.texture {
+            let size = self
+                .video_size
+                .unwrap_or((texture.width() as f32, texture.height() as f32));
             draw_tiled_texture(
                 content,
                 (w, h),
                 texture,
+                size,
                 self.texture_zoom,
                 self.texture_opacity,
                 scale,
@@ -541,13 +561,14 @@ fn draw_tiled_texture(
     content: &mut Pixmap,
     (w, h): (f32, f32),
     texture: &Pixmap,
+    (tex_w, tex_h): (f32, f32),
     zoom: f32,
     opacity: f32,
     scale: f32,
     pan: Option<(f32, f32)>,
 ) {
-    let tile_w = (texture.width() as f32 * zoom * scale).max(1.0);
-    let tile_h = (texture.height() as f32 * zoom * scale).max(1.0);
+    let tile_w = (tex_w * zoom * scale).max(1.0);
+    let tile_h = (tex_h * zoom * scale).max(1.0);
     let (pan_x, pan_y) = pan.unwrap_or((0.0, 0.0));
 
     let center_off_x = w / 2.0 - tile_w / 2.0;

@@ -9,9 +9,10 @@ use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::TryRecvError;
 
 use crate::obs::{
-    ObsData, ObsEffect, ObsProperties, ObsProperty, ObsSource, ObsSourceInfo, ObsTexture,
-    GS_BLEND_INVSRCALPHA, GS_BLEND_ONE, GS_COLOR_FORMAT_RGBA, GS_TEXTURE_DYNAMIC,
-    OBS_SOURCE_TYPE_INPUT, OBS_SOURCE_VIDEO, OBS_TEXT_DEFAULT,
+    ObsApi, ObsData, ObsEffect, ObsProperties, ObsProperty, ObsSource, ObsSourceInfo, ObsStagesurf,
+    ObsTexrender, ObsTexture, Vec4, GS_BLEND_INVSRCALPHA, GS_BLEND_ONE, GS_BLEND_ZERO, GS_CLEAR_COLOR,
+    GS_COLOR_FORMAT_RGBA, GS_TEXTURE_DYNAMIC, GS_ZS_NONE, OBS_SOURCE_TYPE_INPUT, OBS_SOURCE_VIDEO,
+    OBS_TEXT_DEFAULT,
 };
 use crate::obs_helpers::{
     checkbox, file_path, group, info, list, list_item, read_str, set_visible, text,
@@ -32,6 +33,7 @@ const MIN_DIMENSION: i32 = 64;
 const MAX_DIMENSION: i32 = 7680;
 
 const RENDER_POLL_INTERVAL: Duration = Duration::from_millis(2);
+const VIDEO_MAX_WIDTH: u32 = 640;
 
 struct RenderedFrame {
     width: u32,
@@ -45,6 +47,17 @@ enum RenderCommand {
 }
 
 type FrameSlot = Arc<Mutex<Option<RenderedFrame>>>;
+type VideoUrlSlot = Arc<Mutex<Option<String>>>;
+type VideoFrameSlot = Arc<Mutex<Option<(image::RgbaImage, (u32, u32))>>>;
+
+struct MediaBackground {
+    url: String,
+    download: Option<std::sync::mpsc::Receiver<Option<PathBuf>>>,
+    child: *mut ObsSource,
+    texrender: *mut ObsTexrender,
+    stagesurf: *mut ObsStagesurf,
+    stage_size: (u32, u32),
+}
 
 struct PluginConfigState {
     config: Arc<Mutex<Config>>,
@@ -70,6 +83,10 @@ struct VideoSourceData {
     render_thread: Option<std::thread::JoinHandle<()>>,
     shown: Arc<AtomicBool>,
     active: Arc<AtomicBool>,
+    source: *mut ObsSource,
+    video_url: VideoUrlSlot,
+    video_frame: VideoFrameSlot,
+    media: Option<MediaBackground>,
 }
 
 pub fn init(
@@ -125,15 +142,19 @@ unsafe extern "C" fn source_get_name(_type_data: *mut c_void) -> *const std::ffi
     c"Input Overlay".as_ptr()
 }
 
-unsafe extern "C" fn source_create(settings: *mut ObsData, _source: *mut ObsSource) -> *mut c_void {
+unsafe extern "C" fn source_create(settings: *mut ObsData, source: *mut ObsSource) -> *mut c_void {
     let shown = Arc::new(AtomicBool::new(true));
     let active = Arc::new(AtomicBool::new(true));
     let frame_slot: FrameSlot = Arc::new(Mutex::new(None));
+    let video_url: VideoUrlSlot = Arc::new(Mutex::new(None));
+    let video_frame: VideoFrameSlot = Arc::new(Mutex::new(None));
     let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
     let render_thread = spawn_render_worker(
         EVENT_BUS.get().map(|bus| bus.subscribe()),
         cmd_rx,
         frame_slot.clone(),
+        video_url.clone(),
+        video_frame.clone(),
         shown.clone(),
         active.clone(),
         DEFAULT_WIDTH,
@@ -159,6 +180,10 @@ unsafe extern "C" fn source_create(settings: *mut ObsData, _source: *mut ObsSour
         render_thread,
         shown,
         active,
+        source,
+        video_url,
+        video_frame,
+        media: None,
     };
     update_from_settings(&mut data, settings);
     Box::into_raw(Box::new(data)) as *mut c_void
@@ -173,8 +198,11 @@ unsafe extern "C" fn source_destroy(data: *mut c_void) {
     if let Some(handle) = boxed.render_thread.take() {
         let _ = handle.join();
     }
-    if let Some(tex) = boxed.texture.take() {
-        if let Some(api) = crate::obs::api() {
+    if let Some(api) = crate::obs::api() {
+        if let Some(media) = boxed.media.take() {
+            destroy_media(api, boxed.source, media);
+        }
+        if let Some(tex) = boxed.texture.take() {
             (api.enter_graphics)();
             (api.texture_destroy)(tex);
             (api.leave_graphics)();
@@ -450,10 +478,13 @@ fn send_command(cmd_tx: &Option<std::sync::mpsc::Sender<RenderCommand>>, cmd: Re
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_render_worker(
     mut event_rx: Option<broadcast::Receiver<InputEvent>>,
     cmd_rx: std::sync::mpsc::Receiver<RenderCommand>,
     frame_slot: FrameSlot,
+    video_url: VideoUrlSlot,
+    video_frame: VideoFrameSlot,
     shown: Arc<AtomicBool>,
     active: Arc<AtomicBool>,
     initial_width: u32,
@@ -471,7 +502,9 @@ fn spawn_render_worker(
                 loop {
                     match cmd_rx.try_recv() {
                         Ok(RenderCommand::Reconfigure(decoded)) => {
-                            renderer = Some(build_renderer(decoded.map(|b| *b)))
+                            let built = build_renderer(decoded.map(|b| *b));
+                            *video_url.lock().unwrap() = built.mouse_pad_video_url();
+                            renderer = Some(built);
                         }
                         Ok(RenderCommand::Resize(w, h)) => {
                             width = w;
@@ -497,6 +530,12 @@ fn spawn_render_worker(
                 let mut profiler = crate::render::profiler::Profiler::start();
 
                 let mut changed = false;
+                if let Some((frame, native_size)) = video_frame.lock().unwrap().take() {
+                    if let Some(renderer) = renderer.as_mut() {
+                        renderer.set_mouse_pad_video_frame(&frame, native_size);
+                        changed = true;
+                    }
+                }
                 if let Some(rx) = event_rx.as_mut() {
                     loop {
                         match rx.try_recv() {
@@ -667,6 +706,8 @@ unsafe extern "C" fn source_video_tick(data: *mut c_void, _seconds: f32) {
         return;
     }
 
+    update_media(api, data);
+
     if let Some(frame) = data.frame_slot.lock().unwrap().take() {
         if frame.width == data.width && frame.height == data.height {
             data.pixmap = frame.pixmap;
@@ -733,6 +774,184 @@ unsafe extern "C" fn source_video_render(data: *mut c_void, effect: *mut ObsEffe
     (api.blend_function)(GS_BLEND_ONE, GS_BLEND_INVSRCALPHA);
     (api.draw_sprite)(tex, 0, data.width, data.height);
     (api.blend_state_pop)();
+}
+
+fn media_cache_path(url: &str) -> PathBuf {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    url.hash(&mut hasher);
+    let ext = url
+        .split(['?', '#'])
+        .next()
+        .and_then(|p| p.rsplit_once('.'))
+        .map(|(_, e)| e.to_ascii_lowercase())
+        .filter(|e| e.len() <= 4 && e.chars().all(|c| c.is_ascii_alphanumeric()))
+        .unwrap_or_else(|| "mp4".to_string());
+    crate::plugin_config_dir()
+        .join("cache")
+        .join(format!("mousepad-{:016x}.{ext}", hasher.finish()))
+}
+
+fn start_media(url: String) -> MediaBackground {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let fetch_url = url.clone();
+    let spawned = std::thread::Builder::new()
+        .name("MousePadVideo".into())
+        .spawn(move || {
+            let path = media_cache_path(&fetch_url);
+            let result = if let Some(local) = crate::render::local_media_path(&fetch_url) {
+                local
+                    .is_file()
+                    .then_some(local)
+                    .or_else(|| {
+                        tracing::warn!("mouse_pad: video file {fetch_url} not found");
+                        None
+                    })
+            } else if path.is_file() {
+                Some(path)
+            } else {
+                crate::render::fetch_media(&fetch_url).and_then(|bytes| {
+                    std::fs::create_dir_all(path.parent()?).ok()?;
+                    std::fs::write(&path, bytes)
+                        .inspect_err(|e| tracing::warn!("mouse_pad: failed to cache video: {e}"))
+                        .ok()?;
+                    Some(path)
+                })
+            };
+            let _ = tx.send(result);
+        })
+        .is_ok();
+    if !spawned {
+        tracing::error!("video_source: failed to spawn video download thread");
+    }
+    MediaBackground {
+        url,
+        download: spawned.then_some(rx),
+        child: std::ptr::null_mut(),
+        texrender: std::ptr::null_mut(),
+        stagesurf: std::ptr::null_mut(),
+        stage_size: (0, 0),
+    }
+}
+
+unsafe fn destroy_media(api: &ObsApi, parent: *mut ObsSource, media: MediaBackground) {
+    (api.enter_graphics)();
+    if !media.stagesurf.is_null() {
+        (api.stagesurface_destroy)(media.stagesurf);
+    }
+    if !media.texrender.is_null() {
+        (api.texrender_destroy)(media.texrender);
+    }
+    (api.leave_graphics)();
+    if !media.child.is_null() {
+        if !parent.is_null() {
+            (api.source_remove_active_child)(parent, media.child);
+        }
+        (api.source_release)(media.child);
+    }
+}
+
+unsafe fn create_media_source(api: &ObsApi, parent: *mut ObsSource, path: &std::path::Path) -> *mut ObsSource {
+    let Ok(path) = std::ffi::CString::new(path.to_string_lossy().as_bytes()) else {
+        return std::ptr::null_mut();
+    };
+    let settings = (api.data_create)();
+    (api.data_set_string)(settings, c"local_file".as_ptr(), path.as_ptr());
+    (api.data_set_bool)(settings, c"is_local_file".as_ptr(), true);
+    (api.data_set_bool)(settings, c"looping".as_ptr(), true);
+    let child = (api.source_create_private)(
+        c"ffmpeg_source".as_ptr(),
+        c"input-overlay mouse pad video".as_ptr(),
+        settings,
+    );
+    (api.data_release)(settings);
+    if !child.is_null() && !parent.is_null() {
+        (api.source_add_active_child)(parent, child);
+    }
+    child
+}
+
+unsafe fn update_media(api: &ObsApi, data: &mut VideoSourceData) {
+    let wanted = data.video_url.lock().unwrap().clone();
+    if data.media.as_ref().map(|m| &m.url) != wanted.as_ref() {
+        if let Some(media) = data.media.take() {
+            destroy_media(api, data.source, media);
+        }
+        data.media = wanted.map(start_media);
+    }
+    let Some(media) = data.media.as_mut() else {
+        return;
+    };
+
+    if let Some(rx) = &media.download {
+        match rx.try_recv() {
+            Ok(Some(path)) => {
+                media.download = None;
+                media.child = create_media_source(api, data.source, &path);
+                if media.child.is_null() {
+                    tracing::warn!("mouse_pad: couldn't create a media source for the video");
+                }
+            }
+            Ok(None) | Err(std::sync::mpsc::TryRecvError::Disconnected) => media.download = None,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+        }
+    }
+    if media.child.is_null() || data.video_frame.lock().unwrap().is_some() {
+        return;
+    }
+
+    let (src_w, src_h) = ((api.source_get_width)(media.child), (api.source_get_height)(media.child));
+    if src_w == 0 || src_h == 0 {
+        return;
+    }
+    let scale = (VIDEO_MAX_WIDTH as f32 / src_w as f32).min(1.0);
+    let w = ((src_w as f32 * scale).round() as u32).max(1);
+    let h = ((src_h as f32 * scale).round() as u32).max(1);
+
+    (api.enter_graphics)();
+    if media.texrender.is_null() {
+        media.texrender = (api.texrender_create)(GS_COLOR_FORMAT_RGBA, GS_ZS_NONE);
+    }
+    if media.stage_size != (w, h) {
+        if !media.stagesurf.is_null() {
+            (api.stagesurface_destroy)(media.stagesurf);
+        }
+        media.stagesurf = (api.stagesurface_create)(w, h, GS_COLOR_FORMAT_RGBA);
+        media.stage_size = (w, h);
+    }
+    let mut frame = None;
+    if !media.texrender.is_null() && !media.stagesurf.is_null() {
+        (api.texrender_reset)(media.texrender);
+        if (api.texrender_begin)(media.texrender, w, h) {
+            let clear = Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 0.0 };
+            (api.clear)(GS_CLEAR_COLOR, &clear, 0.0, 0);
+            (api.ortho)(0.0, src_w as f32, 0.0, src_h as f32, -100.0, 100.0);
+            (api.blend_state_push)();
+            (api.blend_function)(GS_BLEND_ONE, GS_BLEND_ZERO);
+            (api.source_video_render)(media.child);
+            (api.blend_state_pop)();
+            (api.texrender_end)(media.texrender);
+        }
+        let tex = (api.texrender_get_texture)(media.texrender);
+        if !tex.is_null() {
+            (api.stage_texture)(media.stagesurf, tex);
+            let mut ptr: *mut u8 = std::ptr::null_mut();
+            let mut linesize: u32 = 0;
+            if (api.stagesurface_map)(media.stagesurf, &mut ptr, &mut linesize) {
+                let row = (w * 4) as usize;
+                let mut pixels = Vec::with_capacity(row * h as usize);
+                for y in 0..h as usize {
+                    pixels.extend_from_slice(std::slice::from_raw_parts(ptr.add(y * linesize as usize), row));
+                }
+                (api.stagesurface_unmap)(media.stagesurf);
+                frame = image::RgbaImage::from_raw(w, h, pixels).map(|img| (img, (src_w, src_h)));
+            }
+        }
+    }
+    (api.leave_graphics)();
+    if frame.is_some() {
+        *data.video_frame.lock().unwrap() = frame;
+    }
 }
 
 fn parse_resolution(s: &str) -> (u32, u32) {

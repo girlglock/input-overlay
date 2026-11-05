@@ -15,6 +15,18 @@ pub struct ObsEffect(());
 pub struct ObsEffectParam(());
 #[repr(C)]
 pub struct ObsTexture(());
+#[repr(C)]
+pub struct ObsTexrender(());
+#[repr(C)]
+pub struct ObsStagesurf(());
+
+#[repr(C, align(16))]
+pub struct Vec4 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
+}
 
 #[repr(C)]
 pub struct ObsSourceInfo {
@@ -50,7 +62,10 @@ pub const OBS_PATH_FILE: i32 = 0;
 
 pub const GS_COLOR_FORMAT_RGBA: i32 = 3;
 pub const GS_TEXTURE_DYNAMIC: u32 = 1 << 1;
+pub const GS_ZS_NONE: i32 = 0;
+pub const GS_CLEAR_COLOR: u32 = 1 << 0;
 
+pub const GS_BLEND_ZERO: i32 = 0;
 pub const GS_BLEND_ONE: i32 = 1;
 pub const GS_BLEND_INVSRCALPHA: i32 = 5;
 
@@ -108,6 +123,30 @@ type FnDrawSprite = unsafe extern "C" fn(*mut ObsTexture, u32, u32, u32);
 type FnBlendStatePush = unsafe extern "C" fn();
 type FnBlendStatePop = unsafe extern "C" fn();
 type FnBlendFunction = unsafe extern "C" fn(i32, i32);
+type FnDataCreate = unsafe extern "C" fn() -> *mut ObsData;
+type FnDataRelease = unsafe extern "C" fn(*mut ObsData);
+type FnDataSetString = unsafe extern "C" fn(*mut ObsData, *const c_char, *const c_char);
+type FnDataSetBool = unsafe extern "C" fn(*mut ObsData, *const c_char, bool);
+type FnSourceCreatePrivate = unsafe extern "C" fn(*const c_char, *const c_char, *mut ObsData) -> *mut ObsSource;
+type FnSourceRelease = unsafe extern "C" fn(*mut ObsSource);
+type FnSourceAddActiveChild = unsafe extern "C" fn(*mut ObsSource, *mut ObsSource) -> bool;
+type FnSourceRemoveActiveChild = unsafe extern "C" fn(*mut ObsSource, *mut ObsSource);
+type FnSourceGetWidth = unsafe extern "C" fn(*mut ObsSource) -> u32;
+type FnSourceGetHeight = unsafe extern "C" fn(*mut ObsSource) -> u32;
+type FnSourceVideoRender = unsafe extern "C" fn(*mut ObsSource);
+type FnTexrenderCreate = unsafe extern "C" fn(i32, i32) -> *mut ObsTexrender;
+type FnTexrenderDestroy = unsafe extern "C" fn(*mut ObsTexrender);
+type FnTexrenderReset = unsafe extern "C" fn(*mut ObsTexrender);
+type FnTexrenderBegin = unsafe extern "C" fn(*mut ObsTexrender, u32, u32) -> bool;
+type FnTexrenderEnd = unsafe extern "C" fn(*mut ObsTexrender);
+type FnTexrenderGetTexture = unsafe extern "C" fn(*mut ObsTexrender) -> *mut ObsTexture;
+type FnClear = unsafe extern "C" fn(u32, *const Vec4, f32, u8);
+type FnOrtho = unsafe extern "C" fn(f32, f32, f32, f32, f32, f32);
+type FnStagesurfaceCreate = unsafe extern "C" fn(u32, u32, i32) -> *mut ObsStagesurf;
+type FnStagesurfaceDestroy = unsafe extern "C" fn(*mut ObsStagesurf);
+type FnStageTexture = unsafe extern "C" fn(*mut ObsStagesurf, *mut ObsTexture);
+type FnStagesurfaceMap = unsafe extern "C" fn(*mut ObsStagesurf, *mut *mut u8, *mut u32) -> bool;
+type FnStagesurfaceUnmap = unsafe extern "C" fn(*mut ObsStagesurf);
 
 pub struct ObsApi {
     pub register_source_s: FnRegisterSourceS,
@@ -136,6 +175,30 @@ pub struct ObsApi {
     pub blend_state_push: FnBlendStatePush,
     pub blend_state_pop: FnBlendStatePop,
     pub blend_function: FnBlendFunction,
+    pub data_create: FnDataCreate,
+    pub data_release: FnDataRelease,
+    pub data_set_string: FnDataSetString,
+    pub data_set_bool: FnDataSetBool,
+    pub source_create_private: FnSourceCreatePrivate,
+    pub source_release: FnSourceRelease,
+    pub source_add_active_child: FnSourceAddActiveChild,
+    pub source_remove_active_child: FnSourceRemoveActiveChild,
+    pub source_get_width: FnSourceGetWidth,
+    pub source_get_height: FnSourceGetHeight,
+    pub source_video_render: FnSourceVideoRender,
+    pub texrender_create: FnTexrenderCreate,
+    pub texrender_destroy: FnTexrenderDestroy,
+    pub texrender_reset: FnTexrenderReset,
+    pub texrender_begin: FnTexrenderBegin,
+    pub texrender_end: FnTexrenderEnd,
+    pub texrender_get_texture: FnTexrenderGetTexture,
+    pub clear: FnClear,
+    pub ortho: FnOrtho,
+    pub stagesurface_create: FnStagesurfaceCreate,
+    pub stagesurface_destroy: FnStagesurfaceDestroy,
+    pub stage_texture: FnStageTexture,
+    pub stagesurface_map: FnStagesurfaceMap,
+    pub stagesurface_unmap: FnStagesurfaceUnmap,
 }
 unsafe impl Send for ObsApi {}
 unsafe impl Sync for ObsApi {}
@@ -219,6 +282,30 @@ pub fn init() -> bool {
         blend_state_push: load!("obs.dll", "gs_blend_state_push", FnBlendStatePush),
         blend_state_pop: load!("obs.dll", "gs_blend_state_pop", FnBlendStatePop),
         blend_function: load!("obs.dll", "gs_blend_function", FnBlendFunction),
+        data_create: load!("obs.dll", "obs_data_create", FnDataCreate),
+        data_release: load!("obs.dll", "obs_data_release", FnDataRelease),
+        data_set_string: load!("obs.dll", "obs_data_set_string", FnDataSetString),
+        data_set_bool: load!("obs.dll", "obs_data_set_bool", FnDataSetBool),
+        source_create_private: load!("obs.dll", "obs_source_create_private", FnSourceCreatePrivate),
+        source_release: load!("obs.dll", "obs_source_release", FnSourceRelease),
+        source_add_active_child: load!("obs.dll", "obs_source_add_active_child", FnSourceAddActiveChild),
+        source_remove_active_child: load!("obs.dll", "obs_source_remove_active_child", FnSourceRemoveActiveChild),
+        source_get_width: load!("obs.dll", "obs_source_get_width", FnSourceGetWidth),
+        source_get_height: load!("obs.dll", "obs_source_get_height", FnSourceGetHeight),
+        source_video_render: load!("obs.dll", "obs_source_video_render", FnSourceVideoRender),
+        texrender_create: load!("obs.dll", "gs_texrender_create", FnTexrenderCreate),
+        texrender_destroy: load!("obs.dll", "gs_texrender_destroy", FnTexrenderDestroy),
+        texrender_reset: load!("obs.dll", "gs_texrender_reset", FnTexrenderReset),
+        texrender_begin: load!("obs.dll", "gs_texrender_begin", FnTexrenderBegin),
+        texrender_end: load!("obs.dll", "gs_texrender_end", FnTexrenderEnd),
+        texrender_get_texture: load!("obs.dll", "gs_texrender_get_texture", FnTexrenderGetTexture),
+        clear: load!("obs.dll", "gs_clear", FnClear),
+        ortho: load!("obs.dll", "gs_ortho", FnOrtho),
+        stagesurface_create: load!("obs.dll", "gs_stagesurface_create", FnStagesurfaceCreate),
+        stagesurface_destroy: load!("obs.dll", "gs_stagesurface_destroy", FnStagesurfaceDestroy),
+        stage_texture: load!("obs.dll", "gs_stage_texture", FnStageTexture),
+        stagesurface_map: load!("obs.dll", "gs_stagesurface_map", FnStagesurfaceMap),
+        stagesurface_unmap: load!("obs.dll", "gs_stagesurface_unmap", FnStagesurfaceUnmap),
     };
 
     match OBS_API.set(api) {
@@ -308,6 +395,30 @@ pub fn init() -> bool {
         blend_state_push: load!(hobs, "gs_blend_state_push", FnBlendStatePush),
         blend_state_pop: load!(hobs, "gs_blend_state_pop", FnBlendStatePop),
         blend_function: load!(hobs, "gs_blend_function", FnBlendFunction),
+        data_create: load!(hobs, "obs_data_create", FnDataCreate),
+        data_release: load!(hobs, "obs_data_release", FnDataRelease),
+        data_set_string: load!(hobs, "obs_data_set_string", FnDataSetString),
+        data_set_bool: load!(hobs, "obs_data_set_bool", FnDataSetBool),
+        source_create_private: load!(hobs, "obs_source_create_private", FnSourceCreatePrivate),
+        source_release: load!(hobs, "obs_source_release", FnSourceRelease),
+        source_add_active_child: load!(hobs, "obs_source_add_active_child", FnSourceAddActiveChild),
+        source_remove_active_child: load!(hobs, "obs_source_remove_active_child", FnSourceRemoveActiveChild),
+        source_get_width: load!(hobs, "obs_source_get_width", FnSourceGetWidth),
+        source_get_height: load!(hobs, "obs_source_get_height", FnSourceGetHeight),
+        source_video_render: load!(hobs, "obs_source_video_render", FnSourceVideoRender),
+        texrender_create: load!(hobs, "gs_texrender_create", FnTexrenderCreate),
+        texrender_destroy: load!(hobs, "gs_texrender_destroy", FnTexrenderDestroy),
+        texrender_reset: load!(hobs, "gs_texrender_reset", FnTexrenderReset),
+        texrender_begin: load!(hobs, "gs_texrender_begin", FnTexrenderBegin),
+        texrender_end: load!(hobs, "gs_texrender_end", FnTexrenderEnd),
+        texrender_get_texture: load!(hobs, "gs_texrender_get_texture", FnTexrenderGetTexture),
+        clear: load!(hobs, "gs_clear", FnClear),
+        ortho: load!(hobs, "gs_ortho", FnOrtho),
+        stagesurface_create: load!(hobs, "gs_stagesurface_create", FnStagesurfaceCreate),
+        stagesurface_destroy: load!(hobs, "gs_stagesurface_destroy", FnStagesurfaceDestroy),
+        stage_texture: load!(hobs, "gs_stage_texture", FnStageTexture),
+        stagesurface_map: load!(hobs, "gs_stagesurface_map", FnStagesurfaceMap),
+        stagesurface_unmap: load!(hobs, "gs_stagesurface_unmap", FnStagesurfaceUnmap),
     };
 
     match OBS_API.set(api) {
