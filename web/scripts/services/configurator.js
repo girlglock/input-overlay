@@ -196,7 +196,6 @@ export class ConfiguratorMode {
         const applyChoice = (choice) => {
             const tab = document.getElementById(choice === "plugin" ? "cfgConnTab_plugin" : "cfgConnTab_web");
             if (tab) tab.checked = true;
-            this._syncCustomFontOption();
         };
 
         const remembered = localStorage.getItem(STORAGE_KEY);
@@ -353,14 +352,9 @@ export class ConfiguratorMode {
 
     _syncCustomFontOption() {
         const select = document.getElementById("key_font_family");
-        const option = document.getElementById("key_font_family_custom_opt");
         const custom = document.getElementById("key_font_family_custom");
-        if (!select || !option || !custom) return;
-        const isPlugin = document.getElementById("cfgConnTab_plugin")?.checked ?? false;
-        const isCustom = select.value === "__custom__";
-        option.hidden = !isPlugin && !isCustom;
-        option.disabled = option.hidden;
-        custom.style.display = isCustom ? "" : "none";
+        if (!select || !custom) return;
+        custom.style.display = select.value === "__custom__" ? "" : "none";
     }
 
     _getKeyLayoutParam() {
@@ -647,8 +641,6 @@ export class ConfiguratorMode {
             this._syncCustomFontOption();
             if (fontSelect.value === "__custom__") document.getElementById("key_font_family_custom")?.focus();
         });
-        document.querySelectorAll("input[name='cfgConnTab']").forEach(tab =>
-            tab.addEventListener("change", () => this._syncCustomFontOption()));
         this._syncCustomFontOption();
 
         const wsauthEl = document.getElementById("wsauth");
