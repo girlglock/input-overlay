@@ -70,21 +70,33 @@ export class WebSocketManager {
         this.statusLogEl.scrollTop = this.statusLogEl.scrollHeight;
     }
 
+    _clearReconnectTimers() {
+        clearInterval(this._countdownInterval);
+        clearTimeout(this._reconnectTimeout);
+        this._countdownInterval = null;
+        this._reconnectTimeout = null;
+    }
+
     connect() {
+        this._clearReconnectTimers();
         this.connectionAttempts++;
         const attempt = this.connectionAttempts;
         this._setStatus(`connecting... (attempt ${attempt})`, "connecting");
         this._log(`connecting to ${this.wsUrl} (attempt ${attempt})`);
         console.log(`[ws] connect attempt ${attempt} to ${this.wsUrl}`);
 
-        this.ws = new WebSocket(this.wsUrl);
-        this.ws.onopen = this._onOpen.bind(this);
-        this.ws.onmessage = this._onMessage.bind(this);
-        this.ws.onerror = this._onError.bind(this);
-        this.ws.onclose = this._onClose.bind(this);
+        const ws = new WebSocket(this.wsUrl);
+        this.ws = ws;
+        //ignore events from last ws
+        const current = (handler) => (e) => { if (this.ws === ws) handler.call(this, e); };
+        ws.onopen = current(this._onOpen);
+        ws.onmessage = current(this._onMessage);
+        ws.onerror = current(this._onError);
+        ws.onclose = current(this._onClose);
     }
 
     _onOpen() {
+        this._clearReconnectTimers();
         console.log("[ws] connection opened, sending auth");
         this._log("connection opened, authenticating...");
         this.ws.send(JSON.stringify({ type: "auth", token: this.authToken || "" }));
@@ -151,24 +163,15 @@ export class WebSocketManager {
         this._log(`${msg} - reconnecting in ${delay / 1000}s`, "warn");
         this.clearStuckKeys();
 
-        if (this._countdownInterval) clearInterval(this._countdownInterval);
-        let remaining = delay;
+        this._clearReconnectTimers();
+        const deadline = Date.now() + delay;
         const tick = () => {
-            const secs = Math.ceil(remaining / 1000);
+            const secs = Math.max(1, Math.ceil((deadline - Date.now()) / 1000));
             this._setStatus(`${msg} - retrying in ${secs}s`, "connecting");
-            remaining -= 1000;
         };
         tick();
-        this._countdownInterval = setInterval(() => {
-            if (remaining <= 0) {
-                clearInterval(this._countdownInterval);
-                this._countdownInterval = null;
-            } else {
-                tick();
-            }
-        }, 1000);
-
-        setTimeout(() => this.connect(), delay);
+        this._countdownInterval = setInterval(tick, 1000);
+        this._reconnectTimeout = setTimeout(() => this.connect(), delay);
     }
 
     _getMappedKeyInfo(event) {
