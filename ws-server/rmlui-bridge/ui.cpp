@@ -690,10 +690,15 @@ extern "C" void ui_select_clear(int window, const char* id)
 		select->RemoveAll();
 }
 
-extern "C" void ui_select_add(int window, const char* id, const char* label, const char* value)
+extern "C" void ui_select_add(int window, const char* id, const char* label, const char* value, int selectable, const char* class_name)
 {
 	if (auto* select = rmlui_dynamic_cast<Rml::ElementFormControlSelect*>(ById(window, id)))
-		select->Add(label, value);
+	{
+		const int index = select->Add(label, value, -1, selectable != 0);
+		if (class_name && *class_name)
+			if (Rml::Element* option = select->GetOption(index))
+				option->SetClassNames(class_name);
+	}
 }
 
 extern "C" void ui_blur(int window)

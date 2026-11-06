@@ -8,11 +8,12 @@ use crate::ui::{self, escape, Event, EventKind, Win};
 use crate::ws_server::ServerStatus;
 
 const TABS: [&str; 4] = ["server", "input", "advanced", "about"];
-const LINKS: [(&str, &str); 4] = [
+const LINKS: [(&str, &str); 5] = [
     ("link-github", "https://github.com/girlglock/input-overlay"),
     ("link-twitter", "https://twitter.com/girlglock_"),
     ("link-website", "https://girlglock.com"),
     ("link-analogsense", "https://github.com/AnalogSense/JavaScript-SDK"),
+    ("link-analogsense-firmware", crate::services::analog::ANALOG_FIRMWARE_URL),
 ];
 const TOKEN_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
@@ -59,6 +60,7 @@ impl SettingsView {
         win.set_inner_rml("version-label", &format!("Input-Overlay WebSocket Server | Version: {VERSION}<br/>(latest)"));
         win.set_text("status-version", &format!("v{VERSION}"));
         view.apply_theme_label(app.dark_theme());
+        view.init_analog_keyboards();
         view.apply_config(&cfg);
         view.apply_status(&app.server_status());
         win.set_checked("autostart", view.autostart);
@@ -91,7 +93,10 @@ impl SettingsView {
             "cpu-affinity",
             &cfg.cpu_affinity.iter().map(u32::to_string).collect::<Vec<_>>().join(", "),
         );
-        w.set_value("analog-keyboard", &cfg.analog_keyboard);
+        let legacy_brand = crate::services::analog::ANALOG_BRANDS
+            .iter()
+            .any(|b| b.all_label.is_none() && b.id == cfg.analog_keyboard);
+        w.set_value("analog-keyboard", if legacy_brand { "auto" } else { &cfg.analog_keyboard });
         w.set_checked("http-enabled", cfg.http_enabled);
         w.set_value("http-host", &cfg.host);
         w.set_value("http-port", &cfg.http_port.to_string());
@@ -310,6 +315,20 @@ impl SettingsView {
             self.updating = false;
             self.win.set_hidden("update-progress-modal", true);
             self.show_msg(&format!("update failed: {err}"), true);
+        }
+    }
+
+    fn init_analog_keyboards(&self) {
+        use crate::services::analog::ANALOG_BRANDS;
+        let w = self.win;
+        for brand in ANALOG_BRANDS {
+            w.select_add_ex("analog-keyboard", &brand.label(), "", false, "option-group");
+            if let Some(all) = brand.all_label {
+                w.select_add_ex("analog-keyboard", all, brand.id, true, "option-indent");
+            }
+            for model in brand.models {
+                w.select_add_ex("analog-keyboard", model.name, model.id, true, "option-indent");
+            }
         }
     }
 

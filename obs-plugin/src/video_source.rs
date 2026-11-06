@@ -15,10 +15,9 @@ use crate::obs::{
     OBS_TEXT_DEFAULT,
 };
 use crate::obs_helpers::{
-    checkbox, file_path, group, info, list, list_item, read_str, set_visible, text,
+    checkbox, file_path, group, info, list, list_header_str, list_item, list_item_str, read_str,
+    set_visible, text,
 };
-#[cfg(target_os = "linux")]
-use crate::obs_helpers::list_item_str;
 use crate::overlay_link::{
     decode_json_config, decode_link, default_layout, default_settings, DecodedLink,
 };
@@ -340,19 +339,21 @@ unsafe extern "C" fn source_get_properties(data: *mut c_void) -> *mut ObsPropert
             let ak = list(api, g2, b"analog_keyboard\0", b"Analog Keyboard\0");
             list_item(api, ak, b"Disabled\0", b"\0");
             list_item(api, ak, b"Auto detect\0", b"auto\0");
-            list_item(api, ak, b"Wooting\0", b"wooting\0");
-            list_item(api, ak, b"Razer Huntsman Analog\0", b"razer\0");
-            list_item(api, ak, b"DrunkDeer\0", b"drunkdeer\0");
-            list_item(api, ak, b"Keychron / Lemokey HE\0", b"keychron\0");
-            list_item(api, ak, b"NuPhy\0", b"nuphy\0");
-            list_item(api, ak, b"Madlions\0", b"madlions\0");
-            list_item(api, ak, b"Redragon\0", b"bytech\0");
+            for brand in io_ws_common::services::analog::ANALOG_BRANDS {
+                list_header_str(api, ak, &format!("\u{2500}\u{2500} {} \u{2500}\u{2500}", brand.label()));
+                if let Some(all) = brand.all_label {
+                    list_item_str(api, ak, &format!("    {all}"), brand.id);
+                }
+                for model in brand.models {
+                    list_item_str(api, ak, &format!("    {}", model.name), model.id);
+                }
+            }
 
             info(
                 api,
                 g2,
                 b"analogsense_note\0",
-                b"Analog support mirrors the <a href=\"https://github.com/AnalogSense/JavaScript-SDK\">AnalogSense SDK</a> ported to Rust. Amazing project, please show them some love and PR new keyboards if you can!\0",
+                b"(R) Razer Synapse needs to be installed and running for analogue inputs to be received from this keyboard.<br>(P) The official firmware only supports polling, which can lead to lag and missed inputs.<br>(F) <a href=\"https://analogsense.org/firmware/\">Custom firmware with full analog report functionality is available.</a><br><br>Analog support mirrors the <a href=\"https://github.com/AnalogSense/JavaScript-SDK\">AnalogSense SDK</a> ported to Rust. Amazing project, please show them some love and PR new keyboards if you can!\0",
             );
 
             #[cfg(target_os = "linux")]

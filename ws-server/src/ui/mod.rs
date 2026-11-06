@@ -64,8 +64,14 @@ extern "C" {
     fn ui_set_value(window: c_int, id: *const c_char, value: *const c_char);
     #[allow(dead_code)]
     fn ui_select_clear(window: c_int, id: *const c_char);
-    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-    fn ui_select_add(window: c_int, id: *const c_char, label: *const c_char, value: *const c_char);
+    fn ui_select_add(
+        window: c_int,
+        id: *const c_char,
+        label: *const c_char,
+        value: *const c_char,
+        selectable: c_int,
+        class_name: *const c_char,
+    );
     fn ui_blur(window: c_int);
     fn ui_poll_event(out: *mut RawEvent) -> c_int;
     fn ui_frame(max_wait: f64);
@@ -447,7 +453,19 @@ impl Win {
     }
     #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     pub fn select_add(self, id: &str, label: &str, value: &str) {
-        unsafe { ui_select_add(self.0, c(id).as_ptr(), c(&escape(label)).as_ptr(), c(value).as_ptr()) }
+        self.select_add_ex(id, label, value, true, "");
+    }
+    pub fn select_add_ex(self, id: &str, label: &str, value: &str, selectable: bool, class: &str) {
+        unsafe {
+            ui_select_add(
+                self.0,
+                c(id).as_ptr(),
+                c(&escape(label)).as_ptr(),
+                c(value).as_ptr(),
+                selectable as c_int,
+                c(class).as_ptr(),
+            )
+        }
     }
 }
 

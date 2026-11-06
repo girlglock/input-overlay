@@ -54,7 +54,7 @@ void ui_remove_property(int window, const char* id, const char* name);
 size_t ui_get_value(int window, const char* id, char* out, size_t cap);
 void ui_set_value(int window, const char* id, const char* value);
 void ui_select_clear(int window, const char* id);
-void ui_select_add(int window, const char* id, const char* label, const char* value);
+void ui_select_add(int window, const char* id, const char* label, const char* value, int selectable, const char* class_name);
 void ui_blur(int window);
 
 int ui_poll_event(ui_event* out);

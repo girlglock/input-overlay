@@ -123,6 +123,7 @@ button.key-tag:hover { color: #c00000; }
 .error-lbl { color: #c00000; font-size: 11dp; display: block; margin-top: 4dp; }
 #modal-discard-btn { color: #c00000; }
 .muted-note { font-size: 11dp; color: #555; margin: 0 0 6dp; }
+.analog-notes { margin: 6dp 0 8dp; }
 
 .update-popup-content { padding: 8dp 12dp; gap: 8dp; }
 .update-header { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }

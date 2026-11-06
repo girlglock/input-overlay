@@ -13,6 +13,108 @@ use crate::input_event::InputEvent;
 
 const READ_TIMEOUT_MS: i32 = 200;
 
+pub struct AnalogModel {
+    pub id: &'static str,
+    pub name: &'static str,
+    devices: &'static [(u16, u16)],
+}
+
+pub struct AnalogBrand {
+    pub id: &'static str,
+    pub name: &'static str,
+    //R = needs razer synapse, P = polling only on official firmware, F = custom firmware available
+    pub notes: &'static str,
+    pub all_label: Option<&'static str>,
+    pub models: &'static [AnalogModel],
+}
+
+const fn model(id: &'static str, name: &'static str, devices: &'static [(u16, u16)]) -> AnalogModel {
+    AnalogModel { id, name, devices }
+}
+
+pub const ANALOG_BRANDS: &[AnalogBrand] = &[
+    AnalogBrand { id: "wooting", name: "Wooting", notes: "", all_label: Some("Wooting keyboards"), models: &[] },
+    AnalogBrand {
+        id: "razer",
+        name: "Razer",
+        notes: "R",
+        all_label: None,
+        models: &[
+            model("razer-huntsman-v2-analog", "Huntsman V2 Analog", &[(0x1532, 0x0266)]),
+            model("razer-huntsman-mini-analog", "Huntsman Mini Analog", &[(0x1532, 0x0282)]),
+            model("razer-huntsman-v3-pro", "Huntsman V3 Pro", &[(0x1532, 0x02A6)]),
+            model("razer-huntsman-v3-pro-tkl", "Huntsman V3 Pro Tenkeyless", &[(0x1532, 0x02A7)]),
+            model("razer-huntsman-v3-pro-mini", "Huntsman V3 Pro Mini", &[(0x1532, 0x02B0)]),
+        ],
+    },
+    AnalogBrand { id: "nuphy", name: "NuPhy", notes: "", all_label: Some("NuPhy HE keyboards"), models: &[] },
+    AnalogBrand { id: "drunkdeer", name: "DrunkDeer", notes: "", all_label: Some("DrunkDeer keyboards"), models: &[] },
+    AnalogBrand {
+        id: "keychron",
+        name: "Keychron",
+        notes: "P, F",
+        all_label: None,
+        models: &[
+            model("keychron-q1-he", "Q1 HE", &[(0x3434, 0x0B10), (0x3434, 0x0B11), (0x3434, 0x0B12)]),
+            model("keychron-q3-he", "Q3 HE", &[(0x3434, 0x0B30)]),
+            model("keychron-q5-he", "Q5 HE", &[(0x3434, 0x0B50)]),
+            model("keychron-k2-he", "K2 HE", &[(0x3434, 0x0E20), (0x3434, 0x0E21), (0x3434, 0x0E22)]),
+        ],
+    },
+    AnalogBrand {
+        id: "lemokey",
+        name: "Lemokey",
+        notes: "P, F",
+        all_label: None,
+        models: &[model("lemokey-p1-he", "P1 HE", &[(0x362D, 0x0610)])],
+    },
+    AnalogBrand {
+        id: "madlions",
+        name: "Madlions",
+        notes: "P",
+        all_label: None,
+        models: &[
+            model(
+                "madlions-mad60he",
+                "MAD60HE",
+                &[(0x373B, 0x1053), (0x373B, 0x1054), (0x373B, 0x1055), (0x373B, 0x1056), (0x373B, 0x105D)],
+            ),
+            model(
+                "madlions-mad68he",
+                "MAD68HE",
+                &[(0x373B, 0x1058), (0x373B, 0x1059), (0x373B, 0x105A), (0x373B, 0x105C)],
+            ),
+            model("madlions-mad68r", "MAD68R", &[(0x373B, 0x10A7)]),
+        ],
+    },
+    AnalogBrand {
+        id: "bytech",
+        name: "Redragon",
+        notes: "P",
+        all_label: None,
+        models: &[model("redragon-k709he", "K709HE", &[(0x372E, 0x105B)])],
+    },
+];
+
+impl AnalogBrand {
+    pub fn label(&self) -> String {
+        if self.notes.is_empty() {
+            self.name.to_string()
+        } else {
+            format!("{} ({})", self.name, self.notes)
+        }
+    }
+}
+
+pub const ANALOG_FIRMWARE_URL: &str = "https://analogsense.org/firmware/";
+
+fn find_model(vid: u16, pid: u16) -> Option<&'static AnalogModel> {
+    ANALOG_BRANDS
+        .iter()
+        .flat_map(|b| b.models)
+        .find(|m| m.devices.contains(&(vid, pid)))
+}
+
 fn poll_interval(flush_hz: u32) -> Duration {
     Duration::from_micros(1_000_000 / flush_hz.max(1) as u64)
 }
@@ -28,7 +130,7 @@ enum Protocol {
     WootingV2,
     RazerV2,
     RazerV3,
-    NuPhy,
+    NuPhy { field75_v2: bool },
     DrunkDeer,
     Keychron { layout: &'static [u16] },
     Madlions { layout: &'static [u16] },
@@ -206,13 +308,15 @@ fn find_devices(filter: &str) -> Result<Vec<DeviceEntry>, hidapi::HidError> {
         let Some((brand, proto)) = detect_protocol(vid, pid, up, u) else {
             continue;
         };
+        let model = find_model(vid, pid);
 
-        if filter != "auto" && filter != brand {
+        if filter != "auto" && filter != brand && model.map(|m| m.id) != Some(filter) {
             continue;
         }
 
         if let Ok(path) = CString::new(dev.path().to_bytes()) {
-            tracing::info!("analog: found {brand} vid=0x{vid:04X} pid=0x{pid:04X}");
+            let name = model.map_or("", |m| m.name);
+            tracing::info!("analog: found {brand} {name} vid=0x{vid:04X} pid=0x{pid:04X}");
             found.push(DeviceEntry { vid, pid, path, proto });
         }
     }
@@ -240,7 +344,7 @@ fn detect_protocol(vid: u16, pid: u16, up: u16, usage: u16) -> Option<(&'static 
 
     //NuPhy
     if vid == 0x19F5 && up == 1 && usage == 0 {
-        return Some(("nuphy", Protocol::NuPhy));
+        return Some(("nuphy", Protocol::NuPhy { field75_v2: pid == 0x6132 }));
     }
 
     //DrunkDeer
@@ -251,7 +355,8 @@ fn detect_protocol(vid: u16, pid: u16, up: u16, usage: u16) -> Option<(&'static 
     //keychron, lemokey
     if (vid == 0x3434 || vid == 0x362D) && up == 0xFF60 && usage == 0x61 {
         let layout = keychron_layout(vid, pid)?;
-        return Some(("keychron", Protocol::Keychron { layout }));
+        let brand = if vid == 0x362D { "lemokey" } else { "keychron" };
+        return Some((brand, Protocol::Keychron { layout }));
     }
 
     //madlions
@@ -281,7 +386,7 @@ fn keychron_layout(vid: u16, pid: u16) -> Option<&'static [u16]> {
 
 fn madlions_layout(pid: u16) -> Option<&'static [u16]> {
     match pid {
-        0x1053 | 0x1055 | 0x1056 | 0x105D => Some(MAD60_LAYOUT),
+        0x1053 | 0x1054 | 0x1055 | 0x1056 | 0x105D => Some(MAD60_LAYOUT),
         0x1058 | 0x1059 | 0x105A | 0x105C | 0x10A7 => Some(MAD68_LAYOUT),
         _ => None,
     }
@@ -331,7 +436,7 @@ fn device_thread(
                 Protocol::WootingV1 | Protocol::WootingV2 | Protocol::RazerV2 | Protocol::RazerV3 => {
                     run_listed(&dev, &state, &entry.proto, &stop)
                 }
-                Protocol::NuPhy => run_nuphy(&dev, &state, &stop),
+                Protocol::NuPhy { field75_v2 } => run_nuphy(&dev, &state, *field75_v2, &stop),
                 Protocol::DrunkDeer => run_drunkdeer(&dev, &tx, &stop, flush_hz),
                 Protocol::Keychron { layout } => run_keychron(&dev, &tx, layout, &stop, flush_hz),
                 Protocol::Madlions { layout } => run_madlions(&dev, &tx, layout, &stop, flush_hz),
@@ -399,9 +504,6 @@ fn parse_wooting_v2(report: &[u8], out: &mut HashMap<u16, (f32, u64)>, timestamp
     let mut i = 0;
     while i + 3 < report.len() {
         let scancode_lo = report[i + 1];
-        if scancode_lo == 0 {
-            break;
-        }
         let packed = report[i + 2];
         let value_hi = report[i + 3];
         i += 4;
@@ -410,6 +512,9 @@ fn parse_wooting_v2(report: &[u8], out: &mut HashMap<u16, (f32, u64)>, timestamp
         let value_lo = (packed >> 6) & 0x03;
         let scancode = ((scancode_hi as u16) << 8) | (scancode_lo as u16);
         let value = ((value_hi as u16) << 2) | (value_lo as u16);
+        if scancode == 0 {
+            break;
+        }
         if value == 0 {
             continue;
         }
@@ -440,25 +545,35 @@ fn parse_razer(report: &[u8], out: &mut HashMap<u16, (f32, u64)>, timestamp: u64
     }
 }
 
-fn run_nuphy(dev: &hidapi::HidDevice, state: &SharedState, stop: &AtomicBool) {
+fn run_nuphy(dev: &hidapi::HidDevice, state: &SharedState, field75_v2: bool, stop: &AtomicBool) {
     let mut buf = [0u8; 512];
     while !stop.load(Ordering::Relaxed) {
         match dev.read_timeout(&mut buf, READ_TIMEOUT_MS) {
             Ok(0) => {}
             Ok(n) => {
-                //buffered: byte 0 == 0xA0, scancode at bytes 2-3 (LE u16), value at byte 7
+                //buffered: byte 0 == 0xA0, scancode at bytes 2-3 (BE u16), value at byte 7
                 if n < 8 || buf[0] != 0xA0 {
                     continue;
                 }
-                let raw = u16::from_le_bytes([buf[2], buf[3]]);
-                let value = buf[7];
+                let raw = u16::from_be_bytes([buf[2], buf[3]]);
+                let value = if field75_v2 {
+                    //field75 he v2: travel in 0.01mm at bytes 6-7, max travel at bytes 14-15
+                    if n < 16 {
+                        continue;
+                    }
+                    let travel = u16::from_be_bytes([buf[6], buf[7]]) as f32;
+                    let max_travel = u16::from_be_bytes([buf[14], buf[15]]) as f32;
+                    if max_travel == 0.0 { 0.0 } else { (travel / max_travel).min(1.0) }
+                } else {
+                    (buf[7] as f32 / 200.0).min(1.0)
+                };
                 if let Some(hid) = nuphy_to_hid(raw) {
                     if let Some(vk) = hid_to_vk(hid) {
                         let mut s = state.lock().unwrap();
-                        if value == 0 {
+                        if value == 0.0 {
                             s.remove(&vk);
                         } else {
-                            s.insert(vk, ((value as f32 / 200.0).min(1.0), now_ms()));
+                            s.insert(vk, (value, now_ms()));
                         }
                     }
                 }

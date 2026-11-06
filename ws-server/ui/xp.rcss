@@ -233,6 +233,9 @@ select selectbox option {
 	background-color: #fff;
 }
 select selectbox option:hover, select selectbox option:checked { background-color: #2267cb; color: #fff; }
+select selectbox option.option-group, select selectbox option.option-group:hover { font-weight: bold; color: #808080; background-color: #fff; }
+select selectbox option.option-indent { padding-left: 14dp; }
+#analog-keyboard selectbox { max-height: 260dp; overflow-y: auto; }
 
 fieldset {
 	background-color: #fff;
@@ -399,6 +402,7 @@ scrollbarvertical sliderarrowinc { decorator: image(assets/xp/scroll-down.png); 
 	select selectbox { background-color: #252329; border-color: #3a3840; }
 	select selectbox option { background-color: #252329; color: #e8e6ea; }
 	select selectbox option:hover, select selectbox option:checked { background-color: #c55815; color: #fff; }
+	select selectbox option.option-group, select selectbox option.option-group:hover { color: #8a8790; background-color: #252329; }
 
 	fieldset, ul.tree-view { border-color: #3a3840; }
 	legend { color: #e8e6ea; font-weight: bold; }

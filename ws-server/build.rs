@@ -2,23 +2,23 @@ use std::path::Path;
 
 fn main() {
     stage_web_assets();
-    build_native_ui();
+    build_rmlui_bridge();
     #[cfg(windows)]
     embed_windows_resources();
 }
 
-fn build_native_ui() {
-    println!("cargo:rerun-if-changed=native");
+fn build_rmlui_bridge() {
+    println!("cargo:rerun-if-changed=rmlui-bridge");
 
-    let dst = cmake::Config::new("native")
+    let dst = cmake::Config::new("rmlui-bridge")
         .profile("Release")
-        .build_target("ui_native")
+        .build_target("rmlui_bridge")
         .build();
 
     let libs = dst.join("build").join("libs");
     println!("cargo:rustc-link-search=native={}", libs.display());
     let mut names: Vec<String> = std::fs::read_dir(&libs)
-        .expect("native build produced no libs folder")
+        .expect("rmlui-bridge build produced no libs folder")
         .filter_map(|e| e.ok())
         .filter_map(|e| {
             let name = e.file_name().into_string().ok()?;
@@ -29,7 +29,7 @@ fn build_native_ui() {
         .filter(|n| !n.starts_with("rmlui_debugger"))
         .collect();
     let rank = |n: &str| {
-        ["ui_native", "rmlui", "freetype", "glfw"]
+        ["rmlui_bridge", "rmlui", "freetype", "glfw"]
             .iter()
             .position(|p| n.starts_with(p))
             .unwrap_or(usize::MAX)

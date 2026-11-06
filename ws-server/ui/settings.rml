@@ -99,16 +99,13 @@
 						<select id="analog-keyboard" style="width: 100%;">
 							<option value="">Disabled</option>
 							<option value="auto">Auto-detect</option>
-							<option value="wooting">Wooting</option>
-							<option value="razer">Razer Huntsman Analog</option>
-							<option value="drunkdeer">DrunkDeer</option>
-							<option value="keychron">Keychron / Lemokey HE</option>
-							<option value="nuphy">NuPhy</option>
-							<option value="madlions">Madlions</option>
-							<option value="bytech">Redragon</option>
 						</select>
 					</div>
-					<br/>
+					<p class="muted-note analog-notes">
+						(R) Razer Synapse needs to be installed and running for analogue inputs to be received from this keyboard.<br/>
+						(P) The official firmware only supports polling, which can lead to lag and missed inputs.<br/>
+						(F) <a class="accent-link" id="link-analogsense-firmware">Custom firmware with full analog report functionality is available.</a>
+					</p>
 					<p class="muted-note">
 						Analog support mirrors the <a class="accent-link" id="link-analogsense">AnalogSense SDK</a> ported
 						to Rust. Amazing project, please show them some love and PR new keyboards if you can!<br/>

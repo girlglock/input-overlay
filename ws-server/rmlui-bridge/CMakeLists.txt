@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ui_native C CXX)
+project(rmlui_bridge C CXX)
 
 include(FetchContent)
 set(CMAKE_CXX_STANDARD 17)
@@ -45,10 +45,10 @@ FetchContent_Declare(rmlui
 FetchContent_MakeAvailable(rmlui)
 
 set(RMLUI_BACKENDS "${rmlui_SOURCE_DIR}/Backends")
-add_library(ui_native STATIC
+add_library(rmlui_bridge STATIC
 	ui.cpp
 	"${RMLUI_BACKENDS}/RmlUi_Platform_GLFW.cpp"
 	"${RMLUI_BACKENDS}/RmlUi_Renderer_GL3.cpp")
-target_include_directories(ui_native PRIVATE "${RMLUI_BACKENDS}")
+target_include_directories(rmlui_bridge PRIVATE "${RMLUI_BACKENDS}")
 find_package(OpenGL REQUIRED)
-target_link_libraries(ui_native PRIVATE RmlUi::RmlUi glfw OpenGL::GL)
+target_link_libraries(rmlui_bridge PRIVATE RmlUi::RmlUi glfw OpenGL::GL)

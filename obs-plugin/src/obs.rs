@@ -103,6 +103,7 @@ type FnPropertiesAddList = unsafe extern "C" fn(
 ) -> *mut ObsProperty;
 type FnPropertyListAddString =
     unsafe extern "C" fn(*mut ObsProperty, *const c_char, *const c_char) -> usize;
+type FnPropertyListItemDisable = unsafe extern "C" fn(*mut ObsProperty, usize, bool);
 type FnPropertiesGet = unsafe extern "C" fn(*mut ObsProperties, *const c_char) -> *mut ObsProperty;
 type FnPropertySetVisible = unsafe extern "C" fn(*mut ObsProperty, bool);
 type ObsPropertyModifiedFn =
@@ -161,6 +162,7 @@ pub struct ObsApi {
     pub properties_add_group: FnPropertiesAddGroup,
     pub properties_add_list: FnPropertiesAddList,
     pub property_list_add_string: FnPropertyListAddString,
+    pub property_list_item_disable: FnPropertyListItemDisable,
     pub properties_get: FnPropertiesGet,
     pub property_set_visible: FnPropertySetVisible,
     pub property_set_modified_callback: FnPropertySetModifiedCallback,
@@ -260,6 +262,7 @@ pub fn init() -> bool {
             "obs_property_list_add_string",
             FnPropertyListAddString
         ),
+        property_list_item_disable: load!("obs.dll", "obs_property_list_item_disable", FnPropertyListItemDisable),
         properties_get: load!("obs.dll", "obs_properties_get", FnPropertiesGet),
         property_set_visible: load!("obs.dll", "obs_property_set_visible", FnPropertySetVisible),
         property_set_modified_callback: load!(
@@ -373,6 +376,7 @@ pub fn init() -> bool {
             "obs_property_list_add_string",
             FnPropertyListAddString
         ),
+        property_list_item_disable: load!(hobs, "obs_property_list_item_disable", FnPropertyListItemDisable),
         properties_get: load!(hobs, "obs_properties_get", FnPropertiesGet),
         property_set_visible: load!(hobs, "obs_property_set_visible", FnPropertySetVisible),
         property_set_modified_callback: load!(
