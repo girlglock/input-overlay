@@ -196,6 +196,7 @@ export class ConfiguratorMode {
         const applyChoice = (choice) => {
             const tab = document.getElementById(choice === "plugin" ? "cfgConnTab_plugin" : "cfgConnTab_web");
             if (tab) tab.checked = true;
+            this._syncCustomFontOption();
         };
 
         const remembered = localStorage.getItem(STORAGE_KEY);
@@ -302,7 +303,7 @@ export class ConfiguratorMode {
             key_border_radius_pressed: val("key_border_radius_pressed"),
             key_press_scale: val("key_press_scale"),
             key_animation_speed: val("key_animation_speed"),
-            key_font_family: val("key_font_family"),
+            key_font_family: this._getFontFamily(),
             hide_mouse: chk("hide_mouse"),
             scroll_hide_combo: chk("scroll_hide_combo"),
             key_bold_font: chk("key_bold_font"),
@@ -327,6 +328,39 @@ export class ConfiguratorMode {
             mouse_reset_distance_after_fade: chk("mouse_reset_distance_after_fade"),
             keyLayout: this._getKeyLayoutParam(),
         };
+    }
+
+    _getFontFamily() {
+        const select = document.getElementById("key_font_family");
+        if (select?.value === "__custom__") return document.getElementById("key_font_family_custom")?.value.trim() ?? "";
+        return select?.value ?? "";
+    }
+
+    _applyFontFamily(value) {
+        const select = document.getElementById("key_font_family");
+        const custom = document.getElementById("key_font_family_custom");
+        if (!select) return;
+        value = value ?? "";
+        const known = [...select.options].some(o => o.value === value && o.value !== "__custom__");
+        if (known || !value) {
+            select.value = value;
+        } else {
+            select.value = "__custom__";
+            if (custom) custom.value = value;
+        }
+        this._syncCustomFontOption();
+    }
+
+    _syncCustomFontOption() {
+        const select = document.getElementById("key_font_family");
+        const option = document.getElementById("key_font_family_custom_opt");
+        const custom = document.getElementById("key_font_family_custom");
+        if (!select || !option || !custom) return;
+        const isPlugin = document.getElementById("cfgConnTab_plugin")?.checked ?? false;
+        const isCustom = select.value === "__custom__";
+        option.hidden = !isPlugin && !isCustom;
+        option.disabled = option.hidden;
+        custom.style.display = isCustom ? "" : "none";
     }
 
     _getKeyLayoutParam() {
@@ -404,7 +438,7 @@ export class ConfiguratorMode {
         applyValue("key_border_radius_pressed", settings.key_border_radius_pressed ?? settings.key_border_radius_idle);
         applyValue("key_press_scale", settings.key_press_scale);
         applyValue("key_animation_speed", settings.key_animation_speed);
-        applyValue("key_font_family", settings.key_font_family);
+        this._applyFontFamily(settings.key_font_family);
         applyValue("hide_mouse", settings.hide_mouse);
         applyValue("scroll_hide_combo", settings.scroll_hide_combo);
         applyValue("key_bold_font", settings.key_bold_font);
@@ -607,6 +641,15 @@ export class ConfiguratorMode {
                 this.updateState();
             });
         }
+
+        const fontSelect = document.getElementById("key_font_family");
+        fontSelect?.addEventListener("input", () => {
+            this._syncCustomFontOption();
+            if (fontSelect.value === "__custom__") document.getElementById("key_font_family_custom")?.focus();
+        });
+        document.querySelectorAll("input[name='cfgConnTab']").forEach(tab =>
+            tab.addEventListener("change", () => this._syncCustomFontOption()));
+        this._syncCustomFontOption();
 
         const wsauthEl = document.getElementById("wsauth");
         const savedAuth = localStorage.getItem("overlay_wsauth");

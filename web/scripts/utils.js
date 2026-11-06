@@ -70,12 +70,6 @@ export class Utils {
             fontUrl = fontKey;
         }
 
-        if (!fontUrl) {
-            document.head.querySelectorAll("link[href*='fonts.googleapis']").forEach(el => el.remove());
-            document.getElementById(STYLE_ID)?.remove();
-            return;
-        }
-
         const getOrCreateStyle = () => {
             let styleTag = document.getElementById(STYLE_ID);
             if (!styleTag) {
@@ -85,6 +79,18 @@ export class Utils {
             }
             return styleTag;
         };
+
+        if (!fontUrl) {
+            document.head.querySelectorAll("link[href*='fonts.googleapis']").forEach(el => el.remove());
+            const localFont = fontKey.replace(/["'\\<>{};]/g, "").trim();
+            if (localFont) {
+                getOrCreateStyle().textContent = `
+            .scroll-display, .key { font-family: "${localFont}", sans-serif !important; }`;
+            } else {
+                document.getElementById(STYLE_ID)?.remove();
+            }
+            return;
+        }
 
         if (fontUrl.startsWith("data:font/") || fontUrl.startsWith("data:application/font")) {
             const formatMatch = fontUrl.match(/data:[^/]+\/([^;]+);base64,/);
