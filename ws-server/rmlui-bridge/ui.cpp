@@ -23,6 +23,16 @@ static bool g_dark = false;
 static bool g_gl_loaded = false;
 static double g_last_frame = 0;
 static GLFWwindow* g_cursor_window = nullptr;
+//glfwTerminate clears every cursor in ui_shutdown
+static std::unordered_map<int, GLFWcursor*> g_cursors;
+
+static GLFWcursor* Cursor(int shape)
+{
+	auto it = g_cursors.find(shape);
+	if (it != g_cursors.end())
+		return it->second;
+	return g_cursors[shape] = glfwCreateStandardCursor(shape);
+}
 
 static void PushEvent(int window, int kind, int value, Rml::Element* element)
 {
@@ -108,15 +118,6 @@ public:
 	{
 		const char* s = glfwGetClipboardString(nullptr);
 		text = s ? s : "";
-	}
-
-	static GLFWcursor* Cursor(int shape)
-	{
-		static std::unordered_map<int, GLFWcursor*> cursors;
-		auto it = cursors.find(shape);
-		if (it != cursors.end())
-			return it->second;
-		return cursors[shape] = glfwCreateStandardCursor(shape);
 	}
 };
 
@@ -305,7 +306,7 @@ static void SetEdgeCursor(UiWindow* w, int edges)
 		shape = GLFW_RESIZE_EW_CURSOR;
 	else if (edges & (EDGE_TOP | EDGE_BOTTOM))
 		shape = GLFW_RESIZE_NS_CURSOR;
-	glfwSetCursor(w->glfw, shape ? HostSystemInterface::Cursor(shape) : nullptr);
+	glfwSetCursor(w->glfw, shape ? Cursor(shape) : nullptr);
 }
 
 static void SetupCallbacks(GLFWwindow* glfw)
@@ -475,6 +476,13 @@ extern "C" void ui_shutdown(void)
 	Rml::Shutdown();
 	if (g_gl_loaded)
 		RmlGL3::Shutdown();
+	//gl pointers are getting wiped so next time get them agne
+	g_gl_loaded = false;
+	for (auto& [shape, cursor] : g_cursors)
+		if (cursor)
+			glfwDestroyCursor(cursor);
+	g_cursors.clear();
+	g_cursor_window = nullptr;
 	glfwTerminate();
 }
 
