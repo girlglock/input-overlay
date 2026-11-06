@@ -497,6 +497,9 @@ extern "C" int ui_open_window(const char* title, int width, int height, int resi
 	glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
 	glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+	glfwWindowHintString(GLFW_X11_CLASS_NAME, "input-overlay-ws");
+	glfwWindowHintString(GLFW_X11_INSTANCE_NAME, "input-overlay-ws");
+	glfwWindowHintString(GLFW_WAYLAND_APP_ID, "input-overlay-ws");
 
 	GLFWwindow* glfw = glfwCreateWindow(width, height, title, nullptr, nullptr);
 	if (!glfw)

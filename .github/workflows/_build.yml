@@ -108,13 +108,17 @@ jobs:
         run: |
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
-          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/bin AppDir/usr/share/icons/hicolor/32x32/apps AppDir/usr/share/applications
           cp target/release/input-overlay-ws AppDir/usr/bin/
           cp ws-server/icons/icon.png AppDir/input-overlay-ws.png
+          cp ws-server/icons/icon.png AppDir/usr/share/icons/hicolor/32x32/apps/input-overlay-ws.png
+          ln -s input-overlay-ws.png AppDir/.DirIcon
           ln -s usr/bin/input-overlay-ws AppDir/AppRun
           printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=Input Overlay WS' \
             'Exec=input-overlay-ws' 'Icon=input-overlay-ws' 'Categories=Utility;' 'Terminal=false' \
+            'StartupWMClass=input-overlay-ws' \
             > AppDir/input-overlay-ws.desktop
+          cp AppDir/input-overlay-ws.desktop AppDir/usr/share/applications/
           ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir target/release/input-overlay-ws.AppImage
 
       - name: attest linux appimage build provenance
