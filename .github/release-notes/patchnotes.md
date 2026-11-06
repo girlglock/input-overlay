@@ -1,27 +1,27 @@
 <div align="center">*falls over and dies*<br><img src='https://cdn.7tv.app/emote/01KVQPM44RTRPF4GBB6666VKS5/4x.avif'></div>
 
-<details>
-<summary><b>configurator</b></summary>
+## configurator
 
 - added a file picker when the overlay is hosted locally via http server which lets you pick served files from the `user_mount` dir
 - added a "welcome popup" that asks you if you wanna use the web or obs plugin version (read more below)
 - added a new option to load and export the overlay config from json file (mainly used in the obs plugin version)
+- added custom local font support (needs to be installed on your peesee)
 
-</details>
+<img src='https://femboy.beauty/idrlP7' width=400px>
 
-<details>
-<summary><b>overlay</b></summary>
+## overlay
 
 - added iso layout pipe bomb button
 - added a new element: input_history can be configured to show any amount of keys in a piano tiles style history in both vertical and horizontal layout. it can also highlight any key overlap.
+
 <img src='https://femboy.beauty/2jaoaT' width=200px>
 
 - added a bool to key and mouse elements: move to top on active, which will show the element at the very top of the order once active
 
-</details>
+## new pawsome obs plugin
 
 <details>
-<summary><b>new pawsome obs plugin</b></summary>
+<summary>read more</summary>
 
   - this plugin handles both inputs and rendering. it uses a 2D renderer rather than CEF (browser source) to display the overlay inside your OBS.
   - cons of using it
@@ -43,13 +43,14 @@
 
 <img src='https://femboy.beauty/EhQbqy' width=400px>
 
-</details>
-
 > [!IMPORTANT]  
 > If you choose to try the plugin version make sure to close the standalone app version. (disable autostart if you wanna do a full switch)
+</details>
+
+## ws server
 
 <details>
-<summary><b>ws server</b></summary>
+<summary>read more</summary>
 
 **general**
 - ditched webview and webkit2gtk dependencies
