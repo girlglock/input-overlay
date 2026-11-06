@@ -47,7 +47,7 @@ enum RenderCommand {
 
 type FrameSlot = Arc<Mutex<Option<RenderedFrame>>>;
 type VideoUrlSlot = Arc<Mutex<Option<String>>>;
-type VideoFrameSlot = Arc<Mutex<Option<(image::RgbaImage, (u32, u32))>>>;
+type VideoFrameSlot = Arc<Mutex<Option<(String, image::RgbaImage, (u32, u32))>>>;
 
 struct MediaBackground {
     url: String,
@@ -531,9 +531,9 @@ fn spawn_render_worker(
                 let mut profiler = crate::render::profiler::Profiler::start();
 
                 let mut changed = false;
-                if let Some((frame, native_size)) = video_frame.lock().unwrap().take() {
+                if let Some((url, frame, native_size)) = video_frame.lock().unwrap().take() {
                     if let Some(renderer) = renderer.as_mut() {
-                        renderer.set_mouse_pad_video_frame(&frame, native_size);
+                        renderer.set_mouse_pad_video_frame(&url, &frame, native_size);
                         changed = true;
                     }
                 }
@@ -878,6 +878,7 @@ unsafe fn update_media(api: &ObsApi, data: &mut VideoSourceData) {
         if let Some(media) = data.media.take() {
             destroy_media(api, data.source, media);
         }
+        *data.video_frame.lock().unwrap() = None;
         data.media = wanted.map(start_media);
     }
     let Some(media) = data.media.as_mut() else {
@@ -945,7 +946,7 @@ unsafe fn update_media(api: &ObsApi, data: &mut VideoSourceData) {
                     pixels.extend_from_slice(std::slice::from_raw_parts(ptr.add(y * linesize as usize), row));
                 }
                 (api.stagesurface_unmap)(media.stagesurf);
-                frame = image::RgbaImage::from_raw(w, h, pixels).map(|img| (img, (src_w, src_h)));
+                frame = image::RgbaImage::from_raw(w, h, pixels).map(|img| (media.url.clone(), img, (src_w, src_h)));
             }
         }
     }

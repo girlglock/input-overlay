@@ -282,7 +282,10 @@ impl MousePadState {
         self.video_url.as_deref()
     }
 
-    pub fn set_video_frame(&mut self, frame: &image::RgbaImage, native_size: (u32, u32)) {
+    pub fn set_video_frame(&mut self, url: &str, frame: &image::RgbaImage, native_size: (u32, u32)) {
+        if self.video_url.as_deref() != Some(url) {
+            return;
+        }
         self.texture = texture::rgba_to_tinted_pixmap(frame, self.active_color);
         self.video_size = Some((native_size.0 as f32, native_size.1 as f32));
     }

@@ -148,9 +148,9 @@ impl Renderer {
         self.mouse_pad.as_ref().and_then(|(pad, _)| pad.video_url().map(str::to_string))
     }
 
-    pub fn set_mouse_pad_video_frame(&mut self, frame: &image::RgbaImage, native_size: (u32, u32)) {
+    pub fn set_mouse_pad_video_frame(&mut self, url: &str, frame: &image::RgbaImage, native_size: (u32, u32)) {
         if let Some((pad, _)) = self.mouse_pad.as_mut() {
-            pad.set_video_frame(frame, native_size);
+            pad.set_video_frame(url, frame, native_size);
         }
     }
 
