@@ -22,10 +22,6 @@ const copyBtn = document.getElementById("copy-token");
 const regenBtn = document.getElementById("regen-token");
 const autostartEl = document.getElementById("autostart");
 const analogEl = document.getElementById("analog-keyboard");
-const httpEnabledEl = document.getElementById("http-enabled");
-const httpHostEl = document.getElementById("http-host");
-const httpPortEl = document.getElementById("http-port");
-const openHttpBtn = document.getElementById("open-http-btn");
 const adminWarning = document.getElementById("admin-warning");
 const addKeyBtn = document.getElementById("add-key-btn");
 const keyList = document.getElementById("key-list");
@@ -60,15 +56,6 @@ themeToggle.addEventListener('click', () => {
   invoke('set_theme', { theme: next }).catch(() => { });
 });
 applyThemeMode(themeMode);
-
-const updateBar = document.getElementById("update-bar");
-const updateText = document.getElementById("update-text");
-const updateNowBtn = document.getElementById("update-now-btn");
-const updateLaterBtn = document.getElementById("update-later-btn");
-const updateNotesLink = document.getElementById("update-notes-link");
-const updateProgressModal = document.getElementById("update-progress-modal");
-const updateProgressStatus = document.getElementById("update-progress-status");
-const updateProgressFill = document.getElementById("update-progress-fill");
 
 let whitelist = [];
 let isListening = false;
@@ -188,10 +175,6 @@ function applyConfig(cfg) {
   authEl.value = cfg.auth_token ?? "";
   mouseMove.checked = cfg.send_mouse_move ?? true;
   analogEl.value = cfg.analog_keyboard ?? "";
-  httpEnabledEl.checked = cfg.http_enabled ?? false;
-  httpHostEl.value = cfg.host ?? "localhost";
-  httpPortEl.value = cfg.http_port ?? 4456;
-  applyHttpEnabled(httpEnabledEl.checked);
   whitelist = [...(cfg.key_whitelist ?? [])];
   renderKeyList();
   const kbdEl = document.getElementById("kbd-device");
@@ -211,13 +194,10 @@ function readConfig() {
     send_mouse_move: mouseMove.checked,
     key_whitelist: [...whitelist],
     analog_keyboard: analogEl.value,
-    http_enabled: httpEnabledEl.checked,
-    http_port: parseInt(httpPortEl.value, 10) || 4456,
     raw_mouse_min_delta: originalConfig?.raw_mouse_min_delta ?? 0,
     cpu_affinity: originalConfig?.cpu_affinity ?? [0, 1],
     linux_evdev_keyboard_device: kbdEl ? kbdEl.value : (originalConfig?.linux_evdev_keyboard_device ?? ""),
     linux_raw_mouse_device: mouseDevEl ? mouseDevEl.value : (originalConfig?.linux_raw_mouse_device ?? ""),
-    dismissed_update_versions: originalConfig?.dismissed_update_versions ?? [],
     theme: themeMode,
   };
 }
@@ -315,12 +295,6 @@ autostartEl.addEventListener("change", async () => {
   await invoke("set_autostart", { enabled: autostartEl.checked });
 });
 
-function applyHttpEnabled(enabled) {
-  httpHostEl.disabled = !enabled;
-  httpPortEl.disabled = !enabled;
-  openHttpBtn.disabled = !enabled;
-}
-
 function applyBindIfValid(notif) {
   const host = hostEl.value.trim() || "localhost";
   const port = parseInt(portEl.value, 10);
@@ -330,39 +304,13 @@ function applyBindIfValid(notif) {
   }
 }
 
-hostEl.addEventListener("input", () => { httpHostEl.value = hostEl.value; markDirty(); });
+hostEl.addEventListener("input", () => markDirty());
 hostEl.addEventListener("blur", () => applyBindIfValid(`host changed to: ${hostEl.value.trim() || "localhost"}`));
 portEl.addEventListener("input", () => markDirty());
 portEl.addEventListener("blur", () => applyBindIfValid(`port changed to: ${portEl.value}`));
-httpPortEl.addEventListener("blur", () => {
-  const port = parseInt(httpPortEl.value, 10);
-  if (port >= 1 && port <= 65535) {
-    statusNotify.show(`http port changed to: ${port}`);
-    invoke("toggle_http", { enabled: httpEnabledEl.checked, host: hostEl.value.trim() || "localhost", port }).catch(() => { });
-  }
-});
 authEl.addEventListener("input", () => markDirty());
 mouseMove.addEventListener("change", () => markDirty());
 analogEl.addEventListener("change", () => markDirty());
-httpPortEl.addEventListener("input", () => markDirty());
-
-httpEnabledEl.addEventListener("change", async () => {
-  const enabled = httpEnabledEl.checked;
-  applyHttpEnabled(enabled);
-  const host = hostEl.value.trim() || "localhost";
-  const port = parseInt(httpPortEl.value, 10) || 4456;
-  try {
-    await invoke("toggle_http", { enabled, host, port });
-  } catch (e) {
-    showMsg(String(e), true);
-  }
-});
-
-openHttpBtn.addEventListener("click", () => {
-  const host = httpHostEl.value || "localhost";
-  const port = parseInt(httpPortEl.value, 10) || 4456;
-  invoke("open_url", { url: `http://${host}:${port}` });
-});
 
 document.getElementById("min-btn").addEventListener("click", () => {
   invoke("minimize_window");
@@ -377,8 +325,6 @@ document.getElementById("close-title-btn").addEventListener("click", () => {
 
 const LINKS = {
   "link-github": "https://github.com/girlglock/input-overlay",
-  "link-twitter": "https://twitter.com/girlglock_",
-  "link-website": "https://girlglock.com",
 };
 for (const [id, url] of Object.entries(LINKS)) {
   document.getElementById(id)?.addEventListener("click", (e) => {
@@ -428,51 +374,6 @@ modalDiscardBtn.addEventListener("click", async () => {
     await invoke("apply_bind", { host: originalConfig.host, port: originalConfig.port }).catch(() => { });
   }
   await invoke("close_window");
-});
-
-let _updateInfo = null;
-
-function applyUpdateInfo(info) {
-  if (!info || _updateInfo?.version === info.version) return;
-  _updateInfo = info;
-  updateText.textContent = `update available: v${info.version}`;
-  updateNotesLink.onclick = (e) => { e.preventDefault(); invoke("open_url", { url: info.release_url }); };
-  updateBar.hidden = false;
-
-  const vl = document.getElementById("version-label");
-  const cur = vl.dataset.version ?? "";
-  vl.innerHTML = `Input-Overlay WebSocket Server | Version: ${cur}<br>`
-    + `<a class="accent-link" id="update-version-link" href="#">→ v${info.version} available</a>`;
-  document.getElementById("update-version-link")?.addEventListener("click", (e) => {
-    e.preventDefault(); invoke("open_url", { url: info.release_url });
-  });
-}
-
-
-updateNowBtn.addEventListener("click", async () => {
-  if (!_updateInfo) return;
-  updateProgressModal.hidden = false;
-  updateProgressStatus.textContent = "starting...";
-  updateProgressFill.value = 0;
-
-  const unlisten = await listen("update-progress", (event) => {
-    const { percent, status } = event.payload;
-    updateProgressFill.value = percent;
-    updateProgressStatus.textContent = status;
-  });
-
-  try {
-    await invoke("apply_update", { downloadUrl: _updateInfo.download_url, version: _updateInfo.version });
-  } catch (e) {
-    unlisten();
-    updateProgressModal.hidden = true;
-    showMsg(`update failed: ${e}`, true);
-  }
-});
-
-updateLaterBtn.addEventListener("click", () => {
-  updateBar.hidden = true;
-  _updateInfo = null;
 });
 
 async function initLinuxDevices(cfg) {
@@ -529,7 +430,7 @@ async function init() {
     ]);
     const vl = document.getElementById("version-label");
     vl.dataset.version = version;
-    vl.innerHTML = `Input-Overlay WebSocket Server | Version: ${version}<br>(latest)`;
+    vl.innerHTML = `Input Overlay | Version: ${version}`;
     document.getElementById("status-version").textContent = `v${version}`;
     applyThemeMode(cfg.theme ?? systemTheme());
     applyConfig(cfg);
@@ -546,8 +447,6 @@ async function init() {
   }
 
   listen("status-update", (e) => applyStatus(e.payload));
-  listen("update-available", (e) => applyUpdateInfo(e.payload));
-  invoke("check_update").then((info) => { if (info) applyUpdateInfo(info); }).catch(() => { });
 }
 
 window.addEventListener("DOMContentLoaded", init);

@@ -1,7 +1,11 @@
 //guh
 export class UrlManager {
     constructor(utils) {
-        this.urlParams = new URLSearchParams(window.location.search);
+        // the standalone app injects its params (ws address, auth token) before the page loads
+        const injected = window.__OVERLAY_PARAMS__;
+        this.urlParams = injected
+            ? new URLSearchParams(Object.entries(injected))
+            : new URLSearchParams(window.location.search);
         this.isOverlayMode = this.urlParams.has("ws");
         this.utils = utils;
     }

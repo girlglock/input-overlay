@@ -7,13 +7,15 @@ use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Manager, PhysicalPosition, PhysicalSize, Position, Size, WebviewUrl, WebviewWindowBuilder,
 };
 use tokio::sync::{watch, RwLock};
 
 use services::config::Config;
-use tauri::Emitter;
 use ws_server::{InputEvent, ServerStatus, WsState};
+
+const OVERLAY_LABEL: &str = "overlay";
+const MAIN_LABEL: &str = "main";
 
 struct AppState {
     config: Arc<RwLock<Config>>,
@@ -22,30 +24,28 @@ struct AppState {
     ws_state: Arc<WsState>,
     #[cfg(windows)]
     _raw_input: Mutex<Option<services::windows::raw_input::RawInputThread>>,
-    update_cache: Mutex<Option<services::updater::UpdateInfo>>,
-    post_update_version: Option<String>,
     #[cfg(target_os = "linux")]
     _evdev: Mutex<Option<services::linux::evdev_input::EvdevInputThread>>,
     analog: Mutex<Option<services::analog::AnalogThread>>,
-    http: Mutex<Option<services::http_server::HttpServer>>,
 }
 
-//tairi io-----------------------------------------------------------------------
+//tauri io-----------------------------------------------------------------------
 #[tauri::command]
 async fn get_config(state: tauri::State<'_, AppState>) -> Result<Config, String> {
     Ok(state.config.read().await.clone())
 }
 
 #[tauri::command]
-async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let (need_rebind, need_analog_restart, need_http_restart, need_evdev_restart) = {
+async fn save_config(
+    new_cfg: Config,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let (need_rebind, need_analog_restart, need_evdev_restart) = {
         let old = state.config.read().await;
         (
             old.host != new_cfg.host || old.port != new_cfg.port,
             old.analog_keyboard != new_cfg.analog_keyboard,
-            old.http_enabled != new_cfg.http_enabled
-                || old.http_port != new_cfg.http_port
-                || old.host != new_cfg.host,
             old.linux_evdev_keyboard_device != new_cfg.linux_evdev_keyboard_device
                 || old.linux_raw_mouse_device != new_cfg.linux_raw_mouse_device,
         )
@@ -54,15 +54,13 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     services::config::save(&state.config_path, &new_cfg).map_err(|e| e.to_string())?;
 
     let new_analog_kb = new_cfg.analog_keyboard.clone();
-    let new_http_host = new_cfg.host.clone();
-    let new_http_port = new_cfg.http_port;
-    let new_http_on = new_cfg.http_enabled;
     #[cfg(target_os = "linux")]
     let (new_kbd_dev, new_mouse_dev, new_min_delta) = (
         new_cfg.linux_evdev_keyboard_device.clone(),
         new_cfg.linux_raw_mouse_device.clone(),
         new_cfg.raw_mouse_min_delta,
     );
+    let overlay_cfg = new_cfg.clone();
     *state.config.write().await = new_cfg;
 
     if need_rebind {
@@ -81,15 +79,6 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
         *state.analog.lock().unwrap() = new_thread;
     }
 
-    if need_http_restart {
-        let new_server = if new_http_on {
-            services::http_server::HttpServer::start(&new_http_host, new_http_port)
-        } else {
-            None
-        };
-        *state.http.lock().unwrap() = new_server;
-    }
-
     #[cfg(target_os = "linux")]
     if need_evdev_restart {
         let new_thread = services::linux::evdev_input::EvdevInputThread::start(
@@ -102,6 +91,9 @@ async fn save_config(new_cfg: Config, state: tauri::State<'_, AppState>) -> Resu
     }
     #[cfg(windows)]
     let _ = need_evdev_restart;
+
+    // the overlay window carries the ws address and auth token, so reopen it with the saved values
+    refresh_overlay(&app, overlay_cfg);
 
     Ok(())
 }
@@ -117,25 +109,6 @@ async fn apply_bind(
     cfg.port = port;
     let _ = state.ws_state.rebind_tx.send(());
     Ok(())
-}
-
-#[tauri::command]
-async fn toggle_http(
-    enabled: bool,
-    host: String,
-    port: u16,
-    state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
-    let new_server = if enabled {
-        services::http_server::HttpServer::start(&host, port)
-    } else {
-        None
-    };
-    *state.http.lock().unwrap() = new_server;
-    let mut cfg = state.config.write().await;
-    cfg.http_enabled = enabled;
-    cfg.http_port = port;
-    services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -247,48 +220,6 @@ fn check_linux_perms() -> Vec<String> {
     services::linux::evdev_input::check_permissions()
 }
 
-//updater-----------------------------------------------------------------------
-#[tauri::command]
-fn check_update(state: tauri::State<'_, AppState>) -> Option<services::updater::UpdateInfo> {
-    state.update_cache.lock().unwrap().clone()
-}
-
-#[tauri::command]
-async fn dismiss_update(version: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut cfg = state.config.write().await;
-    if !cfg.dismissed_update_versions.contains(&version) {
-        cfg.dismissed_update_versions.push(version);
-        services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())?;
-    }
-    Ok(())
-}
-
-#[cfg(windows)]
-#[tauri::command]
-async fn apply_update(
-    download_url: String,
-    version: String,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
-    let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    services::windows::updater::download_and_apply(&download_url, &version, &current_exe, &app)
-        .await?;
-    app.exit(0);
-    Ok(())
-}
-
-#[cfg(target_os = "linux")]
-#[tauri::command]
-async fn apply_update(
-    download_url: String,
-    version: String,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
-    services::linux::updater::download_and_apply(&download_url, &version, &app).await?;
-    app.exit(0);
-    Ok(())
-}
-
 //cpu affinity-----------------------------------------------------------------------
 #[cfg(windows)]
 fn apply_cpu_affinity(cores: &[u32]) {
@@ -310,22 +241,10 @@ fn apply_cpu_affinity(cores: &[u32]) {
 #[cfg(target_os = "linux")]
 fn apply_cpu_affinity(_cores: &[u32]) {}
 
-#[tauri::command]
-fn get_post_update_version(state: tauri::State<'_, AppState>) -> Option<String> {
-    state.post_update_version.clone()
-}
-
 //app init-----------------------------------------------------------------------
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-    let post_update_version: Option<String> = {
-        let args: Vec<String> = std::env::args().collect();
-        args.iter()
-            .position(|a| a == "--post-update")
-            .and_then(|i| args.get(i + 1).cloned())
-    };
 
     //webkit2gtk might fail gpu accel or dmabuf on fedora with nvidia-open.. im just gonna disable it entirely for now
     #[cfg(target_os = "linux")]
@@ -360,7 +279,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = app.get_webview_window(MAIN_LABEL) {
                 let _ = window.show();
                 let _ = window.set_focus();
             }
@@ -382,15 +301,13 @@ pub fn run() {
             apply_cpu_affinity(&cfg.cpu_affinity.clone());
 
             let analog_kb = cfg.analog_keyboard.clone();
-            let http_enabled = cfg.http_enabled;
-            let http_host = cfg.host.clone();
-            let http_port = cfg.http_port;
             #[cfg(target_os = "linux")]
             let (evdev_kbd, evdev_mouse, evdev_min_delta) = (
                 cfg.linux_evdev_keyboard_device.clone(),
                 cfg.linux_raw_mouse_device.clone(),
                 cfg.raw_mouse_min_delta,
             );
+            let overlay_cfg = cfg.clone();
             let config = Arc::new(RwLock::new(cfg));
             let status = Arc::new(Mutex::new(ServerStatus::default()));
             let (rebind_tx, rebind_rx) = watch::channel(());
@@ -436,12 +353,6 @@ pub fn run() {
                 None
             };
 
-            let http_handle = if http_enabled {
-                services::http_server::HttpServer::start(&http_host, http_port)
-            } else {
-                None
-            };
-
             app.manage(AppState {
                 config,
                 config_path,
@@ -449,38 +360,13 @@ pub fn run() {
                 ws_state,
                 #[cfg(windows)]
                 _raw_input: Mutex::new(raw_input_handle),
-                update_cache: Mutex::new(None),
-                post_update_version: post_update_version.clone(),
                 #[cfg(target_os = "linux")]
                 _evdev: Mutex::new(evdev_handle),
                 analog: Mutex::new(analog_handle),
-                http: Mutex::new(http_handle),
             });
 
-            {
-                let handle = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    let state = handle.state::<AppState>();
-                    let dismissed = state.config.read().await.dismissed_update_versions.clone();
-                    let current = handle.package_info().version.to_string();
-                    #[cfg(windows)]
-                    let check = services::windows::updater::check(&current, &dismissed).await;
-                    #[cfg(target_os = "linux")]
-                    let check = services::linux::updater::check(&current, &dismissed).await;
-                    if let Some(info) = check {
-                        *state.update_cache.lock().unwrap() = Some(info.clone());
-                        let _ = handle.emit("update-available", &info);
-                        if handle.get_webview_window("update").is_none() {
-                            let _ = open_update_window(&handle);
-                        }
-                    }
-                });
-            }
-
             build_tray(app)?;
-            if post_update_version.is_some() {
-                let _ = open_post_update_window(app.handle());
-            }
+            open_overlay_window(app.handle(), &overlay_cfg)?;
             Ok(())
         })
         .invoke_handler({
@@ -492,17 +378,12 @@ pub fn run() {
                     get_status,
                     get_autostart,
                     set_autostart,
-                    toggle_http,
                     apply_bind,
                     minimize_window,
                     close_window,
                     open_url,
                     is_admin,
                     set_theme,
-                    check_update,
-                    dismiss_update,
-                    apply_update,
-                    get_post_update_version,
                 ]
             }
             #[cfg(target_os = "linux")]
@@ -513,17 +394,12 @@ pub fn run() {
                     get_status,
                     get_autostart,
                     set_autostart,
-                    toggle_http,
                     apply_bind,
                     minimize_window,
                     close_window,
                     open_url,
                     is_admin,
                     set_theme,
-                    check_update,
-                    dismiss_update,
-                    apply_update,
-                    get_post_update_version,
                     enum_keyboards,
                     enum_mice,
                     check_linux_perms,
@@ -580,7 +456,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
 }
 
 fn toggle_window(app: &tauri::AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
+    if let Some(window) = app.get_webview_window(MAIN_LABEL) {
         let _ = window.show();
         let _ = window.set_focus();
         return;
@@ -588,62 +464,69 @@ fn toggle_window(app: &tauri::AppHandle) {
     let _ = open_main_window(app);
 }
 
-fn open_update_window(app: &tauri::AppHandle) -> tauri::Result<()> {
-    let mut builder = tauri::WebviewWindowBuilder::new(
+/// The ws address and auth token are injected before the overlay page loads,
+/// so the overlay connects to the server running inside this app.
+fn overlay_init_script(cfg: &Config) -> String {
+    // a server bound to 0.0.0.0 is reached through loopback from the overlay
+    let host = if cfg.host == "0.0.0.0" { "127.0.0.1" } else { cfg.host.as_str() };
+    let params = serde_json::json!({
+        "ws": format!("{}:{}", host, cfg.port),
+        "wsauth": cfg.auth_token,
+    });
+    format!("window.__OVERLAY_PARAMS__ = {params};")
+}
+
+/// Opens (or reopens) the transparent overlay that covers the primary monitor.
+/// It is always on top and click-through, so it never blocks the desktop.
+fn open_overlay_window(app: &tauri::AppHandle, cfg: &Config) -> tauri::Result<()> {
+    if let Some(existing) = app.get_webview_window(OVERLAY_LABEL) {
+        existing.destroy()?;
+    }
+
+    let window = WebviewWindowBuilder::new(
         app,
-        "update",
-        tauri::WebviewUrl::App("update.html".into()),
+        OVERLAY_LABEL,
+        WebviewUrl::App("overlay/index.html".into()),
     )
-    .title("Update Available")
-    .inner_size(560.0, 600.0)
+    .title("Input Overlay")
+    .initialization_script(&overlay_init_script(cfg))
+    .transparent(true)
     .decorations(false)
+    .shadow(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
     .resizable(false)
-    .center()
-    .focused(true);
+    .focusable(false)
+    .visible(false)
+    .build()?;
 
-    #[cfg(windows)]
-    {
-        builder = builder.transparent(true).shadow(false);
+    if let Ok(Some(monitor)) = window.primary_monitor() {
+        let pos = monitor.position();
+        let size = monitor.size();
+        window.set_position(Position::Physical(PhysicalPosition::new(pos.x, pos.y)))?;
+        window.set_size(Size::Physical(PhysicalSize::new(size.width, size.height)))?;
     }
 
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone())?;
-    }
-
-    builder.build()?;
+    // show first: on Linux (GTK) the cursor-event request needs the native window to exist
+    window.show()?;
+    window.set_ignore_cursor_events(true)?;
+    tracing::info!("overlay window opened for ws {}:{}", cfg.host, cfg.port);
     Ok(())
 }
 
-fn open_post_update_window(app: &tauri::AppHandle) -> tauri::Result<()> {
-    let mut builder = tauri::WebviewWindowBuilder::new(
-        app,
-        "post-update",
-        tauri::WebviewUrl::App("post-update.html".into()),
-    )
-    .title("Update Complete")
-    .inner_size(380.0, 120.0)
-    .decorations(false)
-    .resizable(false)
-    .center()
-    .focused(true);
-
-    #[cfg(windows)]
-    {
-        builder = builder.transparent(true).shadow(false);
-    }
-
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone())?;
-    }
-
-    builder.build()?;
-    Ok(())
+fn refresh_overlay(app: &tauri::AppHandle, cfg: Config) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Err(e) = open_overlay_window(&handle, &cfg) {
+            tracing::error!("overlay window failed: {e}");
+        }
+    });
 }
 
 fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     let mut builder =
-        tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-            .title("Input Overlay WS - Settings")
+        tauri::WebviewWindowBuilder::new(app, MAIN_LABEL, tauri::WebviewUrl::App("index.html".into()))
+            .title("Input Overlay - Settings")
             .inner_size(420.0, 580.0)
             .resizable(true)
             .decorations(false)

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "input-overlay-ws",
+  "productName": "Input Overlay",
   "version": "1.8.2",
   "identifier": "com.input-overlay-ws.app",
   "build": {
@@ -14,12 +14,18 @@
     }
   },
   "bundle": {
-    "active": false,
-    "targets": [],
+    "active": true,
+    "targets": ["nsis"],
     "icon": [
       "icons/icon.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    }
   }
 }

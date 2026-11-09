@@ -25,7 +25,6 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 tracing-appender = "0.2"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-rust-embed = { version = "8", features = ["interpolate-folder-path"] }
 rand = "0.8"
 time = "=0.3.36"
 
@@ -33,13 +32,9 @@ time = "=0.3.36"
 hidapi = { version = "2", features = ["linux-static-hidraw"] }
 evdev = "0.12"
 libc = "0.2"
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls-native-roots"] }
-zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [target.'cfg(windows)'.dependencies]
 hidapi = "2"
-reqwest = { version = "0.12", features = ["json", "stream"] }
-zip = { version = "2", default-features = false, features = ["deflate"] }
 windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_Security",

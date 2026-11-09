@@ -12,11 +12,8 @@ pub struct Config {
     pub send_mouse_move: bool,
     pub cpu_affinity: Vec<u32>,
     pub analog_keyboard: String,
-    pub http_enabled: bool,
-    pub http_port: u16,
     pub linux_evdev_keyboard_device: String,
     pub linux_raw_mouse_device: String,
-    pub dismissed_update_versions: Vec<String>,
     pub theme: Option<String>,
 }
 
@@ -31,11 +28,8 @@ impl Default for Config {
             send_mouse_move: true,
             cpu_affinity: vec![0, 1],
             analog_keyboard: String::new(),
-            http_enabled: false,
-            http_port: 4456,
             linux_evdev_keyboard_device: String::new(),
             linux_raw_mouse_device: String::new(),
-            dismissed_update_versions: Vec::new(),
             theme: None,
         }
     }

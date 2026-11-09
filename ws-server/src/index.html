@@ -25,15 +25,6 @@
     </div>
     <div class="window-body">
 
-      <div id="update-bar" class="update-bar" hidden>
-        <span id="update-text"></span>
-        <div class="update-bar-btns">
-          <button id="update-now-btn">Update Now</button>
-          <button id="update-later-btn">Later</button>
-          <a class="accent-link" id="update-notes-link" href="#">What's New</a>
-        </div>
-      </div>
-
       <pre id="admin-warning" hidden style="font-size: 11px;"><span class="warn-line"><span class="warn-icon">&#9888;</span>Not running as admin! Port binding issues may occur.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Windows won't post WM_INPUT messages to a non-admin process while an admin app is in focus, so the overlay might not work when tabbed into an elevated app or game.</span><span class="warn-line"><span class="warn-icon">&#9888;</span>Consider restarting as admin. Setting "Start with Windows" will automatically start with admin rights on next boot.</span></pre>
       <pre id="linux-perm-warning" hidden style="font-size: 11px;"></pre>
 
@@ -72,26 +63,6 @@
             <button id="show-token">Show / Hide</button>
             <button id="copy-token">Copy</button>
             <button id="regen-token">Regenerate</button>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>Local HTTP Server</legend>
-          <div class="field-row">
-            <input type="checkbox" id="http-enabled" />
-            <label for="http-enabled">Enable HTTP server</label>
-          </div>
-          <div class="field-row" style="align-items: flex-end; margin-top: 6px;">
-            <div class="field-row-stacked" style="flex: 1;">
-              <label for="http-host">Host</label>
-              <input type="text" id="http-host" readonly title="synced with ws server host" style="width: 100%;" />
-            </div>
-            <div class="field-row-stacked" style="flex: 1;">
-              <label for="http-port">Port</label>
-              <input type="text" id="http-port" inputmode="numeric" pattern="[0-9]*" autocomplete="off" style="width: 100%;" />
-            </div>
-          </div>
-          <div class="field-row" style="margin-top: 6px;">
-            <button id="open-http-btn">Open in Browser</button>
           </div>
         </fieldset>
       </article>
@@ -153,8 +124,6 @@
             <div class="field-row-stacked">
               <span id="version-label" style="margin-bottom: 10px !important; font-size: 11px; color: #555;"></span>
               <a class="accent-link" id="link-github" href="#">GitHub</a>
-              <a class="accent-link" id="link-twitter" href="#">Twitter</a>
-              <a class="accent-link" id="link-website" href="#">girlglock.com</a>
             </div>
             <img src="assets/steamhappy.gif" class="about-gif" alt="" />
           </div>
@@ -189,18 +158,6 @@
         <section class="field-row" style="justify-content: flex-end; margin-top: 8px;">
           <button id="clients-modal-ok">OK</button>
         </section>
-      </div>
-    </div>
-  </div>
-
-  <div id="update-progress-modal" class="modal-overlay" hidden>
-    <div class="window" style="min-width: 280px;">
-      <div class="title-bar">
-        <div class="title-bar-text">Updating...</div>
-      </div>
-      <div class="window-body">
-        <p id="update-progress-status">downloading...</p>
-        <progress id="update-progress-fill" max="100" value="0" style="width: 100%;"></progress>
       </div>
     </div>
   </div>

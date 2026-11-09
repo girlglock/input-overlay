@@ -1,0 +1,25 @@
+// default key layout used by the configurator and by the standalone overlay
+// each tuple is [type, labels..., w, h, x, y] (see keyLayoutParser.js)
+export const DEFAULT_KEY_LAYOUT_TUPLES = [
+    ["key_1", "1", 1, 1, 56.25, 0],
+    ["key_2", "2", 1, 1, 112.5, 0],
+    ["key_3", "3", 1, 1, 168.75, 0],
+    ["key_4", "4", 1, 1, 225, 0],
+    ["key_tab", "TAB", 1.5, 1, 0, 56.25],
+    ["key_q", "Q", 1, 1, 81.25, 56.25],
+    ["key_w", "W", 1, 1, 137.5, 56.25],
+    ["key_e", "E", 1, 1, 193.75, 56.25],
+    ["key_r", "R", 1, 1, 250, 56.25],
+    ["key_leftshift", "SHIFT", 2, 1, 0, 112.5],
+    ["key_a", "A", 1, 1, 106.25, 112.5],
+    ["key_s", "S", 1, 1, 162.5, 112.5],
+    ["key_d", "D", 1, 1, 218.75, 112.5],
+    ["key_f", "F", 1, 1, 275, 112.5],
+    ["key_leftctrl", "CTRL", 1.5, 1, 0, 168.75],
+    ["key_leftalt", "ALT", 1.5, 1, 81.25, 168.75],
+    ["key_space", "SPACE", 3.25, 1, 162.5, 168.75],
+    ["mouse_pad", 5, 3.63, 331.25, 37.5],
+    ["mouse_left", "M1", 1.625, 0.63, 331.25, 0],
+    ["scroller", "-", "🡅", "🡇", 1.5, 0.63, 418.75, 0],
+    ["mouse_right", "M2", 1.625, 0.63, 500, 0],
+];

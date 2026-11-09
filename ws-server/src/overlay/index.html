@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Input Overlay</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+
+<body>
+    <div class="overlay-container" id="overlay">
+        <div class="status-wrapper" id="status-wrapper">
+            <div class="status" id="status">
+                <div class="status-current" id="status-current">connecting...</div>
+                <div class="status-log" id="status-log"></div>
+            </div>
+        </div>
+        <div class="container" id="inner-overlay-container"
+            style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
+            <div class="top-section">
+                <div class="keyboard-section" id="keyboard-target"></div>
+            </div>
+            <div class="bottom-section" id="mouse-target"></div>
+        </div>
+    </div>
+    <script src="scripts/libs/pako.min.js"></script>
+    <script type="module" src="scripts/main.js"></script>
+</body>
+
+</html>

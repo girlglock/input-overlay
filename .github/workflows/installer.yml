@@ -1,0 +1,46 @@
+name: windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: setup rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ws-server/src-tauri
+
+      - name: install tauri cli
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: build nsis installer
+        working-directory: ws-server/src-tauri
+        run: cargo tauri build --bundles nsis
+
+      - name: upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: input-overlay-setup
+          path: ws-server/src-tauri/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+
+      - name: attach installer to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ws-server/src-tauri/target/release/bundle/nsis/*-setup.exe

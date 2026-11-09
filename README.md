@@ -1,100 +1,42 @@
-<div align="center">
+# input-overlay (standalone)
 
-# input-overlay
+A desktop input overlay for Windows. Install it, run it, and the overlay shows up on screen. No OBS, no browser source, and no website.
 
-**Input overlay for OBS using RawInputBuffer with analog keyboard support**
+Based on [girlglock/input-overlay](https://github.com/girlglock/input-overlay).
 
-[![releases](https://img.shields.io/github/v/release/girlglock/input-overlay?style=flat-square&color=c9a0dc&label=release)](https://github.com/girlglock/input-overlay/releases)
-[![nightly](https://img.shields.io/badge/nightly-available-6a9fb5?style=flat-square)](https://nightly.link/girlglock/input-overlay/workflows/nightly/main)
-[![license](https://img.shields.io/github/license/girlglock/input-overlay?style=flat-square&color=aaa)](./LICENSE)
+## install
 
-</div>
+1. Download `Input Overlay_<version>_x64-setup.exe` from the [installer workflow](.github/workflows/installer.yml) artifacts, or from the release page for a tagged version.
+2. Run the installer. It installs for the current user only, so no admin prompt is needed.
+3. The overlay starts right away as a transparent, always-on-top window over your primary monitor. It ignores mouse clicks, so it never blocks the desktop or your games.
+4. The tray icon opens the settings window (server, auth token, analog keyboard, key whitelist). Tray → Exit quits.
 
-> [!NOTE]
-> hello, this project is pretty much just something i made for myself and a few friends. im going to try to fix bugs etc as best as i can but keep in mind that im not that skilled of a dev so expect updates to roll out slowly or eventually to stop due to lack of time
->
-> you can read up more on how to create your very own HTML overlay that uses the desktop app [here](https://github.com/girlglock/input-overlay/wiki/Creating-your-own-Overlay)
+## what it does
 
----
+- Reads keyboard and mouse input through the Windows RawInput API, so it keeps working while tabbed into games.
+- Hall-effect (analog) keyboard support, see the settings window.
+- Runs a local websocket server on `localhost:4455` with an auth token. The overlay inside the app connects to it automatically.
+- Ships with a built-in default layout (a keyboard with a mouse pad).
 
-## features
+## build the installer
 
-- **websocket connection with authentication** with support to stream your inputs to a secondary PC (e.g. a dedicated streaming PC)
-- **hall effect keyboard support** via the [AnalogSense SDK ported to rust](https://github.com/AnalogSense/JavaScript-SDK)
-  - if you want to PR/request a new device please do so on [AnalogSense](https://github.com/AnalogSense) instead this of repo.
-- **mouse movement tracking** via the RawInputBuffer windows api to keep track while tabbed into games
-- **customizable layouts and labels** (labels support html `img src` tags, not officially though)
-- **dual PC support** (e.g. gaming PC to dedicated streaming PC)
+The installer is built on a Windows runner. Run the `windows installer` workflow manually, or push a `v*` tag. The `.exe` setup file is attached to the workflow run and, for tags, to the release.
 
-<table>
-  <tr>
-    <td><img src="https://files.catbox.moe/qzqhnc.avif" width="400"/></td>
-    <td><img src="https://femboy.beauty/AvwAox.png" width="400"/></td>
-    <td><img src="https://femboy.beauty/B2tyyA.png" width="400"/></td>
-  </tr>
-</table>
+To build locally on Windows:
 
----
-
-## single PC setup
-
-1. download the [`input-overlay-ws`](https://github.com/girlglock/input-overlay/releases) server
-2. run it and right-click the tray icon to open settings
-3. copy your auth token *(you can change it to whatever you like)*
-4. paste the token in the auth token field in the configurator
-5. configure your overlay to your liking, click **`⎘ copy url`**, and paste the copied url as an OBS browser source
-
-<details>
-   <summary>nightly builds</summary>
-   <br>
-
-   | platform | download |
-   |----------|----------|
-   | windows | [input-overlay-ws-windows.zip](https://nightly.link/girlglock/input-overlay/workflows/nightly/main/input-overlay-ws-windows.zip) |
-   | linux | [input-overlay-ws-linux.zip](https://nightly.link/girlglock/input-overlay/workflows/nightly/main/input-overlay-ws-linux.zip) |
-
-</details>
-
-> [!TIP]
-> you can configure the key whitelist in the server settings to ensure you're only sending keys over your network that are configured in the overlay
-
----
-
-## sending keys to another PC
-
-*(e.g. from gaming PC to streaming PC)*
-
-1. run the `input-overlay-ws` server on your **gaming PC** and enable the HTTP server in its settings
-2. find your gaming PC's local IP, run `ipconfig` in cmd and copy the IPv4 address (usually `192.168.X.X`)
-3. click **`open in browser`** inside the HTTP server settings
-4. enter the gaming PC's address in both the **input-overlay-ws** field and the hosted **configurator**
-5. click **`⎘ copy url`** to copy the hosted overlay url and add it as a browser source in OBS on the streaming PC
-
----
-
-## building from source
-
-> [!NOTE]
-> released binaries are already built via GitHub Actions, you only need this if you want to build from source yourself
-
-**1. install prerequisites**
-
-- [Rust stable toolchain](https://rustup.rs)
-- Tauri CLI: `cargo install tauri-cli --version "^2"`
-
-<details>
-<summary><b>linux additional dependencies</b></summary>
-
-```bash
-sudo apt install libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+```powershell
+cargo install tauri-cli --version "^2" --locked
+cd ws-server\src-tauri
+cargo tauri build --bundles nsis
 ```
 
-</details>
+## changes from upstream
 
-**2. build** (run from the `ws-server/` directory)
+- no OBS browser source and no hosted configurator or website
+- no local HTTP server
+- no built-in updater (it would fetch upstream builds)
+- the overlay runs inside the app as a native window, and the layout is built in
 
-```bash
-cargo tauri build
-```
+## license
 
-output binary will be at `src-tauri/target/release/input-overlay-ws`
+See [LICENSE](./LICENSE).
