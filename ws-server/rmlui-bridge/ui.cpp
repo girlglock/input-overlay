@@ -420,8 +420,22 @@ static void UpdateDragAndResize(UiWindow* w)
 	}
 }
 
-static void RenderWindow(UiWindow* w)
+static bool IsMinimized(UiWindow* w)
 {
+	int fb_w = 0, fb_h = 0;
+	glfwGetFramebufferSize(w->glfw, &fb_w, &fb_h);
+	return glfwGetWindowAttrib(w->glfw, GLFW_ICONIFIED) || fb_w <= 0 || fb_h <= 0;
+}
+
+static bool RenderWindow(UiWindow* w)
+{
+	//a minimised window has a 0x0 framebuffer.. so dont render anythinh
+	if (IsMinimized(w))
+	{
+		w->dims_dirty = true;
+		w->next_anim_in = std::numeric_limits<double>::infinity();
+		return false;
+	}
 	glfwMakeContextCurrent(w->glfw);
 	if (w->dims_dirty)
 	{
@@ -442,6 +456,7 @@ static void RenderWindow(UiWindow* w)
 	w->context->Render();
 	w->renderer->EndFrame();
 	w->renderer->frame_no++;
+	return true;
 }
 
 static void DestroyWindow(UiWindow* w)
@@ -581,8 +596,8 @@ extern "C" int ui_open_window(const char* title, int width, int height, int resi
 	SetupCallbacks(glfw);
 	UiWindow* raw = w.get();
 	g_windows.push_back(std::move(w));
-	RenderWindow(raw);
-	glfwSwapBuffers(glfw);
+	if (RenderWindow(raw))
+		glfwSwapBuffers(glfw);
 	glfwShowWindow(glfw);
 	glfwFocusWindow(glfw);
 	return raw->id;
@@ -734,6 +749,8 @@ extern "C" void ui_frame(double max_wait)
 	bool busy = false;
 	for (auto& w : g_windows)
 	{
+		if (IsMinimized(w.get()))
+			continue;
 		busy = busy || w->dragging || w->resize_edges;
 		wait = std::min(wait, w->context->GetNextUpdateDelay());
 		wait = std::min(wait, w->next_anim_in);
@@ -748,8 +765,8 @@ extern "C" void ui_frame(double max_wait)
 	for (auto& w : g_windows)
 	{
 		UpdateDragAndResize(w.get());
-		RenderWindow(w.get());
-		glfwSwapBuffers(w->glfw);
+		if (RenderWindow(w.get()))
+			glfwSwapBuffers(w->glfw);
 	}
 	g_last_frame = glfwGetTime();
 }
