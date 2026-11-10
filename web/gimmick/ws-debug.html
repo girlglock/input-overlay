@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>input overlay ws debug</title>
+  <style>
+    body {
+      background: #111;
+      color: #eee;
+      font: 13px/1.4 monospace;
+      padding: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <div>
+    <input id="url" value="ws://localhost:4455" size="30">
+    <input id="token" placeholder="token" size="28">
+    <button onclick="connect()">connect</button>
+    <button onclick="disconnect()">disconnect</button>
+    <span id="hz">0 recieved flush hz</span>
+  </div>
+  <hr>
+  <div id="log"></div>
+  <script>
+    let ws;
+    let eventCount = 0;
+    let hzInterval;
+
+    setInterval(() => {
+      document.getElementById('hz').textContent = eventCount + ' recieved flush hz';
+      eventCount = 0;
+    }, 1000);
+
+    function log(msg) {
+      const el = document.getElementById('log');
+      const line = document.createElement('div');
+      line.textContent = msg;
+      el.prepend(line);
+    }
+
+    function connect() {
+      disconnect();
+      const url = document.getElementById('url').value;
+      const token = document.getElementById('token').value;
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        log('connected');
+        ws.send(JSON.stringify({ type: 'auth', token: token }));
+      };
+
+      ws.onmessage = e => {
+        eventCount++;
+        const ts = new Date().toISOString().slice(11, 23);
+        log(`[${ts}] ${e.data}`);
+      };
+
+      ws.onclose = () => log('disconnected');
+      ws.onerror = err => log('error: ' + err);
+    }
+
+    function disconnect() {
+      if (ws) { ws.close(); ws = null; }
+    }
+  </script>
+</body>
+
+</html>

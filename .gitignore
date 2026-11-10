@@ -1,4 +1,5 @@
 TODO.md
+/target/
 **/__pycache__/
 **/*.pyc
 **/*.pyo
@@ -21,6 +22,7 @@ node_modules
 dist
 dist-ssr
 *.local
+*.AppImage
 
 # Editor directories and files
 */.vscode/*
@@ -32,3 +34,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# thingy majig to fetch fonts from constants
+obs-plugin/scripts/generate_fonts.py
+
+TODO
+
+temp/

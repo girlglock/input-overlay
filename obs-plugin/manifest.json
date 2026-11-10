@@ -1,0 +1,12 @@
+{
+    "id": "input-overlay",
+    "name": "input-overlay",
+    "display_name": "Input Overlay",
+    "version": "{{VERSION}}",
+    "description": "Renders mouse and analog keyboard inputs as an overlay source.",
+    "urls": {
+        "repository": "https://github.com/girlglock/input-overlay",
+        "website": "https://github.com/girlglock/input-overlay",
+        "support": "https://github.com/girlglock/input-overlay/issues"
+    }
+}
