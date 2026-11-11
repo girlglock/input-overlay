@@ -239,14 +239,37 @@ fn warn_unknown_keys<'a>(keys: impl Iterator<Item = &'a String>) {
 }
 
 fn parse_layout(elements: &[Value]) -> Vec<LayoutElementDef> {
+    let gamepad_only = elements
+        .iter()
+        .filter(|v| {
+            v.get("type")
+                .map(value_to_string)
+                .is_some_and(|t| !t.is_empty() && t.split('|').all(is_gamepad_type))
+        })
+        .count();
     let layout: Vec<LayoutElementDef> = elements.iter().filter_map(parse_layout_element).collect();
-    if layout.len() < elements.len() {
+    if gamepad_only > 0 {
+        tracing::info!("config: {gamepad_only} gamepad elements ignored, gamepads arent supported in the plugin yet");
+    }
+    if layout.len() + gamepad_only < elements.len() {
         tracing::warn!(
             "config: {} keyLayout entries skipped - elements must be {{\"type\": ...}} objects",
-            elements.len() - layout.len()
+            elements.len() - layout.len() - gamepad_only
         );
     }
     layout
+}
+
+fn is_gamepad_type(part: &str) -> bool {
+    part.starts_with("gp_")
+}
+
+fn strip_gamepad_types(type_: &str) -> String {
+    type_
+        .split('|')
+        .filter(|p| !is_gamepad_type(p))
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 pub fn decode_json_config(json: &str) -> Option<DecodedLink> {
@@ -489,7 +512,9 @@ fn parse_style_override(obj: &serde_json::Map<String, Value>) -> Option<StyleOve
 }
 
 pub fn parse_element_object(obj: &serde_json::Map<String, Value>) -> Option<LayoutElementDef> {
-    let type_ = normalize_pipe_type(&obj.get("type").map(value_to_string).unwrap_or_default());
+    let type_ = normalize_pipe_type(&strip_gamepad_types(
+        &obj.get("type").map(value_to_string).unwrap_or_default(),
+    ));
     if type_.is_empty() {
         return None;
     }
@@ -508,7 +533,10 @@ pub fn parse_element_object(obj: &serde_json::Map<String, Value>) -> Option<Layo
             h,
             x,
             y,
-            tracked_keys: value_to_string_array(obj.get("trackedKeys")),
+            tracked_keys: value_to_string_array(obj.get("trackedKeys"))
+                .into_iter()
+                .filter(|k| !is_gamepad_type(k))
+                .collect(),
             vertical: value_to_bool(obj.get("vertical")),
             scroll_speed: obj
                 .get("scrollSpeed")
