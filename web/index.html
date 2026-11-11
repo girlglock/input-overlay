@@ -201,7 +201,10 @@
         <main class="cfg-main">
             <section class="cfg-panel cfg-preview-panel">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                    <div class="cfg-panel-title" style="margin:0;">live preview</div>
+                    <div style="display:flex;align-items:baseline;gap:10px;">
+                        <div class="cfg-panel-title" style="margin:0;">live preview</div>
+                        <span class="cfg-preview-warning" id="gamepadWarning" hidden></span>
+                    </div>
                     <div style="display:flex;gap:8px;align-items:flex-start;max-width:480px;">
                         <button class="cfg-btn--link" id="analogconnectbtn" style="align-self:center;">connect analog
                             for preview</button>

@@ -43,7 +43,7 @@ export class GamepadManager {
         window.addEventListener("gamepadconnected", e => this._onConnected(e));
         window.addEventListener("gamepaddisconnected", e => this._onDisconnected(e));
         this._startLoop();
-        setTimeout(window.setDynamicScale, 100);
+        if (typeof window.setDynamicScale === "function") setTimeout(window.setDynamicScale, 100);
     }
 
     _onConnected(e) {

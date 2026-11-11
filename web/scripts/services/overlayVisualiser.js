@@ -630,6 +630,7 @@ export class OverlayVisualiser {
             }
             container.lastElementChild.style.zIndex = String(zi);
             container.lastElementChild.dataset.baseZIndex = String(zi);
+            if (item.type.split("|").every(t => t.startsWith("gp_"))) container.lastElementChild.dataset.gamepadOnly = "1";
             if (item.moveToTop) container.lastElementChild.dataset.moveToTop = "1";
         }
 

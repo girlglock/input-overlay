@@ -2,6 +2,7 @@
 import { KEY_CODES, MOUSE_CODES, COLOR_PICKERS, LOCAL_INSTANCE } from "../consts.js";
 import { STYLE_OVERRIDE_KEYS, normalizePipeType } from "./keyLayoutParser.js";
 import { LEGACY_TO_CURRENT } from "./settingsFieldMap.js";
+import { GamepadManager } from "./gamepadManager.js";
 
 const LAYOUT_ORIGIN = { x: 0, y: 0 };
 
@@ -178,10 +179,12 @@ export class ConfiguratorMode {
 
         this.setupConfigInputs();
         this.setupPreviewInputListeners();
+        this.gamepadManager = new GamepadManager(this.visualizer);
         this.setupAnalogSense();
         this.setupKeyLayoutEditor();
         this._setupPreviewZoomAndGrid();
         this._setupSidebarToggles();
+        this._syncPluginMode();
         this.updateState();
         this._setupModeChoiceModal();
     }
@@ -196,6 +199,7 @@ export class ConfiguratorMode {
         const applyChoice = (choice) => {
             const tab = document.getElementById(choice === "plugin" ? "cfgConnTab_plugin" : "cfgConnTab_web");
             if (tab) tab.checked = true;
+            this._syncPluginMode();
         };
 
         const remembered = localStorage.getItem(STORAGE_KEY);
@@ -357,11 +361,68 @@ export class ConfiguratorMode {
         custom.style.display = select.value === "__custom__" ? "" : "none";
     }
 
-    _getKeyLayoutParam() {
+    _getKeyLayoutParam(withoutGamepad = false) {
         if (!this.keyLayoutMode || !this.keyLayoutParser) return null;
-        if (!this.keyLayoutDefs.length) return "[]";
-        const tuples = this.keyLayoutParser.serializeAll(this.keyLayoutDefs);
+        const defs = withoutGamepad ? this._withoutGamepad(this.keyLayoutDefs) : this.keyLayoutDefs;
+        if (!defs.length) return "[]";
+        const tuples = this.keyLayoutParser.serializeAll(defs);
         return JSON.stringify(tuples);
+    }
+
+    _isPluginMode() {
+        return document.getElementById("cfgConnTab_plugin")?.checked ?? false;
+    }
+
+    //placeholder for now (probably ever)
+    _withoutGamepad(defs) {
+        const notGamepad = (k) => !String(k).startsWith("gp_");
+        return defs
+            .map(def => {
+                const type = def.type.split("|").filter(notGamepad).join("|");
+                if (!type) return null;
+                const out = { ...def, type };
+                if (Array.isArray(def.keys)) out.keys = def.keys.filter(notGamepad);
+                if (Array.isArray(def.trackedKeys)) out.trackedKeys = def.trackedKeys.filter(notGamepad);
+                return out;
+            })
+            .filter(Boolean);
+    }
+
+    _applyGamepadTooltips() {
+        const isPlugin = this._isPluginMode();
+        const warning = document.getElementById("gamepadWarning");
+        if (warning) {
+            const hasGamepad = this.keyLayoutMode && (this.keyLayoutDefs ?? []).some(def =>
+                def.type.split("|").some(t => t.startsWith("gp_")));
+            warning.hidden = !hasGamepad;
+            warning.innerHTML = isPlugin
+                ? "gamepad elements are not supported by the obs plugin"
+                : "obs 33 browser sources lose controller input while obs isn't focused, "
+                + '(<a href="https://github.com/obsproject/obs-studio/issues/14139" target="_blank" rel="noopener">more here :plaksa:</a>)';
+        }
+        document.querySelectorAll('#preview-keyboard [data-gamepad-only="1"]').forEach(el => {
+            if (isPlugin) el.title = "the obs plugin doesn't support controllers, this element won't be exported";
+            else el.removeAttribute("title");
+        });
+    }
+
+    _syncPluginMode() {
+        const isPlugin = this._isPluginMode();
+        document.body.classList.toggle("cfg-plugin-mode", isPlugin);
+        this._applyGamepadTooltips();
+
+        const radio = document.getElementById("klTab_gamepad");
+        const label = document.querySelector('#klAddTabs label[for="klTab_gamepad"]');
+        if (radio && label) {
+            radio.disabled = isPlugin;
+            label.style.display = isPlugin ? "none" : "";
+            const panel = label.nextElementSibling;
+            if (panel?.classList.contains("panel")) panel.style.display = isPlugin ? "none" : "";
+            if (isPlugin && radio.checked) {
+                const first = document.querySelector("#klAddTabs input.radiotab");
+                if (first) first.checked = true;
+            }
+        }
     }
 
     updateSliderLabel(input) {
@@ -468,6 +529,7 @@ export class ConfiguratorMode {
         clearTimeout(this.rebuildThrottleTimer);
         this.rebuildThrottleTimer = setTimeout(() => {
             this.visualizer.rebuildInterface(this.rebuildPending);
+            this._applyGamepadTooltips();
             this.rebuildLastFired = performance.now();
             this.rebuildPending = null;
             if (this.keyLayoutMode) {
@@ -483,7 +545,10 @@ export class ConfiguratorMode {
     }
 
     updateGeneratedLink(settings) {
-        const paramsString = this.urlManager.buildURLParams(settings);
+        const linkSettings = this._isPluginMode() && this.keyLayoutMode
+            ? { ...settings, keyLayout: this._getKeyLayoutParam(true) }
+            : settings;
+        const paramsString = this.urlManager.buildURLParams(linkSettings);
         const safeSettings = { ...settings, wsauth: "" };
         const safeParamsString = this.urlManager.buildURLParams(safeSettings);
         const base = `${window.location.origin}${window.location.pathname}`;
@@ -635,6 +700,12 @@ export class ConfiguratorMode {
                 this.updateState();
             });
         }
+
+        document.querySelectorAll("input[name='cfgConnTab']").forEach(tab =>
+            tab.addEventListener("change", () => {
+                this._syncPluginMode();
+                this.updateState();
+            }));
 
         const fontSelect = document.getElementById("key_font_family");
         fontSelect?.addEventListener("input", () => {
@@ -899,7 +970,7 @@ export class ConfiguratorMode {
         const { wsaddress, wsport, wsauth, keyLayout, hide_mouse, ...rest } = this.getCurrentSettings();
         return {
             ...rest,
-            keyLayout: this.keyLayoutMode && this.keyLayoutParser ? this.keyLayoutParser.serializeAll(this.keyLayoutDefs) : [],
+            keyLayout: this.keyLayoutMode && this.keyLayoutParser ? this.keyLayoutParser.serializeAll(this._withoutGamepad(this.keyLayoutDefs)) : [],
         };
     }
 

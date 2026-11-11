@@ -645,6 +645,20 @@ li {
     color: #fff;
 }
 
+.cfg-preview-warning {
+    font-size: 11px;
+    color: var(--red);
+}
+
+.cfg-preview-warning[hidden] {
+    display: none;
+}
+
+.cfg-preview-warning a {
+    color: inherit;
+    text-decoration: underline;
+}
+
 .cfg-auth-warning {
     font-size: 10px;
     color: #e8a838;
@@ -2763,4 +2777,10 @@ li {
 .cfg-mode-remember {
     justify-content: center;
     margin-top: 20px;
+}
+
+/* gamepad elements can't be rendered by the obs plugin */
+.cfg-plugin-mode [data-gamepad-only="1"] {
+    opacity: 0.25 !important;
+    filter: grayscale(1) !important;
 }
