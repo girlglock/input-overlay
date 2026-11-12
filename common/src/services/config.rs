@@ -46,7 +46,7 @@ impl Default for Config {
 pub fn load(path: &Path) -> Config {
     if path.exists() {
         match std::fs::read_to_string(path) {
-            Ok(s) => match serde_json::from_str::<Config>(&s) {
+            Ok(s) => match serde_json::from_str::<Config>(s.trim_start_matches('\u{feff}')) {
                 Ok(cfg) => return cfg,
                 Err(e) => tracing::error!("config parse error: {e}"),
             },
