@@ -10,10 +10,14 @@ fn main() {
 fn build_rmlui_bridge() {
     println!("cargo:rerun-if-changed=rmlui-bridge");
 
-    let dst = cmake::Config::new("rmlui-bridge")
-        .profile("Release")
-        .build_target("rmlui_bridge")
-        .build();
+    let mut config = cmake::Config::new("rmlui-bridge");
+    config.profile("Release").build_target("rmlui_bridge");
+    if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc") {
+        for lang in ["C", "CXX"] {
+            config.define(format!("CMAKE_{lang}_FLAGS_RELEASE"), "-nologo -MD -O2 -Ob2 -DNDEBUG -Brepro -W0");
+        }
+    }
+    let dst = config.build();
 
     let libs = dst.join("build").join("libs");
     println!("cargo:rustc-link-search=native={}", libs.display());
