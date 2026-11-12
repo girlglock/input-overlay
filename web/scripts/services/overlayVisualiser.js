@@ -1602,7 +1602,7 @@ export class OverlayVisualiser {
         const totalLogW = logW + GLOW_PAD * 2;
         const totalLogH = logH + GLOW_PAD * 2;
 
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = (window.devicePixelRatio || 1) * 3;
         state.canvas.width = Math.round(totalLogW * dpr);
         state.canvas.height = Math.round(totalLogH * dpr);
         state.canvas.style.width = `${totalLogW}px`;
