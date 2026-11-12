@@ -268,6 +268,7 @@ unsafe extern "C" fn source_get_defaults(settings: *mut ObsData) {
     (api.data_set_default_bool)(settings, c"use_link".as_ptr(), false);
     (api.data_set_default_string)(settings, c"resolution".as_ptr(), c"512x512".as_ptr());
     (api.data_set_default_string)(settings, c"analog_keyboard".as_ptr(), c"".as_ptr());
+    (api.data_set_default_string)(settings, c"gamepad_device".as_ptr(), c"".as_ptr());
     #[cfg(target_os = "linux")]
     {
         (api.data_set_default_string)(settings, c"linux_kbd_device".as_ptr(), c"".as_ptr());
@@ -355,6 +356,27 @@ unsafe extern "C" fn source_get_properties(data: *mut c_void) -> *mut ObsPropert
                 b"analogsense_note\0",
                 b"(R) Razer Synapse needs to be installed and running for analogue inputs to be received from this keyboard.<br>(P) The official firmware only supports polling, which can lead to lag and missed inputs.<br>(F) <a href=\"https://analogsense.org/firmware/\">Custom firmware with full analog report functionality is available.</a><br><br>Analog support mirrors the <a href=\"https://github.com/AnalogSense/JavaScript-SDK\">AnalogSense SDK</a> ported to Rust. Amazing project, please show them some love and PR new keyboards if you can!\0",
             );
+
+            let gp = list(api, g2, b"gamepad_device\0", b"Gamepad\0");
+            list_item(api, gp, b"Disabled\0", b"\0");
+            list_item_str(api, gp, "All gamepads", io_ws_common::services::gamepad::ALL_GAMEPADS);
+            let (_, pads) = io_ws_common::services::gamepad::devices();
+            for pad in &pads {
+                let suffix = pad.id.split_once('#').map(|(_, n)| format!(" ({n})")).unwrap_or_default();
+                list_item_str(api, gp, &format!("{}{suffix}", pad.name), &pad.id);
+            }
+            let saved = PLUGIN_CONFIG
+                .lock()
+                .unwrap()
+                .as_ref()
+                .map(|s| s.config.lock().unwrap().gamepad_device.clone())
+                .unwrap_or_default();
+            let known = saved.is_empty()
+                || saved == io_ws_common::services::gamepad::ALL_GAMEPADS
+                || pads.iter().any(|p| p.id == saved);
+            if !known {
+                list_item_str(api, gp, "Last used (disconnected)", &saved);
+            }
 
             #[cfg(target_os = "linux")]
             {
@@ -644,6 +666,7 @@ unsafe fn update_from_settings(data: &mut VideoSourceData, settings: *mut ObsDat
     }
 
     let analog_keyboard = read_str(api, settings, b"analog_keyboard\0");
+    let gamepad_device = read_str(api, settings, b"gamepad_device\0");
     #[cfg(target_os = "linux")]
     let linux_kbd = read_str(api, settings, b"linux_kbd_device\0");
     #[cfg(target_os = "linux")]
@@ -651,6 +674,7 @@ unsafe fn update_from_settings(data: &mut VideoSourceData, settings: *mut ObsDat
 
     persist_capture_settings(
         analog_keyboard,
+        gamepad_device,
         #[cfg(target_os = "linux")]
         linux_kbd,
         #[cfg(target_os = "linux")]
@@ -660,6 +684,7 @@ unsafe fn update_from_settings(data: &mut VideoSourceData, settings: *mut ObsDat
 
 fn persist_capture_settings(
     analog_keyboard: String,
+    gamepad_device: String,
     #[cfg(target_os = "linux")] linux_kbd: String,
     #[cfg(target_os = "linux")] linux_mouse: String,
 ) {
@@ -671,6 +696,12 @@ fn persist_capture_settings(
     let cfg_snapshot = {
         let mut cfg = state.config.lock().unwrap();
         cfg.analog_keyboard = analog_keyboard;
+        if cfg.gamepad_device != gamepad_device {
+            if let Some(tx) = crate::INPUT_TX.get() {
+                io_ws_common::services::gamepad::set_output(tx.clone(), &gamepad_device, crate::GAMEPAD_FLUSH_HZ);
+            }
+            cfg.gamepad_device = gamepad_device;
+        }
         #[cfg(target_os = "linux")]
         {
             cfg.linux_evdev_keyboard_device = linux_kbd;

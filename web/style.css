@@ -2778,9 +2778,3 @@ li {
     justify-content: center;
     margin-top: 20px;
 }
-
-/* gamepad elements can't be rendered by the obs plugin */
-.cfg-plugin-mode [data-gamepad-only="1"] {
-    opacity: 0.25 !important;
-    filter: grayscale(1) !important;
-}

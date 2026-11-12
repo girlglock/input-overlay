@@ -15,6 +15,8 @@ static OBS_MODULE_PTR: std::sync::atomic::AtomicPtr<std::ffi::c_void> =
     std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
 
 static PLUGIN_STATE: Mutex<Option<PluginState>> = Mutex::new(None);
+pub static INPUT_TX: std::sync::OnceLock<tokio::sync::mpsc::UnboundedSender<InputEvent>> = std::sync::OnceLock::new();
+pub const GAMEPAD_FLUSH_HZ: u32 = 64;
 
 struct PluginState {
     _runtime: tokio::runtime::Runtime,
@@ -64,6 +66,7 @@ pub extern "C" fn obs_module_load() -> bool {
     let cfg = services::config::load(&config_path);
 
     let analog_kb = cfg.analog_keyboard.clone();
+    let gamepad_dev = cfg.gamepad_device.clone();
     #[cfg(target_os = "linux")]
     let (kbd_dev, mouse_dev, min_delta) = (
         cfg.linux_evdev_keyboard_device.clone(),
@@ -88,6 +91,10 @@ pub extern "C" fn obs_module_load() -> bool {
 
     let (input_tx, mut input_rx) = tokio::sync::mpsc::unbounded_channel::<InputEvent>();
     let (bus_tx, _bus_rx0) = tokio::sync::broadcast::channel::<InputEvent>(1024);
+    let _ = INPUT_TX.set(input_tx.clone());
+
+    services::gamepad::ensure_running();
+    services::gamepad::set_output(input_tx.clone(), &gamepad_dev, GAMEPAD_FLUSH_HZ);
 
     let relay_bus = bus_tx.clone();
     let relay_task = runtime.spawn(async move {

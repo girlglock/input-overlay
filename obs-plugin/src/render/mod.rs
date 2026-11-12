@@ -5,6 +5,7 @@ mod easing;
 mod font_loader;
 mod gif_texture;
 mod history;
+mod joystick;
 mod key_element;
 mod label_image;
 mod mouse_pad;
@@ -55,10 +56,21 @@ struct PositionedElement {
 #[derive(Clone, Copy)]
 enum ElementKind {
     Key,
+    Joystick(usize),
     MousePad,
     History(usize),
     Scroll(usize),
     Skip,
+}
+
+//w3c -> element.. gamepadManager.js GP_BUTTON_MAP
+const GAMEPAD_BUTTONS: [&str; 17] = [
+    "gp_a", "gp_b", "gp_x", "gp_y", "gp_lb", "gp_rb", "gp_lt", "gp_rt", "gp_select", "gp_start", "gp_ls", "gp_rs",
+    "gp_up", "gp_down", "gp_left", "gp_right", "gp_guide",
+];
+
+fn is_gamepad_trigger(name: &str) -> bool {
+    name == "gp_lt" || name == "gp_rt"
 }
 
 pub fn fetch_media(url: &str) -> Option<Vec<u8>> {
@@ -108,6 +120,8 @@ pub struct Renderer {
     analog_smoothing: bool,
     analog_display_mode: DisplayMode,
     analog_legend_mode: LegendMode,
+    sticks: [(f32, f32); 2],
+    gamepad_deadzone: f32,
 }
 
 fn merge_style_override(base: &KeyStyle, ov: Option<&StyleOverride>) -> KeyStyle {
@@ -222,6 +236,8 @@ impl Renderer {
                     histories.push((history, el.rect));
                     ElementKind::History(idx)
                 }
+                "gp_joystick_ls" => ElementKind::Joystick(0),
+                "gp_joystick_rs" => ElementKind::Joystick(1),
                 "scroller" => {
                     let idx = scroll_displays.len();
                     scroll_displays.push((ScrollDisplayDef::scroller(&el.def.labels), el.rect));
@@ -327,6 +343,9 @@ impl Renderer {
             analog_display_mode: DisplayMode::parse(&settings.analog_display_mode),
             analog_legend_mode: LegendMode::parse(&settings.analog_legend_fill_mode),
             label_images,
+            sticks: [(0.0, 0.0); 2],
+            //overlayVisualiser.js: parseFloat(gamepad_deadzone) / 100 || 0.03
+            gamepad_deadzone: Some((settings.gamepad_deadzone / 100.0) as f32).filter(|dz| *dz > 0.0).unwrap_or(0.03),
         }
     }
 
@@ -373,7 +392,37 @@ impl Renderer {
                 self.analog_mode = true;
                 true
             }
-            InputEvent::GamepadButton { .. } | InputEvent::GamepadAxis { .. } => false,
+
+            InputEvent::GamepadButton { button, pressed, value, .. } => {
+                let Some(name) = GAMEPAD_BUTTONS.get(*button as usize).copied() else {
+                    return false;
+                };
+                
+                let mut changed = self.set_active(Some(name), *pressed);
+                
+                if is_gamepad_trigger(name) {
+                    let depth = if *pressed { value.clamp(0.0, 1.0) } else { 0.0 };
+                    changed |= self.analog_target.insert(name.to_string(), depth) != Some(depth);
+                }
+                
+                changed
+            }
+
+            InputEvent::GamepadAxis { axis, value, .. } => {
+                let Some(stick) = self.sticks.get_mut((*axis / 2) as usize) else {
+                    return false;
+                };
+                
+                let value = if value.abs() < self.gamepad_deadzone { 0.0 } else { *value };
+                let slot = if *axis % 2 == 0 { &mut stick.0 } else { &mut stick.1 };
+                
+                if *slot == value {
+                    return false;
+                }
+                
+                *slot = value;
+                true
+            }
         }
     }
 
@@ -385,11 +434,7 @@ impl Renderer {
         let history_live = self.histories.iter().any(|(h, _)| h.is_live());
         let transitions_live = self.key_transitions.iter().any(Transition::is_animating)
             || self.scroll_transitions.iter().any(Transition::is_animating);
-        let analog_live = self.analog_mode
-            && self
-                .analog_smoothers
-                .iter()
-                .any(AnalogSmoother::is_animating);
+        let analog_live = self.analog_smoothers.iter().any(AnalogSmoother::is_animating);
         mouse_pad_live
             || history_live
             || self.scroll.is_live()
@@ -446,22 +491,22 @@ impl Renderer {
 
         let mut key_analog: Vec<Option<AnalogVisual>> = Vec::with_capacity(self.elements.len());
         for (i, el) in self.elements.iter().enumerate() {
-            if !self.analog_mode {
-                key_analog.push(None);
-                continue;
-            }
             let keys: &[String] = if el.def.keys.is_empty() {
                 std::slice::from_ref(&el.def.type_)
             } else {
                 &el.def.keys
             };
-            if !keys.iter().any(|k| k.starts_with("key_")) {
+            
+            //anal keys only when needed, gamepad always for now
+            let is_analog = |k: &String| (self.analog_mode && k.starts_with("key_")) || is_gamepad_trigger(k);
+            
+            if !keys.iter().any(is_analog) {
                 key_analog.push(None);
                 continue;
             }
             let explicit = keys
                 .iter()
-                .filter(|k| k.starts_with("key_"))
+                .filter(|k| is_analog(k))
                 .map(|k| self.analog_target.get(k.as_str()).copied().unwrap_or(0.0))
                 .fold(0.0f32, f32::max);
             let target = if explicit > 0.0 {
@@ -503,6 +548,15 @@ impl Renderer {
         for (i, el) in self.elements.iter().enumerate() {
             match self.element_order[i] {
                 ElementKind::Skip => {}
+                
+                ElementKind::Joystick(stick) => {
+                    let t0 = Instant::now();
+                    let rect = fit_rect(&el.rect, scale, tx, ty);
+                    let (x, y) = self.sticks[stick];
+                    joystick::draw_joystick(pixmap, &rect, &styles[i], x, y);
+                    keys_time += t0.elapsed();
+                }
+                
                 ElementKind::Key => {
                     let t0 = Instant::now();
                     let t = key_ts[i];
@@ -671,7 +725,7 @@ impl Renderer {
                         );
                     }
                 }
-                ElementKind::MousePad | ElementKind::History(_) | ElementKind::Skip => {}
+                ElementKind::MousePad | ElementKind::History(_) | ElementKind::Joystick(_) | ElementKind::Skip => {}
             }
         }
         mark("GLOWPASS", None);
