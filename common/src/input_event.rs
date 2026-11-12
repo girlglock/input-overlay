@@ -27,4 +27,22 @@ pub enum InputEvent {
         depth: f32,
         timestamp: u64,
     },
+    //gpbutton uses w3c standard
+    GamepadButton {
+        pad: u32,
+        button: u8,
+        pressed: bool,
+        value: f32,
+        timestamp: u64,
+    },
+    //axis 0: left stick x
+    //axis 1: left stick y
+    //axis 2: right stick x
+    //axis 3: right stick y
+    GamepadAxis {
+        pad: u32,
+        axis: u8,
+        value: f32,
+        timestamp: u64,
+    },
 }

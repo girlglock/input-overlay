@@ -12,7 +12,7 @@ cmake = "0.1"
 winresource = "0.1"
 
 [dependencies]
-io-ws-common = { path = "../common" }
+io-ws-common = { path = "../common", features = ["gamepad"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }

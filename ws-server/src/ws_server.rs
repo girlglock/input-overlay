@@ -30,6 +30,7 @@ pub struct WsState {
 fn is_allowed(event: &InputEvent, cfg: &Config) -> bool {
     match event {
         InputEvent::MouseMove { .. } => cfg.send_mouse_move,
+        InputEvent::GamepadButton { .. } | InputEvent::GamepadAxis { .. } => true,
         _ if cfg.key_whitelist.is_empty() => true,
         InputEvent::MouseScroll { rotation, .. } => {
             if cfg.key_whitelist.iter().any(|k| k == "mouse_wheel") {
@@ -73,6 +74,12 @@ fn event_to_json(event: &InputEvent) -> Option<String> {
         )),
         InputEvent::AnalogDepth { rawcode, depth, timestamp } => Some(format!(
             r#"{{"event_type":"analog_depth","rawcode":{rawcode},"depth":{depth:.4},"timestamp":{timestamp}}}"#
+        )),
+        InputEvent::GamepadButton { pad, button, pressed, value, timestamp } => Some(format!(
+            r#"{{"event_type":"gamepad_button","pad":{pad},"button":{button},"pressed":{pressed},"value":{value:.4},"timestamp":{timestamp}}}"#
+        )),
+        InputEvent::GamepadAxis { pad, axis, value, timestamp } => Some(format!(
+            r#"{{"event_type":"gamepad_axis","pad":{pad},"axis":{axis},"value":{value:.4},"timestamp":{timestamp}}}"#
         )),
     }
 }

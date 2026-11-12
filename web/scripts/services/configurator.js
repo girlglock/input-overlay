@@ -266,6 +266,7 @@ export class ConfiguratorMode {
             key_outline_width_pressed: "3", key_outline_width_idle: "2",
             analog_display_mode: "fill", analog_smoothing: false, analog_legend_fill_mode: "inverting", analog_force_disable: false,
             gamepad_deadzone: "3",
+            gamepad_no_cef: true,
             mouse_trail_sensitivity: "100",
             mouse_trail_fade_duration: "600",
             mouse_trail_mode: "wrap",
@@ -318,6 +319,7 @@ export class ConfiguratorMode {
             analog_legend_fill_mode: val("analog_legend_fill_mode") || "inverting",
             analog_force_disable: chk("analog_force_disable"),
             gamepad_deadzone: val("gamepad_deadzone") || "3",
+            gamepad_no_cef: chk("gamepad_no_cef"),
             mouse_trail_sensitivity: val("mouse_trail_sensitivity") || "100",
             mouse_trail_fade_duration: val("mouse_trail_fade_duration") !== "" ? val("mouse_trail_fade_duration") : "600",
             mouse_trail_mode: val("mouse_trail_mode") || "wrap",
@@ -394,7 +396,8 @@ export class ConfiguratorMode {
         if (warning) {
             const hasGamepad = this.keyLayoutMode && (this.keyLayoutDefs ?? []).some(def =>
                 def.type.split("|").some(t => t.startsWith("gp_")));
-            warning.hidden = !hasGamepad;
+            const viaWs = document.getElementById("gamepad_no_cef")?.checked ?? false;
+            warning.hidden = !hasGamepad || (!isPlugin && viaWs);
             warning.innerHTML = isPlugin
                 ? "gamepad elements are not supported by the obs plugin"
                 : "obs 33 browser sources lose controller input while obs isn't focused, "
@@ -505,6 +508,7 @@ export class ConfiguratorMode {
         applyValue("analog_legend_fill_mode", settings.analog_legend_fill_mode);
         applyValue("analog_force_disable", settings.analog_force_disable);
         applyValue("gamepad_deadzone", settings.gamepad_deadzone ?? "3");
+        applyValue("gamepad_no_cef", settings.gamepad_no_cef ?? false);
         applyValue("mouse_trail_sensitivity", settings.mouse_trail_sensitivity ?? "100");
         applyValue("mouse_trail_fade_duration", settings.mouse_trail_fade_duration ?? "600");
         applyValue("mouse_trail_mode", settings.mouse_trail_mode ?? "wrap");
@@ -967,7 +971,7 @@ export class ConfiguratorMode {
     }
 
     getPluginConfig() {
-        const { wsaddress, wsport, wsauth, keyLayout, hide_mouse, ...rest } = this.getCurrentSettings();
+        const { wsaddress, wsport, wsauth, keyLayout, hide_mouse, gamepad_no_cef, ...rest } = this.getCurrentSettings();
         return {
             ...rest,
             keyLayout: this.keyLayoutMode && this.keyLayoutParser ? this.keyLayoutParser.serializeAll(this._withoutGamepad(this.keyLayoutDefs)) : [],

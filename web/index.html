@@ -578,6 +578,13 @@
                                     </div>
                                     <input id="gamepad_deadzone" class="cfg-range config-input" type="range" min="0" max="50" step="1" value="3">
                                 </div>
+                                <div class="cfg-field" style="margin-top:8px;">
+                                    <label class="cfg-checkbox" title="If checked the web version of the overlay will rely on the standalone ws-server as input provider.. a browser source alone wont work. this is a workaround for OBS 33.x.x but also enables controller overlays with Dual streaming PC setups">
+                                        <input type="checkbox" class="config-input" id="gamepad_no_cef">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label">dont use CEF to get gamepad inputs</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>

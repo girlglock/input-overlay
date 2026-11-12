@@ -1,4 +1,4 @@
-pub use io_ws_common::services::{analog, config};
+pub use io_ws_common::services::{analog, config, gamepad};
 pub mod http_server;
 pub mod updater;
 #[cfg(target_os = "linux")]

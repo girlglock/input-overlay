@@ -9,6 +9,16 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+sdl3-sys = { version = "0.7", optional = true, features = [
+    "build-from-source-static",
+    "no-default-subsystems",
+    "sdl-joystick",
+    "sdl-hidapi",
+    "sdl-unix-console-build",
+] }
+
+[features]
+gamepad = ["dep:sdl3-sys"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 hidapi = { version = "2", features = ["linux-static-hidraw"] }

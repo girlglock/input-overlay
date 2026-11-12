@@ -77,7 +77,7 @@ impl App {
     }
 
     pub fn save_config(&mut self, new_cfg: Config) -> Result<(), String> {
-        let (need_rebind, need_analog, need_http, need_evdev, need_raw, need_affinity) = {
+        let (need_rebind, need_analog, need_http, need_evdev, need_raw, need_affinity, need_gamepad) = {
             let old = self.config.lock().unwrap();
             (
                 old.host != new_cfg.host || old.port != new_cfg.port,
@@ -88,6 +88,7 @@ impl App {
                     || old.flush_hz != new_cfg.flush_hz,
                 old.flush_hz != new_cfg.flush_hz,
                 old.cpu_affinity != new_cfg.cpu_affinity,
+                old.gamepad_device != new_cfg.gamepad_device || old.flush_hz != new_cfg.flush_hz,
             )
         };
 
@@ -109,6 +110,9 @@ impl App {
                     new_cfg.flush_hz,
                 ));
             }
+        }
+        if need_gamepad {
+            services::gamepad::set_output(self.ws_state.input_tx.clone(), &new_cfg.gamepad_device, new_cfg.flush_hz);
         }
         if need_http {
             self.http = None;
@@ -420,6 +424,9 @@ pub fn run() {
         cfg.raw_mouse_min_delta,
         cfg.flush_hz,
     ));
+    if !cfg.gamepad_device.is_empty() {
+        services::gamepad::set_output(input_tx.clone(), &cfg.gamepad_device, cfg.flush_hz);
+    }
     let analog = (!cfg.analog_keyboard.is_empty())
         .then(|| services::analog::AnalogThread::start(input_tx, &cfg.analog_keyboard, cfg.flush_hz));
     let http = if cfg.http_enabled {

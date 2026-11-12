@@ -373,6 +373,7 @@ impl Renderer {
                 self.analog_mode = true;
                 true
             }
+            InputEvent::GamepadButton { .. } | InputEvent::GamepadAxis { .. } => false,
         }
     }
 

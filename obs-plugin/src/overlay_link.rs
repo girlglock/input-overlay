@@ -228,7 +228,7 @@ const SETTING_KEYS: &[&str] = &[
     "gamepad_deadzone",
 ];
 
-const IGNORED_KEYS: &[&str] = &["keyLayout", "wsauth", "wsaddress", "wsport"];
+const IGNORED_KEYS: &[&str] = &["keyLayout", "wsauth", "wsaddress", "wsport", "gamepad_no_cef"];
 
 fn warn_unknown_keys<'a>(keys: impl Iterator<Item = &'a String>) {
     for key in keys {

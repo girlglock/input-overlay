@@ -33,6 +33,8 @@ pub struct SettingsView {
     update_info: Option<UpdateInfo>,
     updating: bool,
     keep_open_on_save: bool,
+    gamepad_revision: Option<u64>,
+    gamepad_poll_at: Option<Instant>,
 }
 
 impl SettingsView {
@@ -55,12 +57,15 @@ impl SettingsView {
             update_info: None,
             updating: false,
             keep_open_on_save,
+            gamepad_revision: None,
+            gamepad_poll_at: None,
         };
 
         win.set_inner_rml("version-label", &format!("Input-Overlay WebSocket Server | Version: {VERSION}<br/>(latest)"));
         win.set_text("status-version", &format!("v{VERSION}"));
         view.apply_theme_label(app.dark_theme());
         view.init_analog_keyboards();
+        crate::services::gamepad::ensure_running();
         view.apply_config(&cfg);
         view.apply_status(&app.server_status());
         win.set_checked("autostart", view.autostart);
@@ -104,6 +109,7 @@ impl SettingsView {
         self.apply_http_enabled(cfg.http_enabled);
         w.set_value("kbd-device", &cfg.linux_evdev_keyboard_device);
         w.set_value("mouse-device", &cfg.linux_raw_mouse_device);
+        self.refresh_gamepads(&cfg.gamepad_device);
         self.whitelist = cfg.key_whitelist.clone();
         self.render_key_list();
         self.set_dirty(false);
@@ -120,6 +126,7 @@ impl SettingsView {
             send_mouse_move: w.checked("send-mouse-move"),
             key_whitelist: self.whitelist.clone(),
             analog_keyboard: w.value("analog-keyboard"),
+            gamepad_device: w.value("gamepad-device"),
             http_enabled: w.checked("http-enabled"),
             http_port: w.value("http-port").trim().parse().unwrap_or(4456),
             flush_hz: w.value("flush-hz").trim().parse().unwrap_or(125),
@@ -316,6 +323,31 @@ impl SettingsView {
             self.win.set_hidden("update-progress-modal", true);
             self.show_msg(&format!("update failed: {err}"), true);
         }
+    }
+
+    fn refresh_gamepads(&mut self, selected: &str) {
+        use crate::services::gamepad::{devices, ALL_GAMEPADS};
+        let w = self.win;
+        let (revision, list) = devices();
+        self.gamepad_revision = Some(revision);
+        self.gamepad_poll_at = Some(Instant::now() + Duration::from_secs(1));
+
+        w.select_clear("gamepad-device");
+        w.select_add("gamepad-device", "Disabled", "");
+        w.select_add("gamepad-device", "All gamepads", ALL_GAMEPADS);
+        
+        for pad in &list {
+            let suffix = pad.id.split_once('#').map(|(_, n)| format!(" ({n})")).unwrap_or_default();
+            w.select_add("gamepad-device", &format!("{}{suffix}", pad.name), &pad.id);
+        }
+        
+        let known = selected.is_empty() || selected == ALL_GAMEPADS || list.iter().any(|p| p.id == selected);
+        
+        if !known {
+            w.select_add("gamepad-device", "Saved gamepad (not connected)", selected);
+        }
+        
+        w.set_value("gamepad-device", selected);
     }
 
     fn init_analog_keyboards(&self) {
@@ -546,7 +578,7 @@ impl SettingsView {
     }
 
     pub fn next_deadline(&self) -> Option<Instant> {
-        [self.notice_until, self.msg_until].into_iter().flatten().min()
+        [self.notice_until, self.msg_until, self.gamepad_poll_at].into_iter().flatten().min()
     }
 
     pub fn tick(&mut self, now: Instant) {
@@ -557,6 +589,15 @@ impl SettingsView {
         if self.msg_until.is_some_and(|t| now >= t) {
             self.msg_until = None;
             self.show_dirty_msg();
+        }
+        
+        if self.gamepad_poll_at.is_some_and(|t| now >= t) {
+            if Some(crate::services::gamepad::devices().0) != self.gamepad_revision {
+                let current = self.win.value("gamepad-device");
+                self.refresh_gamepads(&current);
+            } else {
+                self.gamepad_poll_at = Some(now + Duration::from_secs(1));
+            }
         }
     }
 }

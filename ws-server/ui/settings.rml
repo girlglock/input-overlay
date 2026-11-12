@@ -111,6 +111,18 @@
 						to Rust. Amazing project, please show them some love and PR new keyboards if you can!<br/>
 					</p>
 				</fieldset>
+				<fieldset>
+					<legend>Gamepad</legend>
+					<div class="field-row-stacked" style="width: 100%;">
+						<label for="gamepad-device">Gamepad</label>
+						<select id="gamepad-device" style="width: 100%;">
+							<option value="">Disabled</option>
+						</select>
+					</div>
+					<p class="muted-note">
+						Sends controller inputs to your overlay
+					</p>
+				</fieldset>
 				<fieldset id="linux-devices" hidden="">
 					<legend>Input Devices</legend>
 					<div class="field-row-stacked" style="width: 100%;">
