@@ -86,10 +86,11 @@
 
 1. open the input-overlay-ws server **on your gaming pc**
 2. right-click the tray icon -> settings -> enable the http server
-3. change the host of the ws server to the address of your gaming pc
-   > run `ipconfig` in cmd and copy the local IPv4 address (usually 192.168.0.1 or 192.168.X.X with X being 0-255)
+3. change the host of the ws server to `0.0.0.0` so it accepts connections from other pcs
+   > you can also use the local IPv4 address of your gaming pc instead: run `ipconfig` in cmd and copy it (usually 192.168.0.1 or 192.168.X.X with X being 0-255)
 4. click the `open in browser` button inside the http server settings
-5. enter the gaming pc's address in both the **input-overlay-ws** and the hosted **configurator**
+   > it opens the hosted configurator on your gaming pc's local address, which also fills that address and the ws port into the configurator for you
+5. check that the address in the hosted **configurator** is your gaming pc's local IPv4 address
 6. click the `⎘ copy url` button to copy your hosted overlay url from the hosted configurator and add it as a browser source in your OBS running on the streaming pc
 
 > [!TIP]

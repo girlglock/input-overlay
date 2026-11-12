@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU16, Ordering};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
@@ -10,6 +11,12 @@ struct WebAssets;
 
 pub struct HttpServer {
     _stop_tx: oneshot::Sender<()>,
+}
+
+static WS_PORT: AtomicU16 = AtomicU16::new(4455);
+
+pub fn set_ws_port(port: u16) {
+    WS_PORT.store(port, Ordering::Relaxed);
 }
 
 impl HttpServer {
@@ -72,6 +79,12 @@ async fn serve(stream: tokio::net::TcpStream, _addr: SocketAddr) {
 
     let path = raw_path.split('?').next().unwrap_or("/");
     let rel = path.trim_start_matches('/');
+
+    if rel == "ws_config" {
+        let payload = serde_json::json!({ "port": WS_PORT.load(Ordering::Relaxed) });
+        respond_json(&mut write_half, &payload.to_string()).await;
+        return;
+    }
 
     if rel == "user_mount" || rel.starts_with("user_mount/") {
         let sub = rel

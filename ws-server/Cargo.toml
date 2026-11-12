@@ -28,6 +28,7 @@ rand = "0.8"
 time = "=0.3.36"
 image = { version = "0.25", default-features = false, features = ["png", "gif", "webp"] }
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+if-addrs = "0.15"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 hidapi = { version = "2", features = ["linux-static-hidraw"] }

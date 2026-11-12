@@ -472,8 +472,17 @@ impl SettingsView {
             "regen-token" => self.regenerate_token(app),
             "add-key-btn" => self.set_listening(!self.listening),
             "open-http-btn" if self.http_enabled => {
-                let host = self.win.value("http-host");
-                let host = if host.is_empty() { "localhost".to_string() } else { host };
+                let host = self.win.value("http-host").trim().to_string();
+                
+                //browser needs actual address
+                let host = match host.as_str() {
+                    "" => "localhost".to_string(),
+                    "0.0.0.0" | "::" | "[::]" => system::local_ipv4()
+                        .map(|ip| ip.to_string())
+                        .unwrap_or_else(|| "localhost".to_string()),
+                    _ => host,
+                };
+                
                 let port = self.win.value("http-port").trim().parse::<u16>().unwrap_or(4456);
                 open_url(&format!("http://{host}:{port}"));
             }

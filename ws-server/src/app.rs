@@ -94,6 +94,7 @@ impl App {
 
         services::config::save(&self.config_path, &new_cfg).map_err(|e| e.to_string())?;
         *self.config.lock().unwrap() = new_cfg.clone();
+        services::http_server::set_ws_port(new_cfg.port);
 
         if need_affinity {
             apply_cpu_affinity(&new_cfg.cpu_affinity);
@@ -429,6 +430,7 @@ pub fn run() {
     }
     let analog = (!cfg.analog_keyboard.is_empty())
         .then(|| services::analog::AnalogThread::start(input_tx, &cfg.analog_keyboard, cfg.flush_hz));
+    services::http_server::set_ws_port(cfg.port);
     let http = if cfg.http_enabled {
         services::http_server::HttpServer::start(&cfg.host, cfg.http_port)
     } else {

@@ -138,14 +138,15 @@
                                 <warning class="note note--red">this will not work with the obs-plugin version of the input-overlay-ws! you will have to use the standalone app version!</warning>
                                 <li>open the input-overlay-ws server <b>on your gaming pc</b></li>
                                 <li>right-click the tray icon -> settings -> enable the http server</li>
-                                <li>change the host of the ws server to the address of your gaming pc
-                                    <br><small>run <code>ipconfig</code> in cmd and copy the local IPv4
-                                        address (usually 192.168.0.1 or 192.168.X.X with X being 0-255)</small>
+                                <li>change the host of the ws server to <code>0.0.0.0</code> so it accepts connections from other pcs
+                                    <br><small>you can also use the local IPv4 address of your gaming pc instead: run <code>ipconfig</code>
+                                        in cmd and copy it (usually 192.168.0.1 or 192.168.X.X with X being 0-255)</small>
                                 </li>
-                                <li>click the <code>open in browser</code> button inside the http server settings</li>
-                                <li>enter the gaming pc's address in both the <strong>input-overlay-ws</strong> and the
-                                    hosted
-                                    <strong>configurator</strong>
+                                <li>click the <code>open in browser</code> button inside the http server settings
+                                    <br><small>it opens the hosted configurator on your gaming pc's local address</small>
+                                </li>
+                                <li>check that the address in the hosted <strong>configurator</strong> is your gaming peesees local
+                                    IPv4 address
                                 </li>
                                 <li>click the <code>⎘ copy url</code> button to copy your hosted overlay url from the
                                     hosted configurator and add it as a browser source in your OBS running on the

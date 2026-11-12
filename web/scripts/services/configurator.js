@@ -176,6 +176,8 @@ export class ConfiguratorMode {
 
         if (hasParams) this.loadSettingsFromLink(true);
         else this.applyDefaultSettings();
+        
+        if (LOCAL_INSTANCE && !urlParams.has("ws")) this._prefillHostedWsAddress();
 
         this.setupConfigInputs();
         this.setupPreviewInputListeners();
@@ -187,6 +189,24 @@ export class ConfiguratorMode {
         this._syncPluginMode();
         this.updateState();
         this._setupModeChoiceModal();
+    }
+
+    async _prefillHostedWsAddress() {
+        const addressEl = document.getElementById("wsaddress");
+        const portEl = document.getElementById("wsport");
+        
+        if (!addressEl || !portEl) return;
+        if (window.location.hostname) addressEl.value = window.location.hostname;
+        
+        try {
+            const res = await fetch("ws_config", { cache: "no-store" });
+            
+            if (res.ok) {
+                const { port } = await res.json();
+                if (Number.isInteger(port) && port > 0) portEl.value = String(port);
+            }
+        } catch {}
+        this.updateState();
     }
 
     _setupModeChoiceModal() {

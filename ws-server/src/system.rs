@@ -15,6 +15,41 @@ pub fn open_url(url: &str) {
     }
 }
 
+//mfw im trying to guess the local ip and sort vpns out
+pub fn local_ipv4() -> Option<std::net::Ipv4Addr> {
+    const VIRTUAL: [&str; 9] = ["warp", "tailscale", "zerotier", "vethernet", "wsl", "docker", "virtualbox", "vmware", "vpn"];
+    
+    let rank = |name: &str, ip: std::net::Ipv4Addr| {
+        let [a, b, ..] = ip.octets();
+        
+        let range = match (a, b) {
+            (192, 168) => 0,
+            (10, _) => 1,
+            (172, 16..=31) => 2,
+            _ => 3,
+        };
+        
+        let name = name.to_ascii_lowercase();
+        let virtual_penalty = if VIRTUAL.iter().any(|v| name.contains(v)) { 10 } else { 0 };
+        
+        range + virtual_penalty
+    };
+    
+    if_addrs::get_if_addrs()
+        .ok()?
+        .into_iter()
+        .filter_map(|iface| match iface.ip() {
+            std::net::IpAddr::V4(ip) => Some((iface.name, ip)),
+            std::net::IpAddr::V6(_) => None,
+        })
+        .filter(|(_, ip)| {
+            let [a, b, ..] = ip.octets();
+            !ip.is_loopback() && !ip.is_link_local() && !ip.is_unspecified() && !(a == 100 && (64..128).contains(&b))
+        })
+        .min_by_key(|(name, ip)| rank(name, *ip))
+        .map(|(_, ip)| ip)
+}
+
 pub fn is_admin() -> bool {
     #[cfg(windows)]
     unsafe {
