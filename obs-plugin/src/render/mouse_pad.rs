@@ -560,6 +560,7 @@ impl MousePadState {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_tiled_texture(
     content: &mut Pixmap,
     (w, h): (f32, f32),
