@@ -33,6 +33,9 @@ FetchContent_Declare(glfw
 
 FetchContent_MakeAvailable(freetype glfw)
 
+target_include_directories(freetype PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/freetype")
+target_compile_definitions(freetype PRIVATE "FT_CONFIG_MODULES_H=<ftmodule_slim.h>")
+
 if(NOT TARGET Freetype::Freetype)
 	add_library(Freetype::Freetype ALIAS freetype)
 endif()
