@@ -141,7 +141,6 @@ type Frames = Box<dyn Iterator<Item = ImageResult<Frame>>>;
 
 #[derive(Clone, Copy)]
 enum AnimKind {
-    Gif,
     Apng,
     WebP,
 }
@@ -149,7 +148,6 @@ enum AnimKind {
 fn open_frames(kind: AnimKind, bytes: &Arc<[u8]>) -> Option<Frames> {
     let cursor = Cursor::new(Arc::clone(bytes));
     Some(match kind {
-        AnimKind::Gif => Box::new(image::codecs::gif::GifDecoder::new(cursor).ok()?.into_frames()),
         AnimKind::Apng => Box::new(image::codecs::png::PngDecoder::new(cursor).ok()?.apng().ok()?.into_frames()),
         AnimKind::WebP => Box::new(image::codecs::webp::WebPDecoder::new(cursor).ok()?.into_frames()),
     })
@@ -157,7 +155,6 @@ fn open_frames(kind: AnimKind, bytes: &Arc<[u8]>) -> Option<Frames> {
 
 fn anim_kind(bytes: &Arc<[u8]>) -> Option<AnimKind> {
     match image::guess_format(bytes).ok()? {
-        image::ImageFormat::Gif => Some(AnimKind::Gif),
         image::ImageFormat::Png => {
             let dec = image::codecs::png::PngDecoder::new(Cursor::new(Arc::clone(bytes))).ok()?;
             dec.is_apng().ok()?.then_some(AnimKind::Apng)

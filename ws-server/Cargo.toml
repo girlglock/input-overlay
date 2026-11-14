@@ -26,7 +26,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 rust-embed = { version = "8", features = ["interpolate-folder-path"] }
 rand = "0.8"
 time = "=0.3.36"
-image = { version = "0.25", default-features = false, features = ["png", "gif", "webp"] }
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 if-addrs = "0.15"
 

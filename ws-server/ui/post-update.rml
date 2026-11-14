@@ -17,7 +17,7 @@
 		</div>
 		<div class="window-body">
 			<div class="done-body">
-				<img src="assets/dansi.gif" class="done-gif"/>
+				<img src="assets/dansi.webp" class="done-gif"/>
 				<p id="update-done-text"></p>
 			</div>
 			<div class="done-buttons">
