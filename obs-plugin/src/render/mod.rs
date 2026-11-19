@@ -48,6 +48,24 @@ const FIT_MAX_FILL: f32 = 0.85;
 //overlayVisualiser.js:29
 const MOUSEPAD_TRAIL_PX: f32 = 2.5;
 
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
+pub struct FpsCaps {
+    pub overlay: u32,
+    pub pad_background: u32,
+    pub pad_trail: u32,
+    pub history: u32,
+}
+
+const FRAME_SLACK: Duration = Duration::from_millis(2);
+
+pub fn frame_interval(cap: u32, canvas_fps: f64) -> Duration {
+    let canvas = if canvas_fps.is_finite() && canvas_fps > 0.0 { canvas_fps } else { 60.0 };
+    let fps = if cap == 0 { canvas } else { (cap as f64).min(canvas) };
+    Duration::from_secs_f64(1.0 / fps)
+        .saturating_sub(FRAME_SLACK)
+        .max(Duration::from_millis(1))
+}
+
 struct PositionedElement {
     def: LayoutElementDef,
     rect: Rect,
@@ -426,12 +444,27 @@ impl Renderer {
         }
     }
 
+    pub fn set_frame_intervals(&mut self, caps: FpsCaps, canvas_fps: f64) {
+        if let Some((pad, _)) = self.mouse_pad.as_mut() {
+            pad.set_frame_intervals(
+                frame_interval(caps.pad_background, canvas_fps),
+                frame_interval(caps.pad_trail, canvas_fps),
+            );
+        }
+        
+        let history = frame_interval(caps.history, canvas_fps);
+        
+        for (h, _) in self.histories.iter_mut() {
+            h.set_frame_interval(history);
+        }
+    }
+
     pub fn needs_constant_redraw(&self) -> bool {
         let mouse_pad_live = self
             .mouse_pad
             .as_ref()
-            .is_some_and(|(pad, _)| pad.is_live(self.mouse_trail_fadeout_ms));
-        let history_live = self.histories.iter().any(|(h, _)| h.is_live());
+            .is_some_and(|(pad, _)| pad.needs_redraw(self.mouse_trail_fadeout_ms));
+        let history_live = self.histories.iter().any(|(h, _)| h.needs_redraw());
         let transitions_live = self.key_transitions.iter().any(Transition::is_animating)
             || self.scroll_transitions.iter().any(Transition::is_animating);
         let analog_live = self.analog_smoothers.iter().any(AnalogSmoother::is_animating);

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, TryRecvError};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tiny_skia::{
     Color, FillRule, FilterQuality, Paint, PathBuilder, Pixmap, PixmapPaint, Rect, Transform,
@@ -56,6 +56,12 @@ struct TrailPoint {
     d: f32,
 }
 
+struct ContentCache {
+    pixmap: Pixmap,
+    rendered_at: Instant,
+    had_trail: bool,
+}
+
 pub struct MousePadState {
     mode: PadMode,
     cursor_x: f32,
@@ -80,6 +86,11 @@ pub struct MousePadState {
     show_distance: bool,
     dpi: f32,
     reset_distance_after_fade: bool,
+    bg_interval: Duration,
+    trail_interval: Duration,
+    last_bg_update: Option<Instant>,
+    content_cache: Option<ContentCache>,
+    content_dirty: bool,
 }
 
 impl MousePadState {
@@ -126,7 +137,17 @@ impl MousePadState {
             show_distance: config.show_distance,
             dpi: config.dpi.max(1.0),
             reset_distance_after_fade: config.reset_distance_after_fade,
+            bg_interval: Duration::ZERO,
+            trail_interval: Duration::ZERO,
+            last_bg_update: None,
+            content_cache: None,
+            content_dirty: true,
         }
+    }
+
+    pub fn set_frame_intervals(&mut self, background: Duration, trail: Duration) {
+        self.bg_interval = background;
+        self.trail_interval = trail;
     }
 
     pub fn handle_move(
@@ -262,10 +283,7 @@ impl MousePadState {
     }
 
     // !!! bimportant overlayVisualiser.js:1323-1324
-    pub fn is_live(&self, max_age_ms: f32) -> bool {
-        if self.texture_rx.is_some() || self.video_url.is_some() || self.gif.as_ref().is_some_and(|g| g.is_live()) {
-            return true;
-        }
+    fn trail_is_live(&self, max_age_ms: f32) -> bool {
         if self.trail.is_empty() {
             return false;
         }
@@ -278,6 +296,21 @@ impl MousePadState {
         visually_live || self.show_distance
     }
 
+    //like is_live but false when the cached content is still fresh under the fps caps
+    pub fn needs_redraw(&self, max_age_ms: f32) -> bool {
+        if self.content_dirty || self.texture_rx.is_some() {
+            return true;
+        }
+        
+        let gif_due = self.gif.as_ref().is_some_and(|g| g.is_live())
+            && self.last_bg_update.is_none_or(|t| t.elapsed() >= self.bg_interval);
+        
+        let trail_due = (self.trail_is_live(max_age_ms) || self.content_cache.as_ref().is_some_and(|c| c.had_trail))
+            && self.content_cache.as_ref().is_none_or(|c| c.rendered_at.elapsed() >= self.trail_interval);
+        
+        gif_due || trail_due
+    }
+
     pub fn video_url(&self) -> Option<&str> {
         self.video_url.as_deref()
     }
@@ -288,11 +321,17 @@ impl MousePadState {
         }
         self.texture = texture::rgba_to_tinted_pixmap(frame, self.active_color);
         self.video_size = Some((native_size.0 as f32, native_size.1 as f32));
+        self.content_dirty = true;
     }
 
     fn poll_texture(&mut self) {
         if let Some(gif) = &self.gif {
-            self.texture = gif.latest_frame();
+            if self.last_bg_update.is_none_or(|t| t.elapsed() >= self.bg_interval) {
+                self.texture = gif.latest_frame();
+                self.last_bg_update = Some(Instant::now());
+                self.content_dirty = true;
+            }
+
             return;
         }
 
@@ -303,6 +342,7 @@ impl MousePadState {
             Ok(texture) => {
                 self.texture = texture;
                 self.texture_rx = None;
+                self.content_dirty = true;
             }
             Err(TryRecvError::Empty) => {}
             Err(TryRecvError::Disconnected) => self.texture_rx = None,
@@ -326,8 +366,7 @@ impl MousePadState {
             params.outline,
         );
 
-        let (active_color, font_color, max_age_ms) =
-            (params.active_color, params.font_color, params.max_age_ms);
+        let max_age_ms = params.max_age_ms;
 
         self.prune_by_age(max_age_ms);
 
@@ -368,9 +407,53 @@ impl MousePadState {
 
         let buf_w = content_rect.width().round().max(1.0) as u32;
         let buf_h = content_rect.height().round().max(1.0) as u32;
-        let Some(mut content) = Pixmap::new(buf_w, buf_h) else {
+        let trail_live = self.trail_is_live(max_age_ms);
+        
+        let reuse = !self.content_dirty
+            && self.content_cache.as_ref().is_some_and(|c| {
+                c.pixmap.width() == buf_w
+                    && c.pixmap.height() == buf_h
+                    && (c.rendered_at.elapsed() < self.trail_interval || !(trail_live || c.had_trail))
+            });
+        
+        if !reuse {
+            let Some(content) = self.render_content(buf_w, buf_h, scale, params, idle_fade) else {
+                return;
+            };
+            
+            self.content_cache = Some(ContentCache {
+                pixmap: content,
+                rendered_at: Instant::now(),
+                had_trail: trail_live,
+            });
+            
+            self.content_dirty = false;
+        }
+        
+        let Some(cache) = &self.content_cache else {
             return;
         };
+        
+        pixmap.draw_pixmap(
+            content_rect.x().round() as i32,
+            content_rect.y().round() as i32,
+            cache.pixmap.as_ref(),
+            &PixmapPaint::default(),
+            Transform::identity(),
+            None,
+        );
+    }
+
+    fn render_content(
+        &self,
+        buf_w: u32,
+        buf_h: u32,
+        scale: f32,
+        params: &MousePadDrawParams,
+        idle_fade: f32,
+    ) -> Option<Pixmap> {
+        let (active_color, font_color) = (params.active_color, params.font_color);
+        let mut content = Pixmap::new(buf_w, buf_h)?;
 
         let content_radius = (params.border_radius - params.border_width).max(0.0);
         self.draw_background(
@@ -485,14 +568,7 @@ impl MousePadState {
         }
 
         clip_to_rounded_rect(&mut content, content_radius);
-        pixmap.draw_pixmap(
-            content_rect.x().round() as i32,
-            content_rect.y().round() as i32,
-            content.as_ref(),
-            &PixmapPaint::default(),
-            Transform::identity(),
-            None,
-        );
+        Some(content)
     }
 
     fn draw_background(

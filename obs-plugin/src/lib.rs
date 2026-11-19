@@ -2,6 +2,7 @@ mod obs;
 mod obs_helpers;
 mod overlay_link;
 mod render;
+mod settings_source;
 mod video_source;
 
 use std::path::PathBuf;
@@ -130,7 +131,8 @@ pub extern "C" fn obs_module_load() -> bool {
 
     #[cfg(any(windows, target_os = "linux"))]
     if obs::init() {
-        video_source::init(bus_tx, Arc::clone(&config), config_path.clone());
+        video_source::init(bus_tx);
+        settings_source::init(Arc::clone(&config), config_path.clone());
     }
 
     *PLUGIN_STATE.lock().unwrap() = Some(PluginState {
@@ -151,6 +153,7 @@ pub extern "C" fn obs_module_load() -> bool {
 #[no_mangle]
 #[cfg_attr(not(windows), allow(unused_mut))]
 pub extern "C" fn obs_module_unload() {
+    settings_source::shutdown();
     let state = PLUGIN_STATE.lock().unwrap().take();
     if let Some(mut s) = state {
         s._relay_task.abort();
