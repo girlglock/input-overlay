@@ -59,7 +59,7 @@ jobs:
         id: unsigned
         uses: actions/upload-artifact@v4
         with:
-          name: signpath-unsigned
+          name: windows-binaries
           path: target/to-sign/
           retention-days: 1
 
