@@ -9,8 +9,8 @@ use crate::obs::{
 };
 use crate::obs_helpers::{group, info, list, list_header_str, list_item, list_item_str, read_str};
 
-const SOURCE_ID: &std::ffi::CStr = c"input-overlay-settings";
-const WINDOW_NAME: &std::ffi::CStr = c"Input Overlay Settings";
+const SOURCE_ID: &std::ffi::CStr = c"input-overlay-gg-settings";
+const WINDOW_NAME: &std::ffi::CStr = c"Input Overlay Settings (GG)";
 
 struct PluginConfigState {
     config: Arc<Mutex<Config>>,

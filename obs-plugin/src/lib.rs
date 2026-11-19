@@ -45,7 +45,7 @@ pub extern "C" fn obs_module_ver() -> u32 {
 
 #[no_mangle]
 pub extern "C" fn obs_module_name() -> *const std::os::raw::c_char {
-    c"Input Overlay".as_ptr()
+    c"Input Overlay (GG)".as_ptr()
 }
 
 #[no_mangle]
@@ -64,6 +64,7 @@ pub extern "C" fn obs_module_load() -> bool {
     }
 
     let config_path = config_dir.join("config.json");
+    migrate_legacy_config(&config_path);
     let cfg = services::config::load(&config_path);
 
     let analog_kb = cfg.analog_keyboard.clone();
@@ -171,6 +172,30 @@ pub extern "C" fn obs_module_unload() {
     tracing::info!("input-overlay plugin unloaded");
 }
 
+const CONFIG_DIR_NAME: &str = "input_overlay_gg";
+const LEGACY_CONFIG_DIR_NAME: &str = "input-overlay";
+
+//prerelease configs were inside non _gg dir but i dont wanna confuse this with the other plugin by universal
+fn migrate_legacy_config(config_path: &std::path::Path) {
+    if config_path.exists() {
+        return;
+    }
+    
+    let Some(legacy) = plugin_config_dir()
+        .parent()
+        .map(|p| p.join(LEGACY_CONFIG_DIR_NAME).join("config.json"))
+    else {
+        return;
+    };
+    
+    if legacy.is_file() {
+        match std::fs::copy(&legacy, config_path) {
+            Ok(_) => tracing::info!("config: copied {} to {}", legacy.display(), config_path.display()),
+            Err(e) => tracing::warn!("config: couldn't copy {}: {e}", legacy.display()),
+        }
+    }
+}
+
 #[cfg(windows)]
 pub fn plugin_config_dir() -> PathBuf {
     let base = std::env::var("APPDATA")
@@ -178,7 +203,7 @@ pub fn plugin_config_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."));
     base.join("obs-studio")
         .join("plugin_config")
-        .join("input-overlay")
+        .join(CONFIG_DIR_NAME)
 }
 
 #[cfg(target_os = "linux")]
@@ -189,7 +214,7 @@ pub fn plugin_config_dir() -> PathBuf {
     base.join(".config")
         .join("obs-studio")
         .join("plugin_config")
-        .join("input-overlay")
+        .join(CONFIG_DIR_NAME)
 }
 
 fn setup_logging() -> tracing_appender::non_blocking::WorkerGuard {

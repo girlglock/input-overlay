@@ -68,7 +68,7 @@
 
 1. download the latest release of the [`input-overlay-obs-plugin`](https://github.com/girlglock/input-overlay/releases) and follow the setup instructions from its release page
 2. configure your overlay to your liking, then click `⭳ export json` above
-3. add a new `Input Overlay` source in OBS
+3. add a new `Input Overlay (GG)` source in OBS
 4. in its properties choose the config file you just exported
 5. configure other settings to your preference
 

@@ -21,7 +21,7 @@ use crate::overlay_link::{
 use crate::render::{frame_interval, FpsCaps, Renderer};
 use io_ws_common::input_event::InputEvent;
 
-const SOURCE_ID: &[u8] = b"input-overlay-ws-video\0";
+const SOURCE_ID: &[u8] = b"input-overlay-gg-video\0";
 const DEFAULT_WIDTH: u32 = 512;
 const DEFAULT_HEIGHT: u32 = 512;
 const MIN_DIMENSION: i32 = 64;
@@ -134,7 +134,7 @@ fn idle_pixmap(width: u32, height: u32) -> Pixmap {
 }
 
 unsafe extern "C" fn source_get_name(_type_data: *mut c_void) -> *const std::ffi::c_char {
-    c"Input Overlay".as_ptr()
+    c"Input Overlay (GG)".as_ptr()
 }
 
 unsafe extern "C" fn source_create(settings: *mut ObsData, source: *mut ObsSource) -> *mut c_void {
