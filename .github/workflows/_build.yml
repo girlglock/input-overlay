@@ -18,9 +18,13 @@ on:
       retention-days:
         type: number
         default: 0
+      sign:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  actions: read
   id-token: write
   attestations: write
 
@@ -42,6 +46,43 @@ jobs:
 
       - name: build
         run: cargo build --release
+
+      - name: collect binaries to sign
+        if: inputs.sign
+        shell: bash
+        run: |
+          mkdir -p target/to-sign
+          cp target/release/input-overlay-ws.exe target/release/input_overlay_obs_plugin.dll target/to-sign/
+
+      - name: upload binaries to sign
+        if: inputs.sign
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: signpath-unsigned
+          path: target/to-sign/
+          retention-days: 1
+
+      - name: sign binaries
+        if: inputs.sign
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: target/signed
+
+      - name: use signed binaries
+        if: inputs.sign
+        shell: pwsh
+        run: |
+          Copy-Item target/signed/input-overlay-ws.exe, target/signed/input_overlay_obs_plugin.dll target/release/ -Force
+          Get-AuthenticodeSignature target/release/input-overlay-ws.exe, target/release/input_overlay_obs_plugin.dll |
+            Format-Table Path, Status, @{ n = 'Signer'; e = { $_.SignerCertificate.Subject } } -AutoSize -Wrap
 
       - name: attest windows build provenance
         uses: actions/attest-build-provenance@v1

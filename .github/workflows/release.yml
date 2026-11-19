@@ -8,13 +8,16 @@ on:
 
 permissions:
   contents: write
+  actions: read
   id-token: write
   attestations: write
 
 jobs:
   build:
     uses: ./.github/workflows/_build.yml
+    secrets: inherit
     with:
+      sign: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
       windows-artifact-name: windows-zip
       linux-appimage-artifact-name: linux-appimage
       obs-plugin-artifact-name: obs-plugin-windows
