@@ -21,18 +21,77 @@ fn glyph_font<'a>(font: &TextFont<'a>, ch: char) -> &'a Font {
     font.primary
 }
 
-pub fn load_system_font(bold: bool) -> Option<&'static Font> {
-    static FONT: OnceLock<Option<Font>> = OnceLock::new();
-    static FONT_BOLD: OnceLock<Option<Font>> = OnceLock::new();
+pub struct DefaultFont {
+    pub font: Font,
+    pub real_bold: bool,
+}
+
+const DEFAULT_FAMILIES: [&str; 5] = ["Noto Sans", "DejaVu Sans", "Liberation Sans", "Arial", "Segoe UI"];
+
+pub fn load_system_font(bold: bool) -> Option<&'static DefaultFont> {
+    static FONT: OnceLock<Option<DefaultFont>> = OnceLock::new();
+    static FONT_BOLD: OnceLock<Option<DefaultFont>> = OnceLock::new();
     let cell = if bold { &FONT_BOLD } else { &FONT };
-    cell.get_or_init(|| load_from_candidates(&system_font_candidates(bold)))
-        .as_ref()
+    
+    cell.get_or_init(|| {
+        let found = load_from_candidates(&system_font_candidates(bold))
+            .map(|font| DefaultFont { font, real_bold: bold })
+            .or_else(|| {
+                DEFAULT_FAMILIES.iter().find_map(|family| {
+                    let found = super::system_fonts::find(family, bold)?;
+                    let font = load_face(&found.face.path, found.face.index)?;
+                    Some(DefaultFont { font, real_bold: found.real_bold })
+                })
+            })
+            .or_else(|| load_bundled_default(bold));
+        
+        if found.is_none() {
+            tracing::error!("text: no default font found, labels will not be drawn");
+        }
+        
+        found
+    })
+    .as_ref()
+}
+
+fn load_bundled_default(bold: bool) -> Option<DefaultFont> {
+    let dir = super::font_loader::fonts_dir()?;
+    
+    if bold {
+        if let Some(font) = load_face(&dir.join("noto-sans-bold.ttf"), 0) {
+            return Some(DefaultFont { font, real_bold: true });
+        }
+    }
+    
+    load_face(&dir.join("noto-sans.ttf"), 0).map(|font| DefaultFont { font, real_bold: false })
+}
+
+fn load_face(path: &std::path::Path, index: u32) -> Option<Font> {
+    let bytes = std::fs::read(path).ok()?;
+    
+    let settings = FontSettings {
+        collection_index: index,
+        ..FontSettings::default()
+    };
+    
+    Font::from_bytes(bytes, settings)
+        .inspect_err(|e| tracing::warn!("text: failed to parse font {}: {e}", path.display()))
+        .ok()
 }
 
 pub fn load_symbol_fallback_font() -> Option<&'static Font> {
     static FONT: OnceLock<Option<Font>> = OnceLock::new();
-    FONT.get_or_init(|| load_from_candidates(&symbol_fallback_candidates()))
-        .as_ref()
+    FONT.get_or_init(|| {
+        load_from_candidates(&symbol_fallback_candidates()).or_else(|| {
+            ["DejaVu Sans", "Noto Sans Symbols 2", "Noto Sans Symbols", "Segoe UI Symbol"]
+                .iter()
+                .find_map(|family| {
+                    let found = super::system_fonts::find(family, false)?;
+                    load_face(&found.face.path, found.face.index)
+                })
+        })
+    })
+    .as_ref()
 }
 
 #[cfg(windows)]
@@ -50,6 +109,9 @@ fn symbol_fallback_candidates() -> Vec<String> {
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansSymbols-Regular.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/noto/NotoSansSymbols2-Regular.ttf",
+        "/usr/share/fonts/noto/NotoSansSymbols-Regular.ttf",
     ]
     .iter()
     .map(|s| s.to_string())
@@ -94,6 +156,10 @@ fn system_font_candidates(bold: bool) -> Vec<String> {
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
             "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+            "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/noto/NotoSans-Bold.ttf",
         ]
     } else {
         &[
@@ -102,6 +168,8 @@ fn system_font_candidates(bold: bool) -> Vec<String> {
             "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
             "/usr/share/fonts/TTF/DejaVuSans.ttf",
             "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/noto/NotoSans-Regular.ttf",
         ]
     };
     files.iter().map(|s| s.to_string()).collect()

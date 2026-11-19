@@ -63,7 +63,7 @@ jobs:
           pkg=target/obs-plugin-package/obs-studio/plugins/input_overlay_obs_plugin
           mkdir -p "$pkg/data"
           cp target/release/input_overlay_obs_plugin.dll "$pkg/"
-          cp -r obs-plugin/fonts "$pkg/input-overlay-fonts"
+          mkdir -p "$pkg/fonts" && cp -r obs-plugin/fonts/. "$pkg/fonts/"
           version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           sed "s|{{VERSION}}|$version|" obs-plugin/manifest.json > "$pkg/data/manifest.json"
 
@@ -146,7 +146,7 @@ jobs:
           pkg=target/obs-plugin-package/obs-studio/plugins/input_overlay_obs_plugin
           mkdir -p "$pkg/data"
           cp target/release/libinput_overlay_obs_plugin.so "$pkg/"
-          cp -r obs-plugin/fonts "$pkg/input-overlay-fonts"
+          mkdir -p "$pkg/fonts" && cp -r obs-plugin/fonts/. "$pkg/fonts/"
           version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           sed "s|{{VERSION}}|$version|" obs-plugin/manifest.json > "$pkg/data/manifest.json"
 

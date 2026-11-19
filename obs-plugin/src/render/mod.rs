@@ -471,14 +471,16 @@ impl Renderer {
 
         self.poll_font();
         self.label_images.poll();
-        let primary_font = self
-            .custom_font
-            .as_ref()
-            .or_else(|| text::load_system_font(self.bold_font));
-        let font = primary_font.map(|primary| text::TextFont {
+        
+        let primary_font = match &self.custom_font {
+            Some(font) => Some((font, self.custom_font_real_bold)),
+            None => text::load_system_font(self.bold_font).map(|d| (&d.font, d.real_bold)),
+        };
+        
+        let font = primary_font.map(|(primary, real_bold)| text::TextFont {
             primary,
             fallback: text::load_symbol_fallback_font(),
-            bold: self.bold_font && !(self.custom_font.is_some() && self.custom_font_real_bold),
+            bold: self.bold_font && !real_bold,
         });
         let font = font.as_ref();
 
