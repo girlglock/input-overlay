@@ -32,13 +32,13 @@ pub struct SettingsView {
     msg_until: Option<Instant>,
     update_info: Option<UpdateInfo>,
     updating: bool,
-    keep_open_on_save: bool,
+    notray: bool,
     gamepad_revision: Option<u64>,
     gamepad_poll_at: Option<Instant>,
 }
 
 impl SettingsView {
-    pub fn open(app: &App, keep_open_on_save: bool) -> Option<Self> {
+    pub fn open(app: &App, notray: bool) -> Option<Self> {
         let win = Win::open("Input Overlay WS - Settings", 420, 580, true, "settings.rml")?;
         let cfg = app.config();
         let mut view = Self {
@@ -56,7 +56,7 @@ impl SettingsView {
             msg_until: None,
             update_info: None,
             updating: false,
-            keep_open_on_save,
+            notray,
             gamepad_revision: None,
             gamepad_poll_at: None,
         };
@@ -490,11 +490,7 @@ impl SettingsView {
                 Ok(()) => {
                     self.original = app.config();
                     self.set_dirty(false);
-                    if self.keep_open_on_save {
-                        self.show_msg("settings saved", false);
-                    } else {
-                        self.win.close();
-                    }
+                    self.show_msg("settings saved", false);
                 }
                 Err(e) => self.show_msg(&e, true),
             },
@@ -534,7 +530,7 @@ impl SettingsView {
                 let enabled = self.win.checked("autostart");
                 if enabled != self.autostart {
                     self.autostart = enabled;
-                    set_autostart(enabled, self.keep_open_on_save);
+                    set_autostart(enabled, self.notray);
                 }
             }
             "http-enabled" => {
