@@ -315,6 +315,13 @@ unsafe extern "C" fn source_get_properties(data: *mut c_void) -> *mut ObsPropert
     }
 
     group(api, p, b"grp_overlay\0", b"Overlay\0", |g| {
+        info(
+            api,
+            g,
+            b"overlay_configurator\0",
+            b"<a href=\"https://overlay.girlglock.com\">Open Overlay Configurator</a>\0",
+        );
+        
         let json_prop = file_path(
             api,
             g,
@@ -322,11 +329,15 @@ unsafe extern "C" fn source_get_properties(data: *mut c_void) -> *mut ObsPropert
             b"Config File\0",
             b"JSON Files (*.json)\0",
         );
+        
         let link_prop = text(api, g, b"link\0", b"Overlay Link\0", OBS_TEXT_DEFAULT);
         let use_link_prop = checkbox(api, g, b"use_link\0", b"Use Web link instead\0");
+        
         set_visible(api, json_prop, !use_link_now);
         set_visible(api, link_prop, use_link_now);
+        
         (api.property_set_modified_callback)(use_link_prop, Some(on_use_link_toggled));
+        
         text(
             api,
             g,

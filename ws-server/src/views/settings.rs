@@ -8,7 +8,8 @@ use crate::ui::{self, escape, Event, EventKind, Win};
 use crate::ws_server::ServerStatus;
 
 const TABS: [&str; 4] = ["server", "input", "advanced", "about"];
-const LINKS: [(&str, &str); 5] = [
+const LINKS: [(&str, &str); 6] = [
+    ("link-configurator", system::CONFIGURATOR_URL),
     ("link-github", "https://github.com/girlglock/input-overlay"),
     ("link-twitter", "https://twitter.com/girlglock_"),
     ("link-website", "https://girlglock.com"),

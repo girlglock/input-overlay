@@ -116,6 +116,7 @@ button.key-tag:hover { color: #c00000; }
 }
 
 #http-host { opacity: 0.5; cursor: arrow; }
+#link-configurator { flex-grow: 0; }
 #theme-toggle { opacity: 0.5; flex-grow: 0; cursor: pointer; }
 #theme-toggle.active { opacity: 1; }
 #clients-count.has-clients { cursor: pointer; }

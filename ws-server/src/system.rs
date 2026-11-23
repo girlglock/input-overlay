@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+pub const CONFIGURATOR_URL: &str = "https://overlay.girlglock.com";
+
 pub fn open_url(url: &str) {
     #[cfg(windows)]
     {

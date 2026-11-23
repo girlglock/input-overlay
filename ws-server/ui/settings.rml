@@ -190,6 +190,7 @@
 		</div>
 		<div class="status-bar">
 			<p class="status-bar-field clients-count" id="clients-count">no clients connected</p>
+			<p class="status-bar-field accent-link" id="link-configurator">Open Overlay Configurator</p>
 			<p class="status-bar-field" id="theme-toggle"></p>
 			<p class="status-bar-field" id="status-version"></p>
 		</div>
