@@ -2000,49 +2000,73 @@ export class ConfiguratorMode {
             const attrList = document.createElement("ul");
             attrList.draggable = false;
 
-            //picker: { scope, get, set, keepOne } adds a "+" that opens the key picker for this field
-            const makeAttrRow = (labelText, getValue, setValue, type = "text", picker = null) => {
+            const makeSettingRow = (labelText, valueEl, extraClass = "") => {
                 const li = document.createElement("li");
-                li.className = "kl-tree-attr";
+                li.className = "kl-tree-attr" + (extraClass ? ` ${extraClass}` : "");
                 const lbl = document.createElement("span");
                 lbl.className = "kl-tree-attr-label";
                 lbl.textContent = labelText;
-                const inp = document.createElement("input");
-                inp.className = "kl-tree-attr-input";
-                inp.type = type;
-                if (type === "checkbox") inp.checked = !!getValue();
-                else inp.value = getValue();
-                if (type === "number") { inp.step = "0.25"; }
-                inp.addEventListener("change", () => {
-                    setValue(type === "checkbox" ? inp.checked : inp.value);
-                    posEl.textContent = `${numFmt(def.x - LAYOUT_ORIGIN.x)},${numFmt(def.y - LAYOUT_ORIGIN.y)}`;
-                    nameEl.textContent = getShortName(def);
-                    this._commitKeyLayoutDefs();
-                });
-                if (picker) {
-                    const wrap = document.createElement("div");
-                    wrap.className = "kl-key-field";
-                    const btn = this._makeKeyPickerButton(picker.scope, picker.get, (keys) => {
-                        picker.set(keys);
-                        inp.value = getValue();
-                        nameEl.textContent = getShortName(def);
-                        this._commitKeyLayoutDefs();
-                    }, picker.keepOne);
-                    wrap.append(inp, btn);
-                    li.append(lbl, wrap);
-                } else {
-                    li.append(lbl, inp);
-                }
+                const valueList = document.createElement("ul");
+                valueList.className = "kl-tree-attr-value";
+                valueList.draggable = false;
+                const valueItem = document.createElement("li");
+                
+                valueItem.appendChild(valueEl);
+                valueList.appendChild(valueItem);
+                li.append(lbl, valueList);
+                
                 return li;
             };
 
-            const makeColorOverrideRow = (labelText, styleKey) => {
-                const li = document.createElement("li");
-                li.className = "kl-tree-attr kl-tree-attr--color";
-                const lbl = document.createElement("span");
-                lbl.className = "kl-tree-attr-label";
-                lbl.textContent = labelText;
+            //picker { scope, get, set, keepOne }
+            const makeAttrRow = (labelText, getValue, setValue, type = "text", picker = null) => {
+                const inp = document.createElement("input");
+                inp.type = type;
+                const commitChange = (value) => {
+                    setValue(value);
+                    posEl.textContent = `${numFmt(def.x - LAYOUT_ORIGIN.x)},${numFmt(def.y - LAYOUT_ORIGIN.y)}`;
+                    nameEl.textContent = getShortName(def);
+                    this._commitKeyLayoutDefs();
+                };
 
+                if (type === "checkbox") {
+                    inp.checked = !!getValue();
+                    inp.addEventListener("change", () => commitChange(inp.checked));
+                    const li = document.createElement("li");
+                    li.className = "kl-tree-attr kl-tree-attr--check";
+                    const label = document.createElement("label");
+                    label.className = "cfg-checkbox";
+                    const box = document.createElement("span");
+                    box.className = "cfg-checkbox-box";
+                    const text = document.createElement("span");
+                    text.className = "cfg-checkbox-label";
+                    text.textContent = labelText;
+                    label.append(inp, box, text);
+                    li.appendChild(label);
+                    return li;
+                }
+
+                inp.className = "kl-tree-attr-input";
+                inp.value = getValue();
+                if (type === "number") { inp.step = "0.25"; }
+                inp.addEventListener("change", () => commitChange(inp.value));
+                if (!picker) return makeSettingRow(labelText, inp);
+
+                const wrap = document.createElement("div");
+                wrap.className = "kl-key-field";
+                const btn = this._makeKeyPickerButton(picker.scope, picker.get, (keys) => {
+                    picker.set(keys);
+                    inp.value = getValue();
+                    nameEl.textContent = getShortName(def);
+                    this._commitKeyLayoutDefs();
+                }, picker.keepOne);
+                
+                wrap.append(inp, btn);
+                
+                return makeSettingRow(labelText, wrap);
+            };
+
+            const makeColorOverrideRow = (labelText, styleKey) => {
                 const wrap = document.createElement("div");
                 wrap.className = "kl-tree-color-wrap";
 
@@ -2086,17 +2110,10 @@ export class ConfiguratorMode {
                 });
 
                 wrap.append(swatch, hexInput);
-                li.append(lbl, wrap);
-                return li;
+                return makeSettingRow(labelText, wrap, "kl-tree-attr--color");
             };
 
             const makeRadiusOverrideRow = (labelText, styleKey, globalInputId) => {
-                const li = document.createElement("li");
-                li.className = "kl-tree-attr kl-tree-attr--slider";
-                const lbl = document.createElement("span");
-                lbl.className = "kl-tree-attr-label";
-                lbl.textContent = labelText;
-
                 const wrap = document.createElement("div");
                 wrap.className = "kl-tree-slider-wrap";
 
@@ -2126,8 +2143,7 @@ export class ConfiguratorMode {
                 });
 
                 wrap.append(range, val);
-                li.append(lbl, wrap);
-                return li;
+                return makeSettingRow(labelText, wrap, "kl-tree-attr--slider");
             };
 
             attrList.appendChild(makeAttrRow("x", () => numFmt(def.x - LAYOUT_ORIGIN.x), (v) => { def.x = parseFloat(v) + LAYOUT_ORIGIN.x; }, "number"));
@@ -2183,12 +2199,24 @@ export class ConfiguratorMode {
                 attrList.appendChild(makeAttrRow("perfect gap (ms)", () => def.perfectGapMs ?? 0, (v) => { def.perfectGapMs = Math.max(0, parseFloat(v) || 0); }, "number"));
             }
 
+            const groupsList = document.createElement("ul");
+            
+            groupsList.className = "kl-tree-groups";
+            groupsList.draggable = false;
+            
+            const groupItem = (groupDetails) => {
+                const li = document.createElement("li");
+                li.appendChild(groupDetails);
+                return li;
+            };
+
             const optionsDetails = document.createElement("details");
             optionsDetails.className = "kl-tree-subgroup";
             optionsDetails.open = true;
             const optionsSummary = document.createElement("summary");
             optionsSummary.textContent = "options";
             optionsDetails.append(optionsSummary, attrList);
+            groupsList.appendChild(groupItem(optionsDetails));
 
             if (styleSupported) {
                 const KEY_STYLE_LABELS = {
@@ -2221,14 +2249,14 @@ export class ConfiguratorMode {
                 }
 
                 const overridesDetails = document.createElement("details");
-                overridesDetails.className = "kl-tree-subgroup kl-tree-subgroup--nested";
+                overridesDetails.className = "kl-tree-subgroup";
                 const overridesSummary = document.createElement("summary");
                 overridesSummary.textContent = "style overrides";
                 overridesDetails.append(overridesSummary, overridesList);
-                optionsDetails.appendChild(overridesDetails);
+                groupsList.appendChild(groupItem(overridesDetails));
             }
 
-            itemDetails.appendChild(optionsDetails);
+            itemDetails.appendChild(groupsList);
             node.appendChild(itemDetails);
             node.draggable = false;
             
@@ -2285,9 +2313,23 @@ export class ConfiguratorMode {
         const root = document.createElement("ul");
         root.className = "tree-view";
 
+        const rootItem = document.createElement("li");
+        rootItem.className = "kl-tree-root";
+        const rootLabel = document.createElement("span");
+        rootLabel.className = "kl-tree-root-label";
+        rootLabel.textContent = "elements";
+        const rootCount = document.createElement("span");
+        rootCount.className = "kl-tree-count";
+        rootCount.textContent = String(this.keyLayoutDefs.length);
+        const branch = document.createElement("ul");
+        branch.className = "kl-tree-branch";
+        
         for (let i = this.keyLayoutDefs.length - 1; i >= 0; i--) {
-            root.appendChild(makeNode(this.keyLayoutDefs[i], i));
+            branch.appendChild(makeNode(this.keyLayoutDefs[i], i));
         }
+        
+        rootItem.append(rootLabel, rootCount, branch);
+        root.appendChild(rootItem);
 
         root.addEventListener("dragleave", (e) => {
             if (!root.contains(e.relatedTarget)) clearDropIndicators();

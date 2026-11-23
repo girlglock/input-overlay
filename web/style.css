@@ -2376,6 +2376,10 @@ li {
     -webkit-font-smoothing: none;
 }
 
+.tree-view li {
+    margin-top: 0;
+}
+
 .tree-view ul {
     list-style: none;
     margin: 3px 0 0 16px;
@@ -2441,7 +2445,7 @@ li {
     content: "-";
 }
 
-.tree-view ul details>summary::before {
+.tree-view ul>li>details>summary::before {
     margin-left: -22px;
     position: relative;
     z-index: 1;
@@ -2451,12 +2455,27 @@ li {
     margin-bottom: 4px;
 }
 
-.tree-view>li>details>summary {
+.kl-tree-root-label {
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.tree-view>li>ul.kl-tree-branch {
+    margin-left: 4px;
+}
+
+.kl-tree-branch>li.kl-tree-node {
+    margin-bottom: 4px;
+}
+
+.kl-tree-node>details>summary {
     font-size: 10px;
     color: var(--text-3);
 }
 
-.tree-view>li>details>summary:hover {
+.kl-tree-node>details>summary:hover {
     color: var(--secondary-text);
 }
 
@@ -2492,9 +2511,13 @@ li {
 }
 
 .kl-tree-subgroup {
-    margin-left: 10px;
-    border-left: 1px solid var(--border-dark);
-    padding-left: 6px;
+    margin: 0;
+    padding: 0;
+}
+
+#klElementList .tree-view ul {
+    margin-top: 2px;
+    margin-left: 4px;
 }
 
 .kl-tree-subgroup > summary {
@@ -2525,18 +2548,56 @@ li {
 }
 
 .kl-tree-attr {
+    padding: 2px 0;
+}
+
+/* setting name on its own line, the value one tree level below it */
+.kl-tree-attr-label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-3);
+    line-height: 14px;
+}
+
+.tree-view ul.kl-tree-attr-value {
+    margin: 0 0 2px 4px;
+    padding-left: 12px;
+}
+
+.tree-view ul.kl-tree-groups > li + li {
+    margin-top: 3px;
+}
+
+.tree-view ul.kl-tree-attr-value > li {
     display: flex;
     align-items: center;
     gap: 4px;
+    min-width: 0;
+}
+
+.tree-view ul.kl-tree-attr-value > li::before {
+    left: -12px;
+    top: 50%;
+    width: 9px;
+}
+
+.tree-view ul.kl-tree-attr-value > li:last-child::after {
+    top: 50%;
+}
+
+.kl-tree-attr-value .kl-key-field {
+    flex: 1;
+}
+
+.kl-tree-attr--check .cfg-checkbox {
+    gap: 6px;
     padding: 1px 0;
 }
 
-.kl-tree-attr-label {
+.kl-tree-attr--check .cfg-checkbox-label {
     font-size: 10px;
     color: var(--text-3);
-    width: 38px;
-    flex-shrink: 0;
-    text-align: right;
+    line-height: 14px;
 }
 
 .kl-tree-attr-input {
