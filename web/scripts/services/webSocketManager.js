@@ -196,6 +196,8 @@ export class WebSocketManager {
         const els = viz.previewElements;
         if (!els) return;
 
+        viz.noteInput(info.name, isPressed);
+
         const isKey = info.type === "key";
         const map = isKey ? els.keyElements : els.mouseElements;
         const activeSet = isKey ? viz.activeKeys : viz.activeMouseButtons;
@@ -250,6 +252,7 @@ export class WebSocketManager {
         }
 
         if (event_type === "mouse_wheel") {
+            this.visualizer.noteScroll(event.rotation ?? 1);
             if (this.visualizer.previewElements?.scrollDisplay)
                 this.visualizer.handleScroll(event.rotation ?? 1);
             return;
@@ -274,6 +277,7 @@ export class WebSocketManager {
 
     clearStuckKeys() {
         const viz = this.visualizer;
+        viz.releaseHeldInputs();
         if (!viz.previewElements) return;
 
         const clearMap = (map) => {

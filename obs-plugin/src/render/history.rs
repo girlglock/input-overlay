@@ -87,6 +87,25 @@ impl HistoryState {
         }
     }
 
+    //min duration for a scroll or other 0tick inputs
+    pub fn pulse(&mut self, key: &str, duration: Duration) {
+        let now = Instant::now();
+        self.dirty = true;
+        
+        if let Some(entry) = self.log.iter_mut().rev().find(|e| e.key == key) {
+            if entry.end.is_some_and(|end| end >= now) {
+                entry.end = Some(now + duration);
+                return;
+            }
+        }
+        
+        self.log.push_back(LogEntry {
+            key: key.to_string(),
+            start: now,
+            end: Some(now + duration),
+        });
+    }
+
     pub fn needs_redraw(&self) -> bool {
         self.dirty
             || (!self.log.is_empty()
@@ -245,7 +264,7 @@ impl HistoryState {
 fn overlap_ranges(log: &VecDeque<LogEntry>, now: Instant) -> Vec<(Instant, Instant)> {
     let mut events: Vec<(Instant, i32)> = Vec::new();
     for e in log {
-        let end = e.end.unwrap_or(now);
+        let end = e.end.map_or(now, |end| end.min(now)); //a running scroll pulse ends in the future
         if end <= e.start {
             continue;
         }

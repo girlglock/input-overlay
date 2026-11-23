@@ -1,3 +1,5 @@
+const SCROLL_HISTORY_PULSE_MS = 80;
+
 export class OverlayVisualiser {
     constructor(utils, layoutParser, keyLayoutParser = null) {
         this.utils = utils;
@@ -62,6 +64,7 @@ export class OverlayVisualiser {
         this._historyCanvases = {};
         this._historyRafLoops = {};
         this._historyByKey = new Map();
+        this._historyHeld = new Set();
 
         this._moveToTopZCounter = 10000;
     }
@@ -94,7 +97,7 @@ export class OverlayVisualiser {
                 el.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
             }
             activeSet.add(keyName);
-            if (!wasKeyActive) this._recordHistoryEdge(keyName, true);
+            if (!wasKeyActive) this.noteInput(keyName, true);
         } else {
             el.classList.remove("active", "analog-key");
             this.activeElements.delete(el);
@@ -123,9 +126,49 @@ export class OverlayVisualiser {
             const map = this.previewElements?.keyElements.get(keyName) || this.previewElements?.mouseElements.get(keyName) || this.previewElements?.gamepadElements?.get(keyName);
             if (map && !map.some(e => this.activeElements.has(e))) {
                 activeSet.delete(keyName);
-                this._recordHistoryEdge(keyName, false);
+                this.noteInput(keyName, false);
             }
         }
+    }
+
+    noteInput(keyName, isPress) {
+        if (!keyName) return;
+        
+        if (isPress) {
+            if (this._historyHeld.has(keyName)) return;
+            this._historyHeld.add(keyName);
+        } else if (!this._historyHeld.delete(keyName)) {
+            return;
+        }
+        
+        this._recordHistoryEdge(keyName, isPress);
+    }
+
+    noteScroll(dir) {
+        if (!dir) return;
+        const keyName = dir < 0 ? "scroll_up" : "scroll_down";
+        const instances = this._historyByKey.get(keyName);
+        
+        if (!instances?.length) return;
+        
+        const now = performance.now();
+        
+        for (const state of instances) {
+            let last = null;
+            
+            for (let i = state.log.length - 1; i >= 0; i--) {
+                if (state.log[i].key === keyName) { last = state.log[i]; break; }
+            }
+            
+            if (last && last.end !== null && last.end >= now) last.end = now + SCROLL_HISTORY_PULSE_MS;
+            else state.log.push({ key: keyName, start: now, end: now + SCROLL_HISTORY_PULSE_MS });
+            if (!state.rafId) state.rafId = requestAnimationFrame(this._historyRafLoops[state.historyId]);
+        }
+    }
+
+    releaseHeldInputs() {
+        for (const keyName of this._historyHeld) this._recordHistoryEdge(keyName, false);
+        this._historyHeld.clear();
     }
 
     _recordHistoryEdge(keyName, isPress) {
@@ -483,6 +526,7 @@ export class OverlayVisualiser {
         this._historyCanvases = {};
         this._historyRafLoops = {};
         this._historyByKey = new Map();
+        this._historyHeld = new Set();
 
         const register = (map, name, el) => {
             let arr = map.get(name);
@@ -1494,7 +1538,7 @@ export class OverlayVisualiser {
     _historyOverlapRanges(log, now) {
         const events = [];
         for (const e of log) {
-            const end = e.end ?? now;
+            const end = e.end === null ? now : Math.min(e.end, now);
             if (end <= e.start) continue;
             events.push([e.start, 1]);
             events.push([end, -1]);
@@ -1544,7 +1588,7 @@ export class OverlayVisualiser {
         const barThickness = Math.max(1, laneSize - 1);
         const laneInset = (laneSize - barThickness) / 2;
 
-        const agoPx = (t) => (now - t) * pxPerMs;
+        const agoPx = (t) => Math.max(0, now - t) * pxPerMs;
         const posOf = (t) => reverseDirection ? scrollAxisSize - agoPx(t) : agoPx(t);
         const barRange = (entry) => {
             const p0 = posOf(entry.start), p1 = posOf(entry.end ?? now);

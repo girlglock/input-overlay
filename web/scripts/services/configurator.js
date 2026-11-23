@@ -864,8 +864,10 @@ export class ConfiguratorMode {
                 }
             }
 
+            const isPress = type === "key_pressed";
+
+            if (keyName && (!isTyping || !isPress)) this.visualizer.noteInput(keyName, isPress);
             if (elements?.length) {
-                const isPress = type === "key_pressed";
                 for (const el of elements) this.visualizer.updateElementState(el, keyName, isPress, this.visualizer.activeKeys);
                 if (!isTyping || keyName === "key_tab" || keyName === "key_escape") event.preventDefault();
             }
@@ -876,11 +878,13 @@ export class ConfiguratorMode {
             const isPress = type === "mouse_pressed";
             if (isPress) this.visualizer.activeMouseButtons.add(btnName);
             else this.visualizer.activeMouseButtons.delete(btnName);
+            this.visualizer.noteInput(btnName, isPress);
             const elements = els.mouseElements.get(btnName);
             if (elements?.length) {
                 for (const el of elements) this.visualizer.updateElementState(el, btnName, isPress, this.visualizer.activeMouseButtons);
             }
         } else if (type === "mouse_wheel") {
+            this.visualizer.noteScroll(Math.sign(event.deltaY));
             if (els.scrollDisplays?.length) this.visualizer.handleScroll(Math.sign(event.deltaY));
         } else if (type === "mouse_moved") {
             if (this.visualizer.mousePadCanvas)

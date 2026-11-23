@@ -147,6 +147,7 @@ export class GamepadManager {
     _setButton(name, isPressed, value) {
         const viz = this.visualizer;
         if (!viz.previewElements) return;
+        viz.noteInput(name, isPressed);
 
         const elements = viz.previewElements.gamepadElements?.get(name);
         if (!elements?.length) return;

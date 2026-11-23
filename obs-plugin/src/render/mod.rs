@@ -47,6 +47,8 @@ const FIT_MAX_FILL: f32 = 0.85;
 
 //overlayVisualiser.js:29
 const MOUSEPAD_TRAIL_PX: f32 = 2.5;
+//SCROLL_HISTORY_PULSE_MS in overlayVisualiser.js
+const SCROLL_HISTORY_PULSE: Duration = Duration::from_millis(80);
 
 #[derive(Clone, Copy, Default, PartialEq, Debug)]
 pub struct FpsCaps {
@@ -392,10 +394,22 @@ impl Renderer {
             }
 
             InputEvent::MouseScroll { rotation, .. } => {
-                if self.scroll_displays.is_empty() {
-                    return false;
+                let name = if *rotation < 0 { "scroll_up" } else { "scroll_down" };
+                let mut changed = false;
+                
+                for (history, _) in self.histories.iter_mut() {
+                    if history.tracks(name) {
+                        history.pulse(name, SCROLL_HISTORY_PULSE);
+                        changed = true;
+                    }
                 }
+                
+                if self.scroll_displays.is_empty() {
+                    return changed;
+                }
+                
                 self.scroll.handle_scroll(*rotation, self.scroll_hold_ms);
+                
                 true
             }
 
