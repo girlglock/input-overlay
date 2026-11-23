@@ -1270,11 +1270,13 @@ export class OverlayVisualiser {
         if (this.mousePadTrail.length > 0 && maxAge > 0) {
             const cutoff = now - maxAge;
             let firstValid = 0;
+            
             while (firstValid < this.mousePadTrail.length) {
                 const p = this.mousePadTrail[firstValid];
-                if (p === null || p.t >= cutoff) break;
+                if (p !== null && p.t >= cutoff) break;
                 firstValid++;
             }
+            
             if (firstValid > 0) this.mousePadTrail.splice(0, firstValid);
         }
 

@@ -270,7 +270,9 @@ impl MousePadState {
         }
         while let Some(front) = self.trail.front() {
             match front {
-                None => break,
+                None => {
+                    self.trail.pop_front();
+                }
                 Some(p) => {
                     if p.t.elapsed().as_secs_f32() * 1000.0 >= max_age_ms {
                         self.trail.pop_front();
