@@ -2258,6 +2258,53 @@ li {
     flex-wrap: wrap;
 }
 
+#klAddKeysRow {
+    align-items: center;
+    gap: 6px;
+}
+
+.kl-key-field {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+}
+
+.kl-key-field > input {
+    flex: 1;
+    min-width: 0;
+}
+
+.cfg-btn.kl-key-add-btn {
+    flex-shrink: 0;
+    padding: 0 6px;
+    line-height: 1.2rem;
+    font-size: 11px;
+}
+
+.kl-key-picker {
+    position: fixed;
+    z-index: 10000;
+    width: 340px;
+    max-width: calc(100vw - 16px);
+    max-height: min(420px, calc(100vh - 16px));
+    overflow-y: auto;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid;
+    border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+    padding: 6px 6px 2px;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+    user-select: none;
+}
+
+.kl-key-picker-cat {
+    font-size: 10px;
+    color: var(--accent);
+    margin: 2px 0 4px 1px;
+}
+
 .kl-add-label-inputs {
     display: flex;
     gap: 5px;

@@ -1,10 +1,116 @@
 //guh
 import { KEY_CODES, MOUSE_CODES, COLOR_PICKERS, LOCAL_INSTANCE } from "../consts.js";
-import { STYLE_OVERRIDE_KEYS, normalizePipeType } from "./keyLayoutParser.js";
+import { STYLE_OVERRIDE_KEYS, SCROLL_TYPES, normalizePipeType } from "./keyLayoutParser.js";
 import { LEGACY_TO_CURRENT } from "./settingsFieldMap.js";
 import { GamepadManager } from "./gamepadManager.js";
 
 const LAYOUT_ORIGIN = { x: 0, y: 0 };
+
+const ELEMENT_CATALOG = [
+    {
+        id: "keyboard", label: "keyboard", groups: [
+            { label: "letters", tiles: [..."abcdefghijklmnopqrstuvwxyz"].map(l => [`key_${l}`, l.toUpperCase()]) },
+            { label: "numbers", tiles: [..."1234567890"].map(n => [`key_${n}`, n]) },
+            {
+                label: "modifiers", tiles: [
+                    ["key_leftshift", "L SHIFT"], ["key_rightshift", "R SHIFT"],
+                    ["key_leftctrl", "L CTRL"], ["key_rightctrl", "R CTRL"],
+                    ["key_leftalt", "L Alt"], ["key_rightalt", "R Alt"],
+                    ["key_leftwin", "Win"], ["key_menu", "Menu"],
+                    ["key_capslock", "Caps"], ["key_tab", "Tab"], ["key_escape", "Esc"],
+                ]
+            },
+            {
+                label: "editing", tiles: [
+                    ["key_space", "Space", 3], ["key_enter", "Enter", 2], ["key_backspace", "BS", 2],
+                    ["key_delete", "Del"], ["key_insert", "Ins"],
+                    ["key_home", "Home"], ["key_end", "End"],
+                    ["key_pageup", "PgUp"], ["key_pagedown", "PgDn"],
+                ]
+            },
+            {
+                label: "arrows", tiles: [
+                    ["key_leftarrow", "←"], ["key_uparrow", "↑"], ["key_downarrow", "↓"], ["key_rightarrow", "→"],
+                ]
+            },
+            { label: "function", tiles: Array.from({ length: 24 }, (_, i) => [`key_f${i + 1}`, `F${i + 1}`]) },
+            {
+                label: "symbols", tiles: [
+                    ["key_minus", "-"], ["key_equals", "="], ["key_openbracket", "["], ["key_closebracket", "]"],
+                    ["key_backslash", "\\"], ["key_semicolon", ";"], ["key_apostrophe", "'"],
+                    ["key_comma", ","], ["key_period", "."], ["key_slash", "/"],
+                    ["key_iso_backslash", "ISO\\"],
+                ]
+            },
+            {
+                label: "numpad", tiles: [
+                    ["key_numpad_7", "7"], ["key_numpad_8", "8"], ["key_numpad_9", "9"], ["key_numpad_divide", "÷"],
+                    ["key_numpad_4", "4"], ["key_numpad_5", "5"], ["key_numpad_6", "6"], ["key_numpad_multiply", "×"],
+                    ["key_numpad_1", "1"], ["key_numpad_2", "2"], ["key_numpad_3", "3"], ["key_numpad_subtract", "−"],
+                    ["key_numpad_0", "0", 2], ["key_numpad_decimal", "."], ["key_numpad_add", "+"],
+                    ["key_numpad_enter", "Ent"], ["key_numlock", "NL"],
+                ]
+            },
+            {
+                label: "misc", tiles: [
+                    ["input_history", "history", 3]
+                ]
+            },
+        ]
+    },
+    {
+        id: "mouse", label: "mouse", groups: [
+            {
+                label: "buttons", tiles: [
+                    ["mouse_left", "M1"], ["mouse_right", "M2"], ["mouse_middle", "M3"],
+                    ["mouse_4", "M4"], ["mouse_5", "M5"],
+                ]
+            },
+            {
+                label: "scroll", tiles: [
+                    ["scroller", "wheel"], ["scroll_updown", "↑↓"], ["scroll_up", "↑"], ["scroll_down", "↓"],
+                ]
+            },
+            {
+                label: "pad", tiles: [
+                    ["mouse_pad", "mouse pad", 3]
+                ]
+            },
+        ]
+    },
+    {
+        id: "gamepad", label: "gamepad", groups: [
+            { label: "face", tiles: [["gp_a", "A"], ["gp_b", "B"], ["gp_x", "X"], ["gp_y", "Y"]] },
+            { label: "shoulders", tiles: [["gp_lb", "LB"], ["gp_rb", "RB"], ["gp_lt", "LT"], ["gp_rt", "RT"]] },
+            { label: "d-pad", tiles: [["gp_up", "↑"], ["gp_down", "↓"], ["gp_left", "←"], ["gp_right", "→"]] },
+            {
+                label: "system", tiles: [
+                    ["gp_select", "Back"], ["gp_start", "Menu"], ["gp_guide", "Home"], ["gp_ls", "LS"], ["gp_rs", "RS"],
+                ]
+            },
+            {
+                label: "sticks", tiles: [
+                    ["gp_joystick_ls", "L stick", 2], ["gp_joystick_rs", "R stick", 2],
+                ]
+            },
+        ]
+    },
+];
+
+const MOUSE_BUTTON_TYPES = new Set(["mouse_left", "mouse_right", "mouse_middle", "mouse_4", "mouse_5"]);
+const isGamepadButton = (type) => type.startsWith("gp_") && !type.startsWith("gp_joystick");
+
+//which inputs each kind of key field can actually use
+const KEY_PICKER_SCOPES = {
+    //input history logs anything with a press, scroll ticks become short presses
+    history: (t) => t.startsWith("key_") || MOUSE_BUTTON_TYPES.has(t) || t === "scroll_up" || t === "scroll_down" || isGamepadButton(t),
+    //regular elements bind keys, mouse buttons and gamepad buttons
+    binding: (t) => t.startsWith("key_") || MOUSE_BUTTON_TYPES.has(t) || isGamepadButton(t),
+    //scroller aliases are only registered for keys and mouse buttons
+    alias: (t) => t.startsWith("key_") || MOUSE_BUTTON_TYPES.has(t),
+};
+
+const parseKeyList = (str) => String(str ?? "").trim().split(/[|,\s]+/).filter(Boolean);
 
 function flashBtn(btn, label, original, ms = 2000) {
     btn.textContent = label;
@@ -1184,6 +1290,106 @@ export class ConfiguratorMode {
         this._syncKeyLayoutEditorUI();
     }
 
+    _openKeyPicker(anchor, { scope, getKeys, setKeys, keepOne = false }) {
+        this._closeKeyPicker?.();
+        const accepts = KEY_PICKER_SCOPES[scope] ?? KEY_PICKER_SCOPES.binding;
+
+        const picker = document.createElement("div");
+        picker.className = "kl-key-picker";
+
+        const refreshSelected = () => {
+            const keys = new Set(getKeys());
+            picker.querySelectorAll(".kl-add-tile").forEach(btn => {
+                btn.classList.toggle("kl-add-tile--selected", keys.has(btn.dataset.type));
+            });
+        };
+
+        for (const cat of ELEMENT_CATALOG) {
+            const groups = cat.groups
+                .map(group => ({ label: group.label, tiles: group.tiles.filter(([type]) => accepts(type)) }))
+                .filter(group => group.tiles.length);
+            if (!groups.length) continue;
+
+            const catLabel = document.createElement("div");
+            catLabel.className = "kl-key-picker-cat";
+            catLabel.textContent = cat.label;
+            picker.appendChild(catLabel);
+
+            for (const group of groups) {
+                const groupEl = document.createElement("div");
+                groupEl.className = "kl-tile-group";
+                const groupLbl = document.createElement("div");
+                groupLbl.className = "kl-tile-group-label";
+                groupLbl.textContent = group.label;
+                groupEl.appendChild(groupLbl);
+                for (const [type, name, span] of group.tiles) {
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.className = "kl-add-tile";
+                    btn.dataset.type = type;
+                    btn.textContent = name;
+                    btn.title = type;
+                    if (span > 1) btn.dataset.span = span;
+                    groupEl.appendChild(btn);
+                }
+                picker.appendChild(groupEl);
+            }
+        }
+
+        picker.addEventListener("click", (e) => {
+            const tile = e.target.closest(".kl-add-tile");
+            if (!tile) return;
+            const keys = getKeys();
+            const idx = keys.indexOf(tile.dataset.type);
+            if (idx === -1) keys.push(tile.dataset.type);
+            else if (!keepOne || keys.length > 1) keys.splice(idx, 1);
+            setKeys(keys);
+            refreshSelected();
+        });
+
+        document.body.appendChild(picker);
+        refreshSelected();
+
+        //below the button, kept inside the window
+        const rect = anchor.getBoundingClientRect();
+        const pw = picker.offsetWidth, ph = picker.offsetHeight;
+        let left = Math.min(rect.right - pw, window.innerWidth - pw - 8);
+        let top = rect.bottom + 4;
+        if (top + ph > window.innerHeight - 8) top = Math.max(8, rect.top - ph - 4);
+        picker.style.left = `${Math.max(8, left)}px`;
+        picker.style.top = `${top}px`;
+
+        const onPointerDown = (e) => {
+            if (!picker.contains(e.target) && e.target !== anchor) close();
+        };
+        const onKeyDown = (e) => { if (e.key === "Escape") close(); };
+        const close = () => {
+            picker.remove();
+            document.removeEventListener("pointerdown", onPointerDown, true);
+            document.removeEventListener("keydown", onKeyDown, true);
+            if (this._closeKeyPicker === close) this._closeKeyPicker = null;
+        };
+        document.addEventListener("pointerdown", onPointerDown, true);
+        document.addEventListener("keydown", onKeyDown, true);
+        this._closeKeyPicker = close;
+    }
+
+    _makeKeyPickerButton(scope, getKeys, setKeys, keepOne = false) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "cfg-btn kl-key-add-btn";
+        btn.textContent = "+";
+        btn.title = "pick keys";
+        btn.draggable = false;
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (this._closeKeyPicker) { this._closeKeyPicker(); return; }
+            this._openKeyPicker(btn, { scope, getKeys, setKeys, keepOne });
+        });
+        return btn;
+    }
+
     _setupKlAddPopup() {
         const popup = document.getElementById("klAddPopup");
         const tabsEl = document.getElementById("klAddTabs");
@@ -1193,6 +1399,18 @@ export class ConfiguratorMode {
         const wInput = document.getElementById("klAddW");
         const hInput = document.getElementById("klAddH");
         const confirmBtn = document.getElementById("klAddConfirmBtn");
+        const keysRow = document.getElementById("klAddKeysRow");
+        const keysInput = document.getElementById("klAddKeys");
+        const DEFAULT_HISTORY_KEYS = ["key_a", "key_d"];
+        
+        if (keysInput) {
+            document.getElementById("klAddKeysField")?.appendChild(this._makeKeyPickerButton(
+                "history",
+                () => parseKeyList(keysInput.value),
+                (keys) => { keysInput.value = keys.join(" "); },
+            ));
+        }
+        
         if (!popup || !tabsEl) return;
 
         const LABEL_DEFAULTS = {
@@ -1207,96 +1425,7 @@ export class ConfiguratorMode {
             input_history: [6, 2],
         };
 
-        const CATS = [
-            {
-                id: "keyboard", label: "keyboard", groups: [
-                    { label: "letters", tiles: [..."abcdefghijklmnopqrstuvwxyz"].map(l => [`key_${l}`, l.toUpperCase()]) },
-                    { label: "numbers", tiles: [..."1234567890"].map(n => [`key_${n}`, n]) },
-                    {
-                        label: "modifiers", tiles: [
-                            ["key_leftshift", "L SHIFT"], ["key_rightshift", "R SHIFT"],
-                            ["key_leftctrl", "L CTRL"], ["key_rightctrl", "R CTRL"],
-                            ["key_leftalt", "L Alt"], ["key_rightalt", "R Alt"],
-                            ["key_leftwin", "Win"], ["key_menu", "Menu"],
-                            ["key_capslock", "Caps"], ["key_tab", "Tab"], ["key_escape", "Esc"],
-                        ]
-                    },
-                    {
-                        label: "editing", tiles: [
-                            ["key_space", "Space", 3], ["key_enter", "Enter", 2], ["key_backspace", "BS", 2],
-                            ["key_delete", "Del"], ["key_insert", "Ins"],
-                            ["key_home", "Home"], ["key_end", "End"],
-                            ["key_pageup", "PgUp"], ["key_pagedown", "PgDn"],
-                        ]
-                    },
-                    {
-                        label: "arrows", tiles: [
-                            ["key_leftarrow", "←"], ["key_uparrow", "↑"], ["key_downarrow", "↓"], ["key_rightarrow", "→"],
-                        ]
-                    },
-                    { label: "function", tiles: Array.from({ length: 24 }, (_, i) => [`key_f${i + 1}`, `F${i + 1}`]) },
-                    {
-                        label: "symbols", tiles: [
-                            ["key_minus", "-"], ["key_equals", "="], ["key_openbracket", "["], ["key_closebracket", "]"],
-                            ["key_backslash", "\\"], ["key_semicolon", ";"], ["key_apostrophe", "'"],
-                            ["key_comma", ","], ["key_period", "."], ["key_slash", "/"],
-                            ["key_iso_backslash", "ISO\\"],
-                        ]
-                    },
-                    {
-                        label: "numpad", tiles: [
-                            ["key_numpad_7", "7"], ["key_numpad_8", "8"], ["key_numpad_9", "9"], ["key_numpad_divide", "÷"],
-                            ["key_numpad_4", "4"], ["key_numpad_5", "5"], ["key_numpad_6", "6"], ["key_numpad_multiply", "×"],
-                            ["key_numpad_1", "1"], ["key_numpad_2", "2"], ["key_numpad_3", "3"], ["key_numpad_subtract", "−"],
-                            ["key_numpad_0", "0", 2], ["key_numpad_decimal", "."], ["key_numpad_add", "+"],
-                            ["key_numpad_enter", "Ent"], ["key_numlock", "NL"],
-                        ]
-                    },
-                    {
-                        label: "misc", tiles: [
-                            ["input_history", "history", 3]
-                        ]
-                    },
-                ]
-            },
-            {
-                id: "mouse", label: "mouse", groups: [
-                    {
-                        label: "buttons", tiles: [
-                            ["mouse_left", "M1"], ["mouse_right", "M2"], ["mouse_middle", "M3"],
-                            ["mouse_4", "M4"], ["mouse_5", "M5"],
-                        ]
-                    },
-                    {
-                        label: "scroll", tiles: [
-                            ["scroller", "wheel"], ["scroll_updown", "↑↓"], ["scroll_up", "↑"], ["scroll_down", "↓"],
-                        ]
-                    },
-                    {
-                        label: "pad", tiles: [
-                            ["mouse_pad", "mouse pad", 3]
-                        ]
-                    },
-                ]
-            },
-            {
-                id: "gamepad", label: "gamepad", groups: [
-                    { label: "face", tiles: [["gp_a", "A"], ["gp_b", "B"], ["gp_x", "X"], ["gp_y", "Y"]] },
-                    { label: "shoulders", tiles: [["gp_lb", "LB"], ["gp_rb", "RB"], ["gp_lt", "LT"], ["gp_rt", "RT"]] },
-                    { label: "d-pad", tiles: [["gp_up", "↑"], ["gp_down", "↓"], ["gp_left", "←"], ["gp_right", "→"]] },
-                    {
-                        label: "system", tiles: [
-                            ["gp_select", "Back"], ["gp_start", "Menu"], ["gp_guide", "Home"], ["gp_ls", "LS"], ["gp_rs", "RS"],
-                        ]
-                    },
-                    {
-                        label: "sticks", tiles: [
-                            ["gp_joystick_ls", "L stick", 2], ["gp_joystick_rs", "R stick", 2],
-                        ]
-                    },
-                ]
-            },
-        ];
+        const CATS = ELEMENT_CATALOG;
 
         const NO_MULTIBIND = new Set(["mouse_pad", "gp_joystick_ls", "gp_joystick_rs", "input_history"]);
         let selectedTypes = [];
@@ -1376,6 +1505,13 @@ export class ConfiguratorMode {
             }
         };
 
+        const updateKeys = () => {
+            if (!keysRow) return;
+            const isHistory = primaryType() === "input_history";
+            keysRow.style.display = isHistory ? "flex" : "none";
+            if (isHistory && keysInput) keysInput.value = DEFAULT_HISTORY_KEYS.join(" ");
+        };
+
         const updateSize = () => {
             const sd = SIZE_DEFAULTS[primaryType()];
             wInput.value = sd ? sd[0] : 1;
@@ -1405,11 +1541,12 @@ export class ConfiguratorMode {
             updateDisabledTiles();
             updateConfirmState();
             const primary = primaryType();
-            if (primary !== prevPrimary) { updateLabels(); updateSize(); }
+            if (primary !== prevPrimary) { updateLabels(); updateSize(); updateKeys(); }
         };
 
         updateLabels();
         updateSize();
+        updateKeys();
         updateDisabledTiles();
         updateConfirmState();
 
@@ -1419,7 +1556,7 @@ export class ConfiguratorMode {
             toggleTile(tile.dataset.type, tile);
         });
 
-        const close = () => { popup.style.display = "none"; };
+        const close = () => { popup.style.display = "none"; this._closeKeyPicker?.(); };
 
         confirmBtn?.addEventListener("click", () => {
             const type = primaryType();
@@ -1437,7 +1574,7 @@ export class ConfiguratorMode {
                 const defs = LABEL_DEFAULTS[type] || [];
                 def.labels = Array.from(inps).map((inp, i) => inp.value || defs[i] || "");
             } else if (type === "input_history") {
-                def.trackedKeys = ["key_a", "key_d"];
+                def.trackedKeys = keysInput ? parseKeyList(keysInput.value) : [...DEFAULT_HISTORY_KEYS];
                 def.vertical = false;
                 def.scrollSpeed = 200;
                 def.highlightOverlap = false;
@@ -1467,6 +1604,7 @@ export class ConfiguratorMode {
             tabsEl.querySelectorAll(".kl-add-tile").forEach(t => { t.disabled = false; });
             updateLabels();
             updateSize();
+            updateKeys();
             updateConfirmState();
         };
     }
@@ -1862,7 +2000,8 @@ export class ConfiguratorMode {
             const attrList = document.createElement("ul");
             attrList.draggable = false;
 
-            const makeAttrRow = (labelText, getValue, setValue, type = "text") => {
+            //picker: { scope, get, set, keepOne } adds a "+" that opens the key picker for this field
+            const makeAttrRow = (labelText, getValue, setValue, type = "text", picker = null) => {
                 const li = document.createElement("li");
                 li.className = "kl-tree-attr";
                 const lbl = document.createElement("span");
@@ -1880,7 +2019,20 @@ export class ConfiguratorMode {
                     nameEl.textContent = getShortName(def);
                     this._commitKeyLayoutDefs();
                 });
-                li.append(lbl, inp);
+                if (picker) {
+                    const wrap = document.createElement("div");
+                    wrap.className = "kl-key-field";
+                    const btn = this._makeKeyPickerButton(picker.scope, picker.get, (keys) => {
+                        picker.set(keys);
+                        inp.value = getValue();
+                        nameEl.textContent = getShortName(def);
+                        this._commitKeyLayoutDefs();
+                    }, picker.keepOne);
+                    wrap.append(inp, btn);
+                    li.append(lbl, wrap);
+                } else {
+                    li.append(lbl, inp);
+                }
                 return li;
             };
 
@@ -1983,7 +2135,15 @@ export class ConfiguratorMode {
             attrList.appendChild(makeAttrRow("w", () => numFmt(def.w), (v) => { def.w = Math.max(0.25, parseFloat(v) || 1); }, "number"));
             attrList.appendChild(makeAttrRow("h", () => numFmt(def.h), (v) => { def.h = Math.max(0.25, parseFloat(v) || 1); }, "number"));
             if ("label" in def) {
-                attrList.appendChild(makeAttrRow("key", () => def.type, (v) => { def.type = normalizePipeType(v.trim() || "key_a"); }));
+                const keyScope = SCROLL_TYPES.has(def.type.split("|")[0]) ? "alias" : "binding";
+                
+                attrList.appendChild(makeAttrRow("key", () => def.type, (v) => { def.type = normalizePipeType(v.trim() || "key_a"); }, "text", {
+                    scope: keyScope,
+                    keepOne: true,
+                    get: () => def.type.split("|"),
+                    set: (keys) => { def.type = normalizePipeType(keys.join("|") || "key_a"); },
+                }));
+                
                 attrList.appendChild(makeAttrRow("label", () => def.label || "", (v) => { def.label = v; }));
                 attrList.appendChild(makeAttrRow("move to top when active", () => def.moveToTop, (v) => { def.moveToTop = v; }, "checkbox"));
             }
@@ -1995,17 +2155,27 @@ export class ConfiguratorMode {
                     attrList.appendChild(makeAttrRow(labelName, () => def.labels[li] || "", (v) => { def.labels[li] = v; }));
                 });
                 if (baseType === "scroller" || baseType === "scroll_updown") {
-                    attrList.appendChild(makeAttrRow("also keys", () => def.type.split("|").slice(1).join("|"), (v) => {
-                        const extras = v.trim().split(/[|,\s]+/).filter(Boolean);
-                        def.type = extras.length ? [baseType, ...extras].join("|") : baseType;
+                    const setExtras = (extras) => { def.type = extras.length ? [baseType, ...extras].join("|") : baseType; };
+                    
+                    attrList.appendChild(makeAttrRow("also keys", () => def.type.split("|").slice(1).join("|"), (v) => setExtras(parseKeyList(v)), "text", {
+                        scope: "alias",
+                        get: () => def.type.split("|").slice(1),
+                        set: setExtras,
                     }));
                 }
                 attrList.appendChild(makeAttrRow("move to top when active", () => def.moveToTop, (v) => { def.moveToTop = v; }, "checkbox"));
             }
             if (def.type === "input_history") {
                 attrList.appendChild(makeAttrRow("keys", () => (def.trackedKeys ?? []).join(" "), (v) => {
-                    def.trackedKeys = v.trim().split(/[|,\s]+/).filter(Boolean);
+                    def.trackedKeys = parseKeyList(v);
+                },
+                "text",
+                {
+                    scope: "history",
+                    get: () => [...(def.trackedKeys ?? [])],
+                    set: (keys) => { def.trackedKeys = keys; },
                 }));
+                
                 attrList.appendChild(makeAttrRow("vertical", () => def.vertical, (v) => { def.vertical = v; }, "checkbox"));
                 attrList.appendChild(makeAttrRow("reverse direction", () => def.reverseDirection, (v) => { def.reverseDirection = v; }, "checkbox"));
                 attrList.appendChild(makeAttrRow("highlight overlap", () => def.highlightOverlap, (v) => { def.highlightOverlap = v; }, "checkbox"));
