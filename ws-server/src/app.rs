@@ -380,6 +380,10 @@ pub fn run() {
     }
 
     let config_path = data_dir.join("config.json");
+    
+    //on first ever start
+    let first_run = !config_path.exists();
+    
     let mut cfg = services::config::load(&config_path);
     if cfg.auth_token.is_empty() {
         use rand::Rng;
@@ -461,6 +465,8 @@ pub fn run() {
         if views.settings.is_none() {
             return;
         }
+    } else if first_run {
+        views.toggle_settings(&app, false);
     }
     if let Some(version) = post_update_version {
         if ensure_ui(&app) {
