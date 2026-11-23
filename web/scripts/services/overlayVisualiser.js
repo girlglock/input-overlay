@@ -454,11 +454,11 @@ export class OverlayVisualiser {
 
         const m4El = document.createElement("span");
         m4El.innerHTML = labelM4;
-        m4El.dataset.key = "mouse4";
+        m4El.dataset.key = "mouse_4";
 
         const m5El = document.createElement("span");
         m5El.innerHTML = labelM5;
-        m5El.dataset.key = "mouse5";
+        m5El.dataset.key = "mouse_5";
 
         el.append(m5El, m4El);
         return { el, m4El, m5El };
@@ -604,8 +604,8 @@ export class OverlayVisualiser {
                     side.el.style.setProperty("--key-width", `${widthPx}px`);
                     side.el.style.setProperty("--key-height-modifier", String(item.h));
                     container.appendChild(side.el);
-                    register(mouseElements, "mouse5", side.m5El);
-                    register(mouseElements, "mouse4", side.m4El);
+                    register(mouseElements, "mouse_5", side.m5El);
+                    register(mouseElements, "mouse_4", side.m4El);
                     break;
                 }
                 default: {
