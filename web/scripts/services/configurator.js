@@ -2230,8 +2230,14 @@ export class ConfiguratorMode {
 
             itemDetails.appendChild(optionsDetails);
             node.appendChild(itemDetails);
-            node.draggable = true;
+            node.draggable = false;
+            
+            handle.addEventListener("pointerdown", () => {
+                node.draggable = true;
+                document.addEventListener("pointerup", () => { node.draggable = false; }, { once: true });
+            });
             node.addEventListener("dragstart", (e) => {
+                if (e.target !== node) return;
                 dragSrcIdx = idx;
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", String(idx));
@@ -2244,6 +2250,7 @@ export class ConfiguratorMode {
             });
 
             node.addEventListener("dragend", () => {
+                node.draggable = false;
                 node.classList.remove("kl-dragging");
                 clearDropIndicators();
                 dragSrcIdx = -1;
