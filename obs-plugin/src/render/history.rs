@@ -240,15 +240,28 @@ impl HistoryState {
         }
 
         if self.highlight_overlap {
-            for (range_start, range_end) in overlap_ranges(&self.log, now) {
-                let (bar_start, bar_len) = bar_range(range_start, range_end);
-                let rect = if self.vertical {
-                    Rect::from_xywh(0.0, bar_start, w, bar_len)
-                } else {
-                    Rect::from_xywh(bar_start, 0.0, bar_len, h)
-                };
-                if let Some(rect) = rect {
-                    fill_rect(&mut content, &rect, params.highlight_color);
+            let ranges = overlap_ranges(&self.log, now);
+            if !ranges.is_empty() {
+                for (i, key_name) in self.tracked_keys.iter().enumerate() {
+                    let lane_start = i as f32 * lane_size + lane_inset;
+                    for entry in self.log.iter().filter(|e| &e.key == key_name) {
+                        let entry_end = entry.end.map_or(now, |end| end.min(now));
+                        for &(range_start, range_end) in &ranges {
+                            let (from, to) = (entry.start.max(range_start), entry_end.min(range_end));
+                            if to <= from {
+                                continue;
+                            }
+                            let (bar_start, bar_len) = bar_range(from, to);
+                            let rect = if self.vertical {
+                                Rect::from_xywh(lane_start, bar_start, bar_thickness, bar_len)
+                            } else {
+                                Rect::from_xywh(bar_start, lane_start, bar_len, bar_thickness)
+                            };
+                            if let Some(rect) = rect {
+                                fill_rect(&mut content, &rect, params.highlight_color);
+                            }
+                        }
+                    }
                 }
             }
         }

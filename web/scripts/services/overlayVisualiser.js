@@ -1623,11 +1623,26 @@ export class OverlayVisualiser {
         });
 
         if (highlightOverlap) {
-            ctx.fillStyle = this.utils.hexToRgba(overlapColor || "#ffffff", 1);
-            for (const [rangeStart, rangeEnd] of this._historyOverlapRanges(state.log, now)) {
-                const [barStart, barLen] = barRange({ start: rangeStart, end: rangeEnd });
-                if (vertical) ctx.fillRect(0, barStart, W, barLen);
-                else ctx.fillRect(barStart, 0, barLen, H);
+            const ranges = this._historyOverlapRanges(state.log, now);
+            
+            if (ranges.length) {
+                ctx.fillStyle = this.utils.hexToRgba(overlapColor || "#ffffff", 1);
+                trackedKeys.forEach((keyName, i) => {
+                    const laneStart = i * laneSize + laneInset;
+                    
+                    for (const entry of state.log) {
+                        if (entry.key !== keyName) continue;
+                        const entryEnd = entry.end === null ? now : Math.min(entry.end, now);
+                        
+                        for (const [rangeStart, rangeEnd] of ranges) {
+                            const from = Math.max(entry.start, rangeStart), to = Math.min(entryEnd, rangeEnd);
+                            if (to <= from) continue;
+                            const [barStart, barLen] = barRange({ start: from, end: to });
+                            if (vertical) ctx.fillRect(laneStart, barStart, barThickness, barLen);
+                            else ctx.fillRect(barStart, laneStart, barLen, barThickness);
+                        }
+                    }
+                });
             }
         }
 
