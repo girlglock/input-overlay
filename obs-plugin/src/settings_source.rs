@@ -233,22 +233,7 @@ unsafe extern "C" fn source_get_properties(_data: *mut c_void) -> *mut ObsProper
                     info(api, g2, b"linux_perm_warn\0", msg.as_bytes_with_nul());
                 }
             }
-
-            info(
-                api,
-                g2,
-                b"linux_note\0",
-                b"Device changes require restarting OBS.\0",
-            );
         }
-        
-        #[cfg(windows)]
-        info(
-            api,
-            g2,
-            b"ak_note\0",
-            b"Analog keyboard change needs restarting OBS to take effect\0",
-        );
     });
 
     group(api, p, b"grp_about\0", b"About\0", |g| {
@@ -311,8 +296,9 @@ fn persist_capture_settings(
         return;
     };
 
-    let cfg_snapshot = {
+    let (cfg_snapshot, analog_changed, evdev_changed) = {
         let mut cfg = state.config.lock().unwrap();
+        let analog_changed = cfg.analog_keyboard != analog_keyboard;
         cfg.analog_keyboard = analog_keyboard;
         
         if cfg.gamepad_device != gamepad_device {
@@ -323,16 +309,34 @@ fn persist_capture_settings(
         }
         
         #[cfg(target_os = "linux")]
+        let evdev_changed = cfg.linux_evdev_keyboard_device != linux_kbd || cfg.linux_raw_mouse_device != linux_mouse;
+        #[cfg(not(target_os = "linux"))]
+        let evdev_changed = false;
+        #[cfg(target_os = "linux")]
         {
             cfg.linux_evdev_keyboard_device = linux_kbd;
             cfg.linux_raw_mouse_device = linux_mouse;
         }
         
-        cfg.clone()
+        (cfg.clone(), analog_changed, evdev_changed)
     };
     
     let config_path = state.config_path.clone();
     drop(guard);
+
+    if analog_changed {
+        crate::restart_analog(&cfg_snapshot.analog_keyboard);
+    }
+    #[cfg(target_os = "linux")]
+    if evdev_changed {
+        crate::restart_evdev(
+            &cfg_snapshot.linux_evdev_keyboard_device,
+            &cfg_snapshot.linux_raw_mouse_device,
+            cfg_snapshot.raw_mouse_min_delta,
+        );
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = evdev_changed;
 
     let spawned = std::thread::Builder::new()
         .name("OverlayConfigSave".into())

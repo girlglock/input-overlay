@@ -25,8 +25,8 @@ struct PluginState {
     #[cfg(windows)]
     raw_input: Option<services::windows::raw_input::RawInputThread>,
     #[cfg(target_os = "linux")]
-    _evdev: Option<services::linux::evdev_input::EvdevInputThread>,
-    _analog: Option<services::analog::AnalogThread>,
+    evdev: Option<services::linux::evdev_input::EvdevInputThread>,
+    analog: Option<services::analog::AnalogThread>,
     _log_guard: tracing_appender::non_blocking::WorkerGuard,
 }
 
@@ -142,8 +142,8 @@ pub extern "C" fn obs_module_load() -> bool {
         #[cfg(windows)]
         raw_input,
         #[cfg(target_os = "linux")]
-        _evdev: evdev,
-        _analog: analog,
+        evdev,
+        analog,
         _log_guard: log_guard,
     });
 
@@ -164,12 +164,57 @@ pub extern "C" fn obs_module_unload() {
             ri.stop();
         }
 
-        drop(s._analog);
+        drop(s.analog);
         #[cfg(target_os = "linux")]
-        drop(s._evdev);
+        drop(s.evdev);
         drop(s._runtime);
     }
     tracing::info!("input-overlay plugin unloaded");
+}
+
+#[cfg(target_os = "linux")]
+pub fn restart_evdev(kbd_path: &str, mouse_path: &str, min_delta: i32) {
+    let Some(tx) = INPUT_TX.get() else {
+        return;
+    };
+    
+    let mut guard = PLUGIN_STATE.lock().unwrap();
+    
+    let Some(state) = guard.as_mut() else {
+        return;
+    };
+    
+    state.evdev = None;
+    
+    state.evdev = Some(services::linux::evdev_input::EvdevInputThread::start(
+        tx.clone(),
+        kbd_path,
+        mouse_path,
+        min_delta,
+        64,
+    ));
+    
+    tracing::info!("evdev: restarted with keyboard '{kbd_path}', mouse '{mouse_path}'");
+}
+
+pub fn restart_analog(filter: &str) {
+    let Some(tx) = INPUT_TX.get() else {
+        return;
+    };
+    
+    let mut guard = PLUGIN_STATE.lock().unwrap();
+    
+    let Some(state) = guard.as_mut() else {
+        return;
+    };
+    
+    state.analog = None;
+    
+    if !filter.is_empty() {
+        state.analog = Some(services::analog::AnalogThread::start(tx.clone(), filter, 64));
+    }
+    
+    tracing::info!("analog: restarted with '{filter}'");
 }
 
 const CONFIG_DIR_NAME: &str = "input_overlay_gg";
