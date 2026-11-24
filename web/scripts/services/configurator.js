@@ -293,6 +293,7 @@ export class ConfiguratorMode {
         this._setupPreviewZoomAndGrid();
         this._setupSidebarToggles();
         this.updateState();
+        this._unxddThePlugin();
         this._setupModeChoiceModal();
     }
 
@@ -312,6 +313,78 @@ export class ConfiguratorMode {
             }
         } catch {}
         this.updateState();
+    }
+
+    _unxddThePlugin() {
+        const style = document.createElement("style");
+        style.textContent = `
+            .cfg-mode-gated {
+                flex: 1;
+                display: flex;
+                position: relative;
+            }
+
+            .cfg-unreleased-title {
+                position: absolute;
+                bottom: 100%;
+                left: 0;
+                right: 0;
+                margin-bottom: 4px;
+                text-align: center;
+                font-size: 11px;
+                color: var(--red);
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+            }
+
+            .cfg-mode-btn:disabled {
+                cursor: not-allowed;
+                opacity: 0.4;
+                filter: grayscale(1);
+            }
+
+            .cfg-mode-btn:disabled:hover {
+                background: var(--bg);
+                color: var(--text);
+            }
+
+            .cs-tabs .label.cfg-unreleased,
+            .cs-tabs .panel.cfg-unreleased > :not(.cfg-unreleased-note) {
+                opacity: 0.55;
+                filter: grayscale(1);
+            }
+
+            .cfg-unreleased-note {
+                margin: 0 0 10px;
+            }
+        `;
+        document.head.appendChild(style);
+
+        const choiceBtn = document.getElementById("cfgModeChoicePlugin");
+        
+        if (choiceBtn) {
+            choiceBtn.disabled = true;
+            choiceBtn.title = "the obs plugin hasnt been released yet";
+            const gate = document.createElement("div");
+            gate.className = "cfg-mode-gated";
+            const gateTitle = document.createElement("span");
+            gateTitle.className = "cfg-unreleased-title";
+            gateTitle.textContent = "unreleased";
+            choiceBtn.replaceWith(gate);
+            gate.append(gateTitle, choiceBtn);
+        }
+
+        const tabLabel = document.querySelector('label[for="cfgConnTab_plugin"]');
+        const panel = tabLabel?.nextElementSibling;
+        tabLabel?.classList.add("cfg-unreleased");
+        
+        if (panel?.classList.contains("panel")) {
+            panel.classList.add("cfg-unreleased");
+            const warning = document.createElement("blockquote");
+            warning.className = "note note--red cfg-unreleased-note";
+            warning.textContent = "the obs plugin has not been released yet.. this is only for nightly testers";
+            panel.prepend(warning);
+        }
     }
 
     _setupModeChoiceModal() {
@@ -372,7 +445,7 @@ export class ConfiguratorMode {
             });
         });
 
-        showDesc("plugin");
+        showDesc(document.getElementById("cfgModeChoicePlugin")?.disabled ? "web" : "plugin"); //REMINDER showDesc("plugin"); after plugin release
         modal.hidden = false;
     }
 
