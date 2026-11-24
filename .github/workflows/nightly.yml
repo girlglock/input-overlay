@@ -6,6 +6,15 @@ on:
     branches:
       - main
       - dev
+    paths-ignore:
+      - "**.md"
+      - ".github/workflows/pages.yml"
+      - ".github/workflows/release.yml"
+      - "CNAME"
+      - "LICENSE"
+      - ".gitignore"
+      - ".vscode/**"
+      - "gimmick/**"
 
 permissions:
   contents: read

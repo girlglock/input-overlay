@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "web/**"
+      - "CNAME"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
