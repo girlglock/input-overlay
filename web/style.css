@@ -645,20 +645,6 @@ li {
     color: #fff;
 }
 
-.cfg-preview-warning {
-    font-size: 11px;
-    color: var(--red);
-}
-
-.cfg-preview-warning[hidden] {
-    display: none;
-}
-
-.cfg-preview-warning a {
-    color: inherit;
-    text-decoration: underline;
-}
-
 .cfg-auth-warning {
     font-size: 10px;
     color: #e8a838;

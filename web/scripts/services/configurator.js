@@ -292,7 +292,6 @@ export class ConfiguratorMode {
         this.setupKeyLayoutEditor();
         this._setupPreviewZoomAndGrid();
         this._setupSidebarToggles();
-        this._syncPluginMode();
         this.updateState();
         this._setupModeChoiceModal();
     }
@@ -325,7 +324,6 @@ export class ConfiguratorMode {
         const applyChoice = (choice) => {
             const tab = document.getElementById(choice === "plugin" ? "cfgConnTab_plugin" : "cfgConnTab_web");
             if (tab) tab.checked = true;
-            this._syncPluginMode();
         };
 
         const remembered = localStorage.getItem(STORAGE_KEY);
@@ -496,25 +494,6 @@ export class ConfiguratorMode {
         return JSON.stringify(tuples);
     }
 
-    _isPluginMode() {
-        return document.getElementById("cfgConnTab_plugin")?.checked ?? false;
-    }
-
-    _updateGamepadWarning() {
-        const warning = document.getElementById("gamepadWarning");
-        if (!warning) return;
-        const hasGamepad = this.keyLayoutMode && (this.keyLayoutDefs ?? []).some(def =>
-            def.type.split("|").some(t => t.startsWith("gp_")));
-        const viaWs = document.getElementById("gamepad_no_cef")?.checked ?? false;
-        warning.hidden = !hasGamepad || this._isPluginMode() || viaWs;
-        warning.innerHTML = "obs 33 browser sources lose controller input while obs isn't focused, "
-            + '(<a href="https://github.com/obsproject/obs-studio/issues/14139" target="_blank" rel="noopener">more here :plaksa:</a>)';
-    }
-
-    _syncPluginMode() {
-        this._updateGamepadWarning();
-    }
-
     updateSliderLabel(input) {
         const label = document.getElementById(input.id + "value");
         if (!label) return;
@@ -620,7 +599,6 @@ export class ConfiguratorMode {
         clearTimeout(this.rebuildThrottleTimer);
         this.rebuildThrottleTimer = setTimeout(() => {
             this.visualizer.rebuildInterface(this.rebuildPending);
-            this._updateGamepadWarning();
             this.rebuildLastFired = performance.now();
             this.rebuildPending = null;
             if (this.keyLayoutMode) {
@@ -791,7 +769,6 @@ export class ConfiguratorMode {
 
         document.querySelectorAll("input[name='cfgConnTab']").forEach(tab =>
             tab.addEventListener("change", () => {
-                this._syncPluginMode();
                 this.updateState();
             }));
 
