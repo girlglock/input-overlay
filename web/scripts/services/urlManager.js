@@ -86,7 +86,9 @@ export class UrlManager {
         if (settings.gamepad_deadzone && settings.gamepad_deadzone !== "3") {
             addParam("gamepad_deadzone", settings.gamepad_deadzone);
         }
-
+        if (settings.gamepad_no_cef === true || settings.gamepad_no_cef === "true" || settings.gamepad_no_cef === "1") {
+            params.push("gamepad_no_cef=1");
+        }
         if (settings.key_outline_width_pressed && settings.key_outline_width_pressed !== "2") addParam("key_outline_width_pressed", settings.key_outline_width_pressed);
         if (settings.key_outline_width_idle && settings.key_outline_width_idle !== "2") addParam("key_outline_width_idle", settings.key_outline_width_idle);
 
@@ -185,6 +187,7 @@ export class UrlManager {
             analog_legend_fill_mode: get("analog_legend_fill_mode") || "fading",
             analog_force_disable: get("analog_force_disable") === "1",
             gamepad_deadzone: get("gamepad_deadzone") || "3",
+            gamepad_no_cef: get("gamepad_no_cef") === "1",
             wsauth: get("wsauth") || "",
             keyLayout: get("keyLayout") || keyLayoutFallback?.get("keyLayout") || null,
             customLayoutRow1: get("customLayoutRow1") || null,

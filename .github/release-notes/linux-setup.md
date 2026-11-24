@@ -86,7 +86,12 @@ SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="xxxx", ATTRS{idProduct}=
    for the flatpak version of obs merge it into `~/.var/app/com.obsproject.Studio/data/` instead
 
    if you installed an older version into `~/.config/obs-studio/plugins/`, delete it from there, otherwise obs shows it as legacy
-3. launch obs, add a new source via `Add Source -> Input Overlay`, then configure it in its properties
+3. launch obs and open `Tools -> Input Overlay Settings (GG)` to set up your input devices
+
+   pick your **Keyboard Device** and **Mouse Device** (and **Analog Keyboard** / **Gamepad** if you use them)
+
+   some mice and keyboards might show up duplicate (nkro, wireless dongle, keyboard mouse button emulation for macros, mouse keyboard macros etc etc), you will just kinda have to try and error them
+4. add a new source via `Add Source -> Input Overlay (GG)`, then configure it in its properties
 
 </details>
 

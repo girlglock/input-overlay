@@ -9,7 +9,10 @@
 
    if you installed an older version into `C:\Program Files\obs-studio\`, delete `obs-plugins\64bit\input_overlay_obs_plugin.dll` and `obs-plugins\64bit\input-overlay-fonts` from there, otherwise obs shows it as legacy
 3. launch obs with admin
-4. add a new source via **Add Source -> Input Overlay**, then configure it in its properties
+4. open **Tools -> Input Overlay Settings (GG)** to set up your input devices
+
+   keyboard and mouse are picked up automatically on windows. pick your **Analog Keyboard** and **Gamepad** there if you use them
+5. add a new source via **Add Source -> Input Overlay (GG)**, then configure it in its properties
 
 </details>
 

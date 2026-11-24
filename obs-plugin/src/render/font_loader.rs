@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use fontdue::{Font, FontSettings};
 use super::{system_fonts, texture};
-pub const FONTS_DIR_NAME: &str = "input-overlay-fonts";
+pub const FONTS_DIR_NAME: &str = "fonts";
 const EXTENSIONS: [&str; 2] = ["ttf", "otf"];
 
 pub struct LoadedFont {

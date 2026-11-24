@@ -9,13 +9,16 @@ on:
 
 permissions:
   contents: read
+  actions: read
   id-token: write
   attestations: write
 
 jobs:
   build:
     uses: ./.github/workflows/_build.yml
+    secrets: inherit
     with:
+      sign: ${{ vars.SIGNPATH_SIGN_NIGHTLY == 'true' }}
       windows-artifact-name: input-overlay-ws-windows
       linux-appimage-artifact-name: input-overlay-ws-linux
       obs-plugin-artifact-name: input-overlay-obs-plugin-windows

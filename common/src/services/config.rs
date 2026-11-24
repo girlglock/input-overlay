@@ -12,6 +12,7 @@ pub struct Config {
     pub send_mouse_move: bool,
     pub cpu_affinity: Vec<u32>,
     pub analog_keyboard: String,
+    pub gamepad_device: String,
     pub http_enabled: bool,
     pub http_port: u16,
     pub linux_evdev_keyboard_device: String,
@@ -32,6 +33,7 @@ impl Default for Config {
             send_mouse_move: true,
             cpu_affinity: vec![0, 1],
             analog_keyboard: String::new(),
+            gamepad_device: String::new(),
             http_enabled: false,
             http_port: 4456,
             linux_evdev_keyboard_device: String::new(),
@@ -46,7 +48,7 @@ impl Default for Config {
 pub fn load(path: &Path) -> Config {
     if path.exists() {
         match std::fs::read_to_string(path) {
-            Ok(s) => match serde_json::from_str::<Config>(&s) {
+            Ok(s) => match serde_json::from_str::<Config>(s.trim_start_matches('\u{feff}')) {
                 Ok(cfg) => return cfg,
                 Err(e) => tracing::error!("config parse error: {e}"),
             },

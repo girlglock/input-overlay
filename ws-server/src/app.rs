@@ -77,7 +77,7 @@ impl App {
     }
 
     pub fn save_config(&mut self, new_cfg: Config) -> Result<(), String> {
-        let (need_rebind, need_analog, need_http, need_evdev, need_raw, need_affinity) = {
+        let (need_rebind, need_analog, need_http, need_evdev, need_raw, need_affinity, need_gamepad) = {
             let old = self.config.lock().unwrap();
             (
                 old.host != new_cfg.host || old.port != new_cfg.port,
@@ -88,11 +88,13 @@ impl App {
                     || old.flush_hz != new_cfg.flush_hz,
                 old.flush_hz != new_cfg.flush_hz,
                 old.cpu_affinity != new_cfg.cpu_affinity,
+                old.gamepad_device != new_cfg.gamepad_device || old.flush_hz != new_cfg.flush_hz,
             )
         };
 
         services::config::save(&self.config_path, &new_cfg).map_err(|e| e.to_string())?;
         *self.config.lock().unwrap() = new_cfg.clone();
+        services::http_server::set_ws_port(new_cfg.port);
 
         if need_affinity {
             apply_cpu_affinity(&new_cfg.cpu_affinity);
@@ -109,6 +111,9 @@ impl App {
                     new_cfg.flush_hz,
                 ));
             }
+        }
+        if need_gamepad {
+            services::gamepad::set_output(self.ws_state.input_tx.clone(), &new_cfg.gamepad_device, new_cfg.flush_hz);
         }
         if need_http {
             self.http = None;
@@ -375,6 +380,10 @@ pub fn run() {
     }
 
     let config_path = data_dir.join("config.json");
+    
+    //on first ever start
+    let first_run = !config_path.exists();
+    
     let mut cfg = services::config::load(&config_path);
     if cfg.auth_token.is_empty() {
         use rand::Rng;
@@ -420,8 +429,12 @@ pub fn run() {
         cfg.raw_mouse_min_delta,
         cfg.flush_hz,
     ));
+    if !cfg.gamepad_device.is_empty() {
+        services::gamepad::set_output(input_tx.clone(), &cfg.gamepad_device, cfg.flush_hz);
+    }
     let analog = (!cfg.analog_keyboard.is_empty())
         .then(|| services::analog::AnalogThread::start(input_tx, &cfg.analog_keyboard, cfg.flush_hz));
+    services::http_server::set_ws_port(cfg.port);
     let http = if cfg.http_enabled {
         services::http_server::HttpServer::start(&cfg.host, cfg.http_port)
     } else {
@@ -452,6 +465,8 @@ pub fn run() {
         if views.settings.is_none() {
             return;
         }
+    } else if first_run {
+        views.toggle_settings(&app, false);
     }
     if let Some(version) = post_update_version {
         if ensure_ui(&app) {

@@ -1,3 +1,5 @@
+const SCROLL_HISTORY_PULSE_MS = 80;
+
 export class OverlayVisualiser {
     constructor(utils, layoutParser, keyLayoutParser = null) {
         this.utils = utils;
@@ -62,6 +64,7 @@ export class OverlayVisualiser {
         this._historyCanvases = {};
         this._historyRafLoops = {};
         this._historyByKey = new Map();
+        this._historyHeld = new Set();
 
         this._moveToTopZCounter = 10000;
     }
@@ -94,7 +97,7 @@ export class OverlayVisualiser {
                 el.style.setProperty("transform", `scale(${scaleX}, ${scaleY})`, "important");
             }
             activeSet.add(keyName);
-            if (!wasKeyActive) this._recordHistoryEdge(keyName, true);
+            if (!wasKeyActive) this.noteInput(keyName, true);
         } else {
             el.classList.remove("active", "analog-key");
             this.activeElements.delete(el);
@@ -123,9 +126,49 @@ export class OverlayVisualiser {
             const map = this.previewElements?.keyElements.get(keyName) || this.previewElements?.mouseElements.get(keyName) || this.previewElements?.gamepadElements?.get(keyName);
             if (map && !map.some(e => this.activeElements.has(e))) {
                 activeSet.delete(keyName);
-                this._recordHistoryEdge(keyName, false);
+                this.noteInput(keyName, false);
             }
         }
+    }
+
+    noteInput(keyName, isPress) {
+        if (!keyName) return;
+        
+        if (isPress) {
+            if (this._historyHeld.has(keyName)) return;
+            this._historyHeld.add(keyName);
+        } else if (!this._historyHeld.delete(keyName)) {
+            return;
+        }
+        
+        this._recordHistoryEdge(keyName, isPress);
+    }
+
+    noteScroll(dir) {
+        if (!dir) return;
+        const keyName = dir < 0 ? "scroll_up" : "scroll_down";
+        const instances = this._historyByKey.get(keyName);
+        
+        if (!instances?.length) return;
+        
+        const now = performance.now();
+        
+        for (const state of instances) {
+            let last = null;
+            
+            for (let i = state.log.length - 1; i >= 0; i--) {
+                if (state.log[i].key === keyName) { last = state.log[i]; break; }
+            }
+            
+            if (last && last.end !== null && last.end >= now) last.end = now + SCROLL_HISTORY_PULSE_MS;
+            else state.log.push({ key: keyName, start: now, end: now + SCROLL_HISTORY_PULSE_MS });
+            if (!state.rafId) state.rafId = requestAnimationFrame(this._historyRafLoops[state.historyId]);
+        }
+    }
+
+    releaseHeldInputs() {
+        for (const keyName of this._historyHeld) this._recordHistoryEdge(keyName, false);
+        this._historyHeld.clear();
     }
 
     _recordHistoryEdge(keyName, isPress) {
@@ -454,11 +497,11 @@ export class OverlayVisualiser {
 
         const m4El = document.createElement("span");
         m4El.innerHTML = labelM4;
-        m4El.dataset.key = "mouse4";
+        m4El.dataset.key = "mouse_4";
 
         const m5El = document.createElement("span");
         m5El.innerHTML = labelM5;
-        m5El.dataset.key = "mouse5";
+        m5El.dataset.key = "mouse_5";
 
         el.append(m5El, m4El);
         return { el, m4El, m5El };
@@ -483,6 +526,7 @@ export class OverlayVisualiser {
         this._historyCanvases = {};
         this._historyRafLoops = {};
         this._historyByKey = new Map();
+        this._historyHeld = new Set();
 
         const register = (map, name, el) => {
             let arr = map.get(name);
@@ -604,8 +648,8 @@ export class OverlayVisualiser {
                     side.el.style.setProperty("--key-width", `${widthPx}px`);
                     side.el.style.setProperty("--key-height-modifier", String(item.h));
                     container.appendChild(side.el);
-                    register(mouseElements, "mouse5", side.m5El);
-                    register(mouseElements, "mouse4", side.m4El);
+                    register(mouseElements, "mouse_5", side.m5El);
+                    register(mouseElements, "mouse_4", side.m4El);
                     break;
                 }
                 default: {
@@ -630,7 +674,6 @@ export class OverlayVisualiser {
             }
             container.lastElementChild.style.zIndex = String(zi);
             container.lastElementChild.dataset.baseZIndex = String(zi);
-            if (item.type.split("|").every(t => t.startsWith("gp_"))) container.lastElementChild.dataset.gamepadOnly = "1";
             if (item.moveToTop) container.lastElementChild.dataset.moveToTop = "1";
         }
 
@@ -1271,11 +1314,13 @@ export class OverlayVisualiser {
         if (this.mousePadTrail.length > 0 && maxAge > 0) {
             const cutoff = now - maxAge;
             let firstValid = 0;
+            
             while (firstValid < this.mousePadTrail.length) {
                 const p = this.mousePadTrail[firstValid];
-                if (p === null || p.t >= cutoff) break;
+                if (p !== null && p.t >= cutoff) break;
                 firstValid++;
             }
+            
             if (firstValid > 0) this.mousePadTrail.splice(0, firstValid);
         }
 
@@ -1493,7 +1538,7 @@ export class OverlayVisualiser {
     _historyOverlapRanges(log, now) {
         const events = [];
         for (const e of log) {
-            const end = e.end ?? now;
+            const end = e.end === null ? now : Math.min(e.end, now);
             if (end <= e.start) continue;
             events.push([e.start, 1]);
             events.push([end, -1]);
@@ -1543,7 +1588,7 @@ export class OverlayVisualiser {
         const barThickness = Math.max(1, laneSize - 1);
         const laneInset = (laneSize - barThickness) / 2;
 
-        const agoPx = (t) => (now - t) * pxPerMs;
+        const agoPx = (t) => Math.max(0, now - t) * pxPerMs;
         const posOf = (t) => reverseDirection ? scrollAxisSize - agoPx(t) : agoPx(t);
         const barRange = (entry) => {
             const p0 = posOf(entry.start), p1 = posOf(entry.end ?? now);
@@ -1578,11 +1623,26 @@ export class OverlayVisualiser {
         });
 
         if (highlightOverlap) {
-            ctx.fillStyle = this.utils.hexToRgba(overlapColor || "#ffffff", 1);
-            for (const [rangeStart, rangeEnd] of this._historyOverlapRanges(state.log, now)) {
-                const [barStart, barLen] = barRange({ start: rangeStart, end: rangeEnd });
-                if (vertical) ctx.fillRect(0, barStart, W, barLen);
-                else ctx.fillRect(barStart, 0, barLen, H);
+            const ranges = this._historyOverlapRanges(state.log, now);
+            
+            if (ranges.length) {
+                ctx.fillStyle = this.utils.hexToRgba(overlapColor || "#ffffff", 1);
+                trackedKeys.forEach((keyName, i) => {
+                    const laneStart = i * laneSize + laneInset;
+                    
+                    for (const entry of state.log) {
+                        if (entry.key !== keyName) continue;
+                        const entryEnd = entry.end === null ? now : Math.min(entry.end, now);
+                        
+                        for (const [rangeStart, rangeEnd] of ranges) {
+                            const from = Math.max(entry.start, rangeStart), to = Math.min(entryEnd, rangeEnd);
+                            if (to <= from) continue;
+                            const [barStart, barLen] = barRange({ start: from, end: to });
+                            if (vertical) ctx.fillRect(laneStart, barStart, barThickness, barLen);
+                            else ctx.fillRect(barStart, laneStart, barLen, barThickness);
+                        }
+                    }
+                });
             }
         }
 
@@ -1602,7 +1662,7 @@ export class OverlayVisualiser {
         const totalLogW = logW + GLOW_PAD * 2;
         const totalLogH = logH + GLOW_PAD * 2;
 
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = (window.devicePixelRatio || 1) * 3;
         state.canvas.width = Math.round(totalLogW * dpr);
         state.canvas.height = Math.round(totalLogH * dpr);
         state.canvas.style.width = `${totalLogW}px`;

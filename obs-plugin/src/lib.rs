@@ -2,6 +2,7 @@ mod obs;
 mod obs_helpers;
 mod overlay_link;
 mod render;
+mod settings_source;
 mod video_source;
 
 use std::path::PathBuf;
@@ -15,6 +16,8 @@ static OBS_MODULE_PTR: std::sync::atomic::AtomicPtr<std::ffi::c_void> =
     std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
 
 static PLUGIN_STATE: Mutex<Option<PluginState>> = Mutex::new(None);
+pub static INPUT_TX: std::sync::OnceLock<tokio::sync::mpsc::UnboundedSender<InputEvent>> = std::sync::OnceLock::new();
+pub const GAMEPAD_FLUSH_HZ: u32 = 64;
 
 struct PluginState {
     _runtime: tokio::runtime::Runtime,
@@ -22,8 +25,8 @@ struct PluginState {
     #[cfg(windows)]
     raw_input: Option<services::windows::raw_input::RawInputThread>,
     #[cfg(target_os = "linux")]
-    _evdev: Option<services::linux::evdev_input::EvdevInputThread>,
-    _analog: Option<services::analog::AnalogThread>,
+    evdev: Option<services::linux::evdev_input::EvdevInputThread>,
+    analog: Option<services::analog::AnalogThread>,
     _log_guard: tracing_appender::non_blocking::WorkerGuard,
 }
 
@@ -42,7 +45,7 @@ pub extern "C" fn obs_module_ver() -> u32 {
 
 #[no_mangle]
 pub extern "C" fn obs_module_name() -> *const std::os::raw::c_char {
-    c"Input Overlay".as_ptr()
+    c"Input Overlay (GG)".as_ptr()
 }
 
 #[no_mangle]
@@ -61,9 +64,11 @@ pub extern "C" fn obs_module_load() -> bool {
     }
 
     let config_path = config_dir.join("config.json");
+    migrate_legacy_config(&config_path);
     let cfg = services::config::load(&config_path);
 
     let analog_kb = cfg.analog_keyboard.clone();
+    let gamepad_dev = cfg.gamepad_device.clone();
     #[cfg(target_os = "linux")]
     let (kbd_dev, mouse_dev, min_delta) = (
         cfg.linux_evdev_keyboard_device.clone(),
@@ -88,6 +93,10 @@ pub extern "C" fn obs_module_load() -> bool {
 
     let (input_tx, mut input_rx) = tokio::sync::mpsc::unbounded_channel::<InputEvent>();
     let (bus_tx, _bus_rx0) = tokio::sync::broadcast::channel::<InputEvent>(1024);
+    let _ = INPUT_TX.set(input_tx.clone());
+
+    services::gamepad::ensure_running();
+    services::gamepad::set_output(input_tx.clone(), &gamepad_dev, GAMEPAD_FLUSH_HZ);
 
     let relay_bus = bus_tx.clone();
     let relay_task = runtime.spawn(async move {
@@ -123,7 +132,8 @@ pub extern "C" fn obs_module_load() -> bool {
 
     #[cfg(any(windows, target_os = "linux"))]
     if obs::init() {
-        video_source::init(bus_tx, Arc::clone(&config), config_path.clone());
+        video_source::init(bus_tx);
+        settings_source::init(Arc::clone(&config), config_path.clone());
     }
 
     *PLUGIN_STATE.lock().unwrap() = Some(PluginState {
@@ -132,8 +142,8 @@ pub extern "C" fn obs_module_load() -> bool {
         #[cfg(windows)]
         raw_input,
         #[cfg(target_os = "linux")]
-        _evdev: evdev,
-        _analog: analog,
+        evdev,
+        analog,
         _log_guard: log_guard,
     });
 
@@ -144,6 +154,7 @@ pub extern "C" fn obs_module_load() -> bool {
 #[no_mangle]
 #[cfg_attr(not(windows), allow(unused_mut))]
 pub extern "C" fn obs_module_unload() {
+    settings_source::shutdown();
     let state = PLUGIN_STATE.lock().unwrap().take();
     if let Some(mut s) = state {
         s._relay_task.abort();
@@ -153,12 +164,81 @@ pub extern "C" fn obs_module_unload() {
             ri.stop();
         }
 
-        drop(s._analog);
+        drop(s.analog);
         #[cfg(target_os = "linux")]
-        drop(s._evdev);
+        drop(s.evdev);
         drop(s._runtime);
     }
     tracing::info!("input-overlay plugin unloaded");
+}
+
+#[cfg(target_os = "linux")]
+pub fn restart_evdev(kbd_path: &str, mouse_path: &str, min_delta: i32) {
+    let Some(tx) = INPUT_TX.get() else {
+        return;
+    };
+    
+    let mut guard = PLUGIN_STATE.lock().unwrap();
+    
+    let Some(state) = guard.as_mut() else {
+        return;
+    };
+    
+    state.evdev = None;
+    
+    state.evdev = Some(services::linux::evdev_input::EvdevInputThread::start(
+        tx.clone(),
+        kbd_path,
+        mouse_path,
+        min_delta,
+        64,
+    ));
+    
+    tracing::info!("evdev: restarted with keyboard '{kbd_path}', mouse '{mouse_path}'");
+}
+
+pub fn restart_analog(filter: &str) {
+    let Some(tx) = INPUT_TX.get() else {
+        return;
+    };
+    
+    let mut guard = PLUGIN_STATE.lock().unwrap();
+    
+    let Some(state) = guard.as_mut() else {
+        return;
+    };
+    
+    state.analog = None;
+    
+    if !filter.is_empty() {
+        state.analog = Some(services::analog::AnalogThread::start(tx.clone(), filter, 64));
+    }
+    
+    tracing::info!("analog: restarted with '{filter}'");
+}
+
+const CONFIG_DIR_NAME: &str = "input_overlay_gg";
+const LEGACY_CONFIG_DIR_NAME: &str = "input-overlay";
+
+//prerelease configs were inside non _gg dir but i dont wanna confuse this with the other plugin by universal
+fn migrate_legacy_config(config_path: &std::path::Path) {
+    if config_path.exists() {
+        return;
+    }
+    
+    let Some(legacy) = plugin_config_dir()
+        .parent()
+        .map(|p| p.join(LEGACY_CONFIG_DIR_NAME).join("config.json"))
+    else {
+        return;
+    };
+    
+    if legacy.is_file() {
+        match std::fs::copy(&legacy, config_path) {
+            Ok(_) => tracing::info!("config: copied {} to {}", legacy.display(), config_path.display()),
+            Err(e) => tracing::warn!("config: couldn't copy {}: {e}", legacy.display()),
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -168,7 +248,7 @@ pub fn plugin_config_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."));
     base.join("obs-studio")
         .join("plugin_config")
-        .join("input-overlay")
+        .join(CONFIG_DIR_NAME)
 }
 
 #[cfg(target_os = "linux")]
@@ -179,7 +259,7 @@ pub fn plugin_config_dir() -> PathBuf {
     base.join(".config")
         .join("obs-studio")
         .join("plugin_config")
-        .join("input-overlay")
+        .join(CONFIG_DIR_NAME)
 }
 
 fn setup_logging() -> tracing_appender::non_blocking::WorkerGuard {

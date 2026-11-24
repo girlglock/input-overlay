@@ -31,19 +31,40 @@ const ANALOG_BUTTONS = new Set([6, 7]); //triggers
 
 
 export class GamepadManager {
-    constructor(visualizer) {
+    constructor(visualizer, { poll = true } = {}) {
         this.visualizer = visualizer;
+        this.poll = poll;
         this._rafId = null;
         this._prevButtonState = {};
         this._prevAxisState = {};
         this._stickValues = {};
+        this._wsButtons = {};
 
         this._loop = this._loop.bind(this);
 
-        window.addEventListener("gamepadconnected", e => this._onConnected(e));
-        window.addEventListener("gamepaddisconnected", e => this._onDisconnected(e));
-        this._startLoop();
+        if (poll) {
+            window.addEventListener("gamepadconnected", e => this._onConnected(e));
+            window.addEventListener("gamepaddisconnected", e => this._onDisconnected(e));
+            this._startLoop();
+        }
         if (typeof window.setDynamicScale === "function") setTimeout(window.setDynamicScale, 100);
+    }
+
+    applyButton(pad, index, pressed, value) {
+        const name = GP_BUTTON_MAP[index];
+        if (!name) return;
+        const key = `${pad}:${index}`;
+        const wasPressed = !!this._wsButtons[key];
+        this._wsButtons[key] = pressed;
+        if (pressed !== wasPressed) this._setButton(name, pressed, value);
+        else if (pressed && ANALOG_BUTTONS.has(index)) this._setAnalog(name, value);
+    }
+
+    applyAxis(pad, index, raw) {
+        const info = GP_AXIS_MAP[index];
+        if (!info) return;
+        const dz = this.visualizer.gamepadDeadzone ?? 0.03;
+        this._setAxis(info.stick, info.axis, Math.abs(raw) < dz ? 0 : raw);
     }
 
     _onConnected(e) {
@@ -126,6 +147,7 @@ export class GamepadManager {
     _setButton(name, isPressed, value) {
         const viz = this.visualizer;
         if (!viz.previewElements) return;
+        viz.noteInput(name, isPressed);
 
         const elements = viz.previewElements.gamepadElements?.get(name);
         if (!elements?.length) return;
@@ -178,5 +200,6 @@ export class GamepadManager {
         this._prevButtonState = {};
         this._prevAxisState = {};
         this._stickValues = {};
+        this._wsButtons = {};
     }
 }

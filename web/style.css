@@ -645,20 +645,6 @@ li {
     color: #fff;
 }
 
-.cfg-preview-warning {
-    font-size: 11px;
-    color: var(--red);
-}
-
-.cfg-preview-warning[hidden] {
-    display: none;
-}
-
-.cfg-preview-warning a {
-    color: inherit;
-    text-decoration: underline;
-}
-
 .cfg-auth-warning {
     font-size: 10px;
     color: #e8a838;
@@ -2258,6 +2244,53 @@ li {
     flex-wrap: wrap;
 }
 
+#klAddKeysRow {
+    align-items: center;
+    gap: 6px;
+}
+
+.kl-key-field {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+}
+
+.kl-key-field > input {
+    flex: 1;
+    min-width: 0;
+}
+
+.cfg-btn.kl-key-add-btn {
+    flex-shrink: 0;
+    padding: 0 6px;
+    line-height: 1.2rem;
+    font-size: 11px;
+}
+
+.kl-key-picker {
+    position: fixed;
+    z-index: 10000;
+    width: 340px;
+    max-width: calc(100vw - 16px);
+    max-height: min(420px, calc(100vh - 16px));
+    overflow-y: auto;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid;
+    border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+    padding: 6px 6px 2px;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+    user-select: none;
+}
+
+.kl-key-picker-cat {
+    font-size: 10px;
+    color: var(--accent);
+    margin: 2px 0 4px 1px;
+}
+
 .kl-add-label-inputs {
     display: flex;
     gap: 5px;
@@ -2329,6 +2362,10 @@ li {
     -webkit-font-smoothing: none;
 }
 
+.tree-view li {
+    margin-top: 0;
+}
+
 .tree-view ul {
     list-style: none;
     margin: 3px 0 0 16px;
@@ -2394,7 +2431,7 @@ li {
     content: "-";
 }
 
-.tree-view ul details>summary::before {
+.tree-view ul>li>details>summary::before {
     margin-left: -22px;
     position: relative;
     z-index: 1;
@@ -2404,12 +2441,27 @@ li {
     margin-bottom: 4px;
 }
 
-.tree-view>li>details>summary {
+.kl-tree-root-label {
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.tree-view>li>ul.kl-tree-branch {
+    margin-left: 4px;
+}
+
+.kl-tree-branch>li.kl-tree-node {
+    margin-bottom: 4px;
+}
+
+.kl-tree-node>details>summary {
     font-size: 10px;
     color: var(--text-3);
 }
 
-.tree-view>li>details>summary:hover {
+.kl-tree-node>details>summary:hover {
     color: var(--secondary-text);
 }
 
@@ -2445,9 +2497,13 @@ li {
 }
 
 .kl-tree-subgroup {
-    margin-left: 10px;
-    border-left: 1px solid var(--border-dark);
-    padding-left: 6px;
+    margin: 0;
+    padding: 0;
+}
+
+#klElementList .tree-view ul {
+    margin-top: 2px;
+    margin-left: 4px;
 }
 
 .kl-tree-subgroup > summary {
@@ -2478,18 +2534,56 @@ li {
 }
 
 .kl-tree-attr {
+    padding: 2px 0;
+}
+
+/* setting name on its own line, the value one tree level below it */
+.kl-tree-attr-label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-3);
+    line-height: 14px;
+}
+
+.tree-view ul.kl-tree-attr-value {
+    margin: 0 0 2px 4px;
+    padding-left: 12px;
+}
+
+.tree-view ul.kl-tree-groups > li + li {
+    margin-top: 3px;
+}
+
+.tree-view ul.kl-tree-attr-value > li {
     display: flex;
     align-items: center;
     gap: 4px;
+    min-width: 0;
+}
+
+.tree-view ul.kl-tree-attr-value > li::before {
+    left: -12px;
+    top: 50%;
+    width: 9px;
+}
+
+.tree-view ul.kl-tree-attr-value > li:last-child::after {
+    top: 50%;
+}
+
+.kl-tree-attr-value .kl-key-field {
+    flex: 1;
+}
+
+.kl-tree-attr--check .cfg-checkbox {
+    gap: 6px;
     padding: 1px 0;
 }
 
-.kl-tree-attr-label {
+.kl-tree-attr--check .cfg-checkbox-label {
     font-size: 10px;
     color: var(--text-3);
-    width: 38px;
-    flex-shrink: 0;
-    text-align: right;
+    line-height: 14px;
 }
 
 .kl-tree-attr-input {
@@ -2572,16 +2666,24 @@ li {
 
 .kl-drag-handle {
     float: left;
+    position: relative;
+    z-index: 2;
+    margin: -2px 0 -2px -3px;
+    padding: 2px 6px 2px 3px;
     cursor: grab;
     color: var(--text-3);
     font-size: 10px;
-    padding-right: 3px;
     user-select: none;
     line-height: 1;
 }
 
 .kl-drag-handle:hover {
     color: var(--text);
+}
+
+.kl-drag-handle:active,
+.kl-tree-node.kl-dragging .kl-drag-handle {
+    cursor: grabbing;
 }
 
 .kl-tree-node.kl-dragging {
@@ -2777,10 +2879,4 @@ li {
 .cfg-mode-remember {
     justify-content: center;
     margin-top: 20px;
-}
-
-/* gamepad elements can't be rendered by the obs plugin */
-.cfg-plugin-mode [data-gamepad-only="1"] {
-    opacity: 0.25 !important;
-    filter: grayscale(1) !important;
 }

@@ -16,9 +16,10 @@ pub struct Tray {
 }
 
 fn build_tray(tx: Sender<AppMsg>) -> Option<TrayIcon> {
+    let configurator_item = MenuItem::with_id("configurator", "Open Configurator", true, None);
     let settings_item = MenuItem::with_id("settings", "Settings", true, None);
     let quit_item = MenuItem::with_id("quit", "Exit", true, None);
-    let menu = Menu::with_items(&[&settings_item, &quit_item]).ok()?;
+    let menu = Menu::with_items(&[&configurator_item, &settings_item, &quit_item]).ok()?;
 
     let Some((rgba, w, h)) = ui::app_icon() else {
         tracing::warn!("no window icon available for tray");
@@ -37,6 +38,10 @@ fn build_tray(tx: Sender<AppMsg>) -> Option<TrayIcon> {
     let menu_tx = tx.clone();
     MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
         let msg = match event.id.as_ref() {
+            "configurator" => {
+                crate::system::open_url(crate::system::CONFIGURATOR_URL);
+                return;
+            }
             "settings" => AppMsg::ToggleSettings,
             "quit" => AppMsg::Quit,
             _ => return,

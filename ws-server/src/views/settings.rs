@@ -8,7 +8,8 @@ use crate::ui::{self, escape, Event, EventKind, Win};
 use crate::ws_server::ServerStatus;
 
 const TABS: [&str; 4] = ["server", "input", "advanced", "about"];
-const LINKS: [(&str, &str); 5] = [
+const LINKS: [(&str, &str); 6] = [
+    ("link-configurator", system::CONFIGURATOR_URL),
     ("link-github", "https://github.com/girlglock/input-overlay"),
     ("link-twitter", "https://twitter.com/girlglock_"),
     ("link-website", "https://girlglock.com"),
@@ -32,11 +33,13 @@ pub struct SettingsView {
     msg_until: Option<Instant>,
     update_info: Option<UpdateInfo>,
     updating: bool,
-    keep_open_on_save: bool,
+    notray: bool,
+    gamepad_revision: Option<u64>,
+    gamepad_poll_at: Option<Instant>,
 }
 
 impl SettingsView {
-    pub fn open(app: &App, keep_open_on_save: bool) -> Option<Self> {
+    pub fn open(app: &App, notray: bool) -> Option<Self> {
         let win = Win::open("Input Overlay WS - Settings", 420, 580, true, "settings.rml")?;
         let cfg = app.config();
         let mut view = Self {
@@ -54,13 +57,16 @@ impl SettingsView {
             msg_until: None,
             update_info: None,
             updating: false,
-            keep_open_on_save,
+            notray,
+            gamepad_revision: None,
+            gamepad_poll_at: None,
         };
 
         win.set_inner_rml("version-label", &format!("Input-Overlay WebSocket Server | Version: {VERSION}<br/>(latest)"));
         win.set_text("status-version", &format!("v{VERSION}"));
         view.apply_theme_label(app.dark_theme());
         view.init_analog_keyboards();
+        crate::services::gamepad::ensure_running();
         view.apply_config(&cfg);
         view.apply_status(&app.server_status());
         win.set_checked("autostart", view.autostart);
@@ -104,6 +110,7 @@ impl SettingsView {
         self.apply_http_enabled(cfg.http_enabled);
         w.set_value("kbd-device", &cfg.linux_evdev_keyboard_device);
         w.set_value("mouse-device", &cfg.linux_raw_mouse_device);
+        self.refresh_gamepads(&cfg.gamepad_device);
         self.whitelist = cfg.key_whitelist.clone();
         self.render_key_list();
         self.set_dirty(false);
@@ -120,6 +127,7 @@ impl SettingsView {
             send_mouse_move: w.checked("send-mouse-move"),
             key_whitelist: self.whitelist.clone(),
             analog_keyboard: w.value("analog-keyboard"),
+            gamepad_device: w.value("gamepad-device"),
             http_enabled: w.checked("http-enabled"),
             http_port: w.value("http-port").trim().parse().unwrap_or(4456),
             flush_hz: w.value("flush-hz").trim().parse().unwrap_or(125),
@@ -318,6 +326,31 @@ impl SettingsView {
         }
     }
 
+    fn refresh_gamepads(&mut self, selected: &str) {
+        use crate::services::gamepad::{devices, ALL_GAMEPADS};
+        let w = self.win;
+        let (revision, list) = devices();
+        self.gamepad_revision = Some(revision);
+        self.gamepad_poll_at = Some(Instant::now() + Duration::from_secs(1));
+
+        w.select_clear("gamepad-device");
+        w.select_add("gamepad-device", "Disabled", "");
+        w.select_add("gamepad-device", "All gamepads", ALL_GAMEPADS);
+        
+        for pad in &list {
+            let suffix = pad.id.split_once('#').map(|(_, n)| format!(" ({n})")).unwrap_or_default();
+            w.select_add("gamepad-device", &format!("{}{suffix}", pad.name), &pad.id);
+        }
+        
+        let known = selected.is_empty() || selected == ALL_GAMEPADS || list.iter().any(|p| p.id == selected);
+        
+        if !known {
+            w.select_add("gamepad-device", "Saved gamepad (not connected)", selected);
+        }
+        
+        w.set_value("gamepad-device", selected);
+    }
+
     fn init_analog_keyboards(&self) {
         use crate::services::analog::ANALOG_BRANDS;
         let w = self.win;
@@ -440,8 +473,17 @@ impl SettingsView {
             "regen-token" => self.regenerate_token(app),
             "add-key-btn" => self.set_listening(!self.listening),
             "open-http-btn" if self.http_enabled => {
-                let host = self.win.value("http-host");
-                let host = if host.is_empty() { "localhost".to_string() } else { host };
+                let host = self.win.value("http-host").trim().to_string();
+                
+                //browser needs actual address
+                let host = match host.as_str() {
+                    "" => "localhost".to_string(),
+                    "0.0.0.0" | "::" | "[::]" => system::local_ipv4()
+                        .map(|ip| ip.to_string())
+                        .unwrap_or_else(|| "localhost".to_string()),
+                    _ => host,
+                };
+                
                 let port = self.win.value("http-port").trim().parse::<u16>().unwrap_or(4456);
                 open_url(&format!("http://{host}:{port}"));
             }
@@ -449,11 +491,7 @@ impl SettingsView {
                 Ok(()) => {
                     self.original = app.config();
                     self.set_dirty(false);
-                    if self.keep_open_on_save {
-                        self.show_msg("settings saved", false);
-                    } else {
-                        self.win.close();
-                    }
+                    self.show_msg("settings saved", false);
                 }
                 Err(e) => self.show_msg(&e, true),
             },
@@ -493,7 +531,7 @@ impl SettingsView {
                 let enabled = self.win.checked("autostart");
                 if enabled != self.autostart {
                     self.autostart = enabled;
-                    set_autostart(enabled, self.keep_open_on_save);
+                    set_autostart(enabled, self.notray);
                 }
             }
             "http-enabled" => {
@@ -546,7 +584,7 @@ impl SettingsView {
     }
 
     pub fn next_deadline(&self) -> Option<Instant> {
-        [self.notice_until, self.msg_until].into_iter().flatten().min()
+        [self.notice_until, self.msg_until, self.gamepad_poll_at].into_iter().flatten().min()
     }
 
     pub fn tick(&mut self, now: Instant) {
@@ -557,6 +595,15 @@ impl SettingsView {
         if self.msg_until.is_some_and(|t| now >= t) {
             self.msg_until = None;
             self.show_dirty_msg();
+        }
+        
+        if self.gamepad_poll_at.is_some_and(|t| now >= t) {
+            if Some(crate::services::gamepad::devices().0) != self.gamepad_revision {
+                let current = self.win.value("gamepad-device");
+                self.refresh_gamepads(&current);
+            } else {
+                self.gamepad_poll_at = Some(now + Duration::from_secs(1));
+            }
         }
     }
 }

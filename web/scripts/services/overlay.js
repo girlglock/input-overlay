@@ -36,7 +36,8 @@ export class OverlayMode {
                 wsOnlyGamepad = !keyLayoutParser.needsWebSocket(defs);
             }
 
-            if (!wsOnlyGamepad) {
+            const gamepadViaWs = settings.gamepad_no_cef === true || settings.gamepad_no_cef === "true";
+            if (!wsOnlyGamepad || gamepadViaWs) {
                 const wsConfig = (this.urlManager.urlParams.get("ws") || "").split(":");
                 const wsAddress = wsConfig[0] || "localhost";
                 const wsPort = wsConfig[1] || "4455";
@@ -49,7 +50,8 @@ export class OverlayMode {
                 statusEl.style.display = "none";
             }
 
-            this.gamepadManager = new GamepadManager(this.visualizer);
+            this.gamepadManager = new GamepadManager(this.visualizer, { poll: !gamepadViaWs });
+            if (this.websocketManager) this.websocketManager.gamepadManager = this.gamepadManager;
 
             window.addEventListener("focus", () => {
                 if (this.websocketManager) {

@@ -138,14 +138,15 @@
                                 <warning class="note note--red">this will not work with the obs-plugin version of the input-overlay-ws! you will have to use the standalone app version!</warning>
                                 <li>open the input-overlay-ws server <b>on your gaming pc</b></li>
                                 <li>right-click the tray icon -> settings -> enable the http server</li>
-                                <li>change the host of the ws server to the address of your gaming pc
-                                    <br><small>run <code>ipconfig</code> in cmd and copy the local IPv4
-                                        address (usually 192.168.0.1 or 192.168.X.X with X being 0-255)</small>
+                                <li>change the host of the ws server to <code>0.0.0.0</code> so it accepts connections from other pcs
+                                    <br><small>you can also use the local IPv4 address of your gaming pc instead: run <code>ipconfig</code>
+                                        in cmd and copy it (usually 192.168.0.1 or 192.168.X.X with X being 0-255)</small>
                                 </li>
-                                <li>click the <code>open in browser</code> button inside the http server settings</li>
-                                <li>enter the gaming pc's address in both the <strong>input-overlay-ws</strong> and the
-                                    hosted
-                                    <strong>configurator</strong>
+                                <li>click the <code>open in browser</code> button inside the http server settings
+                                    <br><small>it opens the hosted configurator on your gaming pc's local address</small>
+                                </li>
+                                <li>check that the address in the hosted <strong>configurator</strong> is your gaming peesees local
+                                    IPv4 address
                                 </li>
                                 <li>click the <code>⎘ copy url</code> button to copy your hosted overlay url from the
                                     hosted configurator and add it as a browser source in your OBS running on the
@@ -186,7 +187,7 @@
                                 <li>download the latest release of the <a href="https://github.com/girlglock/input-overlay/releases"
                                         target="_blank">input-overlay-obs-plugin</a> and follow the setup instructions from its release page</li>
                                 <li>configure your overlay to your liking, then click <code>⭳ export json</code> above</li>
-                                <li>add a new <code>Input Overlay</code> source in OBS</li>
+                                <li>add a new <code>Input Overlay (GG)</code> source in OBS</li>
                                 <li>in its properties choose the config file you just exported</li>
                                 <li>configure other settings to your preference</li>
                             </ol>
@@ -201,10 +202,7 @@
         <main class="cfg-main">
             <section class="cfg-panel cfg-preview-panel">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                    <div style="display:flex;align-items:baseline;gap:10px;">
-                        <div class="cfg-panel-title" style="margin:0;">live preview</div>
-                        <span class="cfg-preview-warning" id="gamepadWarning" hidden></span>
-                    </div>
+                    <div class="cfg-panel-title" style="margin:0;">live preview</div>
                     <div style="display:flex;gap:8px;align-items:flex-start;max-width:480px;">
                         <button class="cfg-btn--link" id="analogconnectbtn" style="align-self:center;">connect analog
                             for preview</button>
@@ -578,6 +576,13 @@
                                     </div>
                                     <input id="gamepad_deadzone" class="cfg-range config-input" type="range" min="0" max="50" step="1" value="3">
                                 </div>
+                                <div class="cfg-field" style="margin-top:8px;">
+                                    <label class="cfg-checkbox" title="If checked the web version of the overlay will rely on the standalone ws-server as input provider.. a browser source alone wont work. this is a workaround for OBS 33.x.x but also enables controller overlays with Dual streaming PC setups">
+                                        <input type="checkbox" class="config-input" id="gamepad_no_cef">
+                                        <span class="cfg-checkbox-box"></span>
+                                        <span class="cfg-checkbox-label">dont use CEF to get gamepad inputs</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -652,6 +657,12 @@
                         <div id="klAddLabelRow" style="display:none;">
                             <span class="cfg-label" id="klAddLabelHdr">label</span>
                             <div class="kl-add-label-inputs" id="klAddLabelInputs"></div>
+                        </div>
+                        <div id="klAddKeysRow" style="display:none;">
+                            <label for="klAddKeys" class="cfg-label">keys</label>
+                            <div class="kl-key-field" id="klAddKeysField">
+                                <input class="cfg-input" id="klAddKeys" type="text" placeholder="key_a key_d">
+                            </div>
                         </div>
                         <div class="kl-add-btm-row">
                             <div class="kl-add-dim">

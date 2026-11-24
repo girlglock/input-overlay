@@ -26,7 +26,6 @@
   - this plugin handles both inputs and rendering. it uses a 2D renderer rather than CEF (browser source) to display the overlay inside your OBS.
   - cons of using it
      - it wont include several features like ws server, cpu affinity, flush hz, http server for dual pc support
-     - requires you to restart obs in order to change some settings
      - needs obs to be ran as admin on bimbows
      - no updater
   - pros

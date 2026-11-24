@@ -1,10 +1,116 @@
 //guh
 import { KEY_CODES, MOUSE_CODES, COLOR_PICKERS, LOCAL_INSTANCE } from "../consts.js";
-import { STYLE_OVERRIDE_KEYS, normalizePipeType } from "./keyLayoutParser.js";
+import { STYLE_OVERRIDE_KEYS, SCROLL_TYPES, normalizePipeType } from "./keyLayoutParser.js";
 import { LEGACY_TO_CURRENT } from "./settingsFieldMap.js";
 import { GamepadManager } from "./gamepadManager.js";
 
 const LAYOUT_ORIGIN = { x: 0, y: 0 };
+
+const ELEMENT_CATALOG = [
+    {
+        id: "keyboard", label: "keyboard", groups: [
+            { label: "letters", tiles: [..."abcdefghijklmnopqrstuvwxyz"].map(l => [`key_${l}`, l.toUpperCase()]) },
+            { label: "numbers", tiles: [..."1234567890"].map(n => [`key_${n}`, n]) },
+            {
+                label: "modifiers", tiles: [
+                    ["key_leftshift", "L SHIFT"], ["key_rightshift", "R SHIFT"],
+                    ["key_leftctrl", "L CTRL"], ["key_rightctrl", "R CTRL"],
+                    ["key_leftalt", "L Alt"], ["key_rightalt", "R Alt"],
+                    ["key_leftwin", "Win"], ["key_menu", "Menu"],
+                    ["key_capslock", "Caps"], ["key_tab", "Tab"], ["key_escape", "Esc"],
+                ]
+            },
+            {
+                label: "editing", tiles: [
+                    ["key_space", "Space", 3], ["key_enter", "Enter", 2], ["key_backspace", "BS", 2],
+                    ["key_delete", "Del"], ["key_insert", "Ins"],
+                    ["key_home", "Home"], ["key_end", "End"],
+                    ["key_pageup", "PgUp"], ["key_pagedown", "PgDn"],
+                ]
+            },
+            {
+                label: "arrows", tiles: [
+                    ["key_leftarrow", "←"], ["key_uparrow", "↑"], ["key_downarrow", "↓"], ["key_rightarrow", "→"],
+                ]
+            },
+            { label: "function", tiles: Array.from({ length: 24 }, (_, i) => [`key_f${i + 1}`, `F${i + 1}`]) },
+            {
+                label: "symbols", tiles: [
+                    ["key_minus", "-"], ["key_equals", "="], ["key_openbracket", "["], ["key_closebracket", "]"],
+                    ["key_backslash", "\\"], ["key_semicolon", ";"], ["key_apostrophe", "'"],
+                    ["key_comma", ","], ["key_period", "."], ["key_slash", "/"],
+                    ["key_iso_backslash", "ISO\\"],
+                ]
+            },
+            {
+                label: "numpad", tiles: [
+                    ["key_numpad_7", "7"], ["key_numpad_8", "8"], ["key_numpad_9", "9"], ["key_numpad_divide", "÷"],
+                    ["key_numpad_4", "4"], ["key_numpad_5", "5"], ["key_numpad_6", "6"], ["key_numpad_multiply", "×"],
+                    ["key_numpad_1", "1"], ["key_numpad_2", "2"], ["key_numpad_3", "3"], ["key_numpad_subtract", "−"],
+                    ["key_numpad_0", "0", 2], ["key_numpad_decimal", "."], ["key_numpad_add", "+"],
+                    ["key_numpad_enter", "Ent"], ["key_numlock", "NL"],
+                ]
+            },
+            {
+                label: "misc", tiles: [
+                    ["input_history", "history", 3]
+                ]
+            },
+        ]
+    },
+    {
+        id: "mouse", label: "mouse", groups: [
+            {
+                label: "buttons", tiles: [
+                    ["mouse_left", "M1"], ["mouse_right", "M2"], ["mouse_middle", "M3"],
+                    ["mouse_4", "M4"], ["mouse_5", "M5"],
+                ]
+            },
+            {
+                label: "scroll", tiles: [
+                    ["scroller", "wheel"], ["scroll_updown", "↑↓"], ["scroll_up", "↑"], ["scroll_down", "↓"],
+                ]
+            },
+            {
+                label: "pad", tiles: [
+                    ["mouse_pad", "mouse pad", 3]
+                ]
+            },
+        ]
+    },
+    {
+        id: "gamepad", label: "gamepad", groups: [
+            { label: "face", tiles: [["gp_a", "A"], ["gp_b", "B"], ["gp_x", "X"], ["gp_y", "Y"]] },
+            { label: "shoulders", tiles: [["gp_lb", "LB"], ["gp_rb", "RB"], ["gp_lt", "LT"], ["gp_rt", "RT"]] },
+            { label: "d-pad", tiles: [["gp_up", "↑"], ["gp_down", "↓"], ["gp_left", "←"], ["gp_right", "→"]] },
+            {
+                label: "system", tiles: [
+                    ["gp_select", "Back"], ["gp_start", "Menu"], ["gp_guide", "Home"], ["gp_ls", "LS"], ["gp_rs", "RS"],
+                ]
+            },
+            {
+                label: "sticks", tiles: [
+                    ["gp_joystick_ls", "L stick", 2], ["gp_joystick_rs", "R stick", 2],
+                ]
+            },
+        ]
+    },
+];
+
+const MOUSE_BUTTON_TYPES = new Set(["mouse_left", "mouse_right", "mouse_middle", "mouse_4", "mouse_5"]);
+const isGamepadButton = (type) => type.startsWith("gp_") && !type.startsWith("gp_joystick");
+
+//which inputs each kind of key field can actually use
+const KEY_PICKER_SCOPES = {
+    //input history logs anything with a press, scroll ticks become short presses
+    history: (t) => t.startsWith("key_") || MOUSE_BUTTON_TYPES.has(t) || t === "scroll_up" || t === "scroll_down" || isGamepadButton(t),
+    //regular elements bind keys, mouse buttons and gamepad buttons
+    binding: (t) => t.startsWith("key_") || MOUSE_BUTTON_TYPES.has(t) || isGamepadButton(t),
+    //scroller aliases are only registered for keys and mouse buttons
+    alias: (t) => t.startsWith("key_") || MOUSE_BUTTON_TYPES.has(t),
+};
+
+const parseKeyList = (str) => String(str ?? "").trim().split(/[|,\s]+/).filter(Boolean);
 
 function flashBtn(btn, label, original, ms = 2000) {
     btn.textContent = label;
@@ -176,6 +282,8 @@ export class ConfiguratorMode {
 
         if (hasParams) this.loadSettingsFromLink(true);
         else this.applyDefaultSettings();
+        
+        if (LOCAL_INSTANCE && !urlParams.has("ws")) this._prefillHostedWsAddress();
 
         this.setupConfigInputs();
         this.setupPreviewInputListeners();
@@ -184,9 +292,99 @@ export class ConfiguratorMode {
         this.setupKeyLayoutEditor();
         this._setupPreviewZoomAndGrid();
         this._setupSidebarToggles();
-        this._syncPluginMode();
         this.updateState();
+        this._unxddThePlugin();
         this._setupModeChoiceModal();
+    }
+
+    async _prefillHostedWsAddress() {
+        const addressEl = document.getElementById("wsaddress");
+        const portEl = document.getElementById("wsport");
+        
+        if (!addressEl || !portEl) return;
+        if (window.location.hostname) addressEl.value = window.location.hostname;
+        
+        try {
+            const res = await fetch("ws_config", { cache: "no-store" });
+            
+            if (res.ok) {
+                const { port } = await res.json();
+                if (Number.isInteger(port) && port > 0) portEl.value = String(port);
+            }
+        } catch {}
+        this.updateState();
+    }
+
+    _unxddThePlugin() {
+        const style = document.createElement("style");
+        style.textContent = `
+            .cfg-mode-gated {
+                flex: 1;
+                display: flex;
+                position: relative;
+            }
+
+            .cfg-unreleased-title {
+                position: absolute;
+                bottom: 100%;
+                left: 0;
+                right: 0;
+                margin-bottom: 4px;
+                text-align: center;
+                font-size: 11px;
+                color: var(--red);
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+            }
+
+            .cfg-mode-btn:disabled {
+                cursor: not-allowed;
+                opacity: 0.4;
+                filter: grayscale(1);
+            }
+
+            .cfg-mode-btn:disabled:hover {
+                background: var(--bg);
+                color: var(--text);
+            }
+
+            .cs-tabs .label.cfg-unreleased,
+            .cs-tabs .panel.cfg-unreleased > :not(.cfg-unreleased-note) {
+                opacity: 0.55;
+                filter: grayscale(1);
+            }
+
+            .cfg-unreleased-note {
+                margin: 0 0 10px;
+            }
+        `;
+        document.head.appendChild(style);
+
+        const choiceBtn = document.getElementById("cfgModeChoicePlugin");
+        
+        if (choiceBtn) {
+            choiceBtn.disabled = true;
+            choiceBtn.title = "the obs plugin hasnt been released yet";
+            const gate = document.createElement("div");
+            gate.className = "cfg-mode-gated";
+            const gateTitle = document.createElement("span");
+            gateTitle.className = "cfg-unreleased-title";
+            gateTitle.textContent = "unreleased";
+            choiceBtn.replaceWith(gate);
+            gate.append(gateTitle, choiceBtn);
+        }
+
+        const tabLabel = document.querySelector('label[for="cfgConnTab_plugin"]');
+        const panel = tabLabel?.nextElementSibling;
+        tabLabel?.classList.add("cfg-unreleased");
+        
+        if (panel?.classList.contains("panel")) {
+            panel.classList.add("cfg-unreleased");
+            const warning = document.createElement("blockquote");
+            warning.className = "note note--red cfg-unreleased-note";
+            warning.textContent = "the obs plugin has not been released yet.. this is only for nightly testers";
+            panel.prepend(warning);
+        }
     }
 
     _setupModeChoiceModal() {
@@ -199,7 +397,6 @@ export class ConfiguratorMode {
         const applyChoice = (choice) => {
             const tab = document.getElementById(choice === "plugin" ? "cfgConnTab_plugin" : "cfgConnTab_web");
             if (tab) tab.checked = true;
-            this._syncPluginMode();
         };
 
         const remembered = localStorage.getItem(STORAGE_KEY);
@@ -248,7 +445,7 @@ export class ConfiguratorMode {
             });
         });
 
-        showDesc("plugin");
+        showDesc(document.getElementById("cfgModeChoicePlugin")?.disabled ? "web" : "plugin"); //REMINDER showDesc("plugin"); after plugin release
         modal.hidden = false;
     }
 
@@ -266,6 +463,7 @@ export class ConfiguratorMode {
             key_outline_width_pressed: "3", key_outline_width_idle: "2",
             analog_display_mode: "fill", analog_smoothing: false, analog_legend_fill_mode: "inverting", analog_force_disable: false,
             gamepad_deadzone: "3",
+            gamepad_no_cef: true,
             mouse_trail_sensitivity: "100",
             mouse_trail_fade_duration: "600",
             mouse_trail_mode: "wrap",
@@ -318,6 +516,7 @@ export class ConfiguratorMode {
             analog_legend_fill_mode: val("analog_legend_fill_mode") || "inverting",
             analog_force_disable: chk("analog_force_disable"),
             gamepad_deadzone: val("gamepad_deadzone") || "3",
+            gamepad_no_cef: chk("gamepad_no_cef"),
             mouse_trail_sensitivity: val("mouse_trail_sensitivity") || "100",
             mouse_trail_fade_duration: val("mouse_trail_fade_duration") !== "" ? val("mouse_trail_fade_duration") : "600",
             mouse_trail_mode: val("mouse_trail_mode") || "wrap",
@@ -361,68 +560,11 @@ export class ConfiguratorMode {
         custom.style.display = select.value === "__custom__" ? "" : "none";
     }
 
-    _getKeyLayoutParam(withoutGamepad = false) {
+    _getKeyLayoutParam() {
         if (!this.keyLayoutMode || !this.keyLayoutParser) return null;
-        const defs = withoutGamepad ? this._withoutGamepad(this.keyLayoutDefs) : this.keyLayoutDefs;
-        if (!defs.length) return "[]";
-        const tuples = this.keyLayoutParser.serializeAll(defs);
+        if (!this.keyLayoutDefs.length) return "[]";
+        const tuples = this.keyLayoutParser.serializeAll(this.keyLayoutDefs);
         return JSON.stringify(tuples);
-    }
-
-    _isPluginMode() {
-        return document.getElementById("cfgConnTab_plugin")?.checked ?? false;
-    }
-
-    //placeholder for now (probably ever)
-    _withoutGamepad(defs) {
-        const notGamepad = (k) => !String(k).startsWith("gp_");
-        return defs
-            .map(def => {
-                const type = def.type.split("|").filter(notGamepad).join("|");
-                if (!type) return null;
-                const out = { ...def, type };
-                if (Array.isArray(def.keys)) out.keys = def.keys.filter(notGamepad);
-                if (Array.isArray(def.trackedKeys)) out.trackedKeys = def.trackedKeys.filter(notGamepad);
-                return out;
-            })
-            .filter(Boolean);
-    }
-
-    _applyGamepadTooltips() {
-        const isPlugin = this._isPluginMode();
-        const warning = document.getElementById("gamepadWarning");
-        if (warning) {
-            const hasGamepad = this.keyLayoutMode && (this.keyLayoutDefs ?? []).some(def =>
-                def.type.split("|").some(t => t.startsWith("gp_")));
-            warning.hidden = !hasGamepad;
-            warning.innerHTML = isPlugin
-                ? "gamepad elements are not supported by the obs plugin"
-                : "obs 33 browser sources lose controller input while obs isn't focused, "
-                + '(<a href="https://github.com/obsproject/obs-studio/issues/14139" target="_blank" rel="noopener">more here :plaksa:</a>)';
-        }
-        document.querySelectorAll('#preview-keyboard [data-gamepad-only="1"]').forEach(el => {
-            if (isPlugin) el.title = "the obs plugin doesn't support controllers, this element won't be exported";
-            else el.removeAttribute("title");
-        });
-    }
-
-    _syncPluginMode() {
-        const isPlugin = this._isPluginMode();
-        document.body.classList.toggle("cfg-plugin-mode", isPlugin);
-        this._applyGamepadTooltips();
-
-        const radio = document.getElementById("klTab_gamepad");
-        const label = document.querySelector('#klAddTabs label[for="klTab_gamepad"]');
-        if (radio && label) {
-            radio.disabled = isPlugin;
-            label.style.display = isPlugin ? "none" : "";
-            const panel = label.nextElementSibling;
-            if (panel?.classList.contains("panel")) panel.style.display = isPlugin ? "none" : "";
-            if (isPlugin && radio.checked) {
-                const first = document.querySelector("#klAddTabs input.radiotab");
-                if (first) first.checked = true;
-            }
-        }
     }
 
     updateSliderLabel(input) {
@@ -505,6 +647,7 @@ export class ConfiguratorMode {
         applyValue("analog_legend_fill_mode", settings.analog_legend_fill_mode);
         applyValue("analog_force_disable", settings.analog_force_disable);
         applyValue("gamepad_deadzone", settings.gamepad_deadzone ?? "3");
+        applyValue("gamepad_no_cef", settings.gamepad_no_cef ?? false);
         applyValue("mouse_trail_sensitivity", settings.mouse_trail_sensitivity ?? "100");
         applyValue("mouse_trail_fade_duration", settings.mouse_trail_fade_duration ?? "600");
         applyValue("mouse_trail_mode", settings.mouse_trail_mode ?? "wrap");
@@ -529,7 +672,6 @@ export class ConfiguratorMode {
         clearTimeout(this.rebuildThrottleTimer);
         this.rebuildThrottleTimer = setTimeout(() => {
             this.visualizer.rebuildInterface(this.rebuildPending);
-            this._applyGamepadTooltips();
             this.rebuildLastFired = performance.now();
             this.rebuildPending = null;
             if (this.keyLayoutMode) {
@@ -545,10 +687,7 @@ export class ConfiguratorMode {
     }
 
     updateGeneratedLink(settings) {
-        const linkSettings = this._isPluginMode() && this.keyLayoutMode
-            ? { ...settings, keyLayout: this._getKeyLayoutParam(true) }
-            : settings;
-        const paramsString = this.urlManager.buildURLParams(linkSettings);
+        const paramsString = this.urlManager.buildURLParams(settings);
         const safeSettings = { ...settings, wsauth: "" };
         const safeParamsString = this.urlManager.buildURLParams(safeSettings);
         const base = `${window.location.origin}${window.location.pathname}`;
@@ -703,7 +842,6 @@ export class ConfiguratorMode {
 
         document.querySelectorAll("input[name='cfgConnTab']").forEach(tab =>
             tab.addEventListener("change", () => {
-                this._syncPluginMode();
                 this.updateState();
             }));
 
@@ -882,8 +1020,10 @@ export class ConfiguratorMode {
                 }
             }
 
+            const isPress = type === "key_pressed";
+
+            if (keyName && (!isTyping || !isPress)) this.visualizer.noteInput(keyName, isPress);
             if (elements?.length) {
-                const isPress = type === "key_pressed";
                 for (const el of elements) this.visualizer.updateElementState(el, keyName, isPress, this.visualizer.activeKeys);
                 if (!isTyping || keyName === "key_tab" || keyName === "key_escape") event.preventDefault();
             }
@@ -894,11 +1034,13 @@ export class ConfiguratorMode {
             const isPress = type === "mouse_pressed";
             if (isPress) this.visualizer.activeMouseButtons.add(btnName);
             else this.visualizer.activeMouseButtons.delete(btnName);
+            this.visualizer.noteInput(btnName, isPress);
             const elements = els.mouseElements.get(btnName);
             if (elements?.length) {
                 for (const el of elements) this.visualizer.updateElementState(el, btnName, isPress, this.visualizer.activeMouseButtons);
             }
         } else if (type === "mouse_wheel") {
+            this.visualizer.noteScroll(Math.sign(event.deltaY));
             if (els.scrollDisplays?.length) this.visualizer.handleScroll(Math.sign(event.deltaY));
         } else if (type === "mouse_moved") {
             if (this.visualizer.mousePadCanvas)
@@ -967,10 +1109,10 @@ export class ConfiguratorMode {
     }
 
     getPluginConfig() {
-        const { wsaddress, wsport, wsauth, keyLayout, hide_mouse, ...rest } = this.getCurrentSettings();
+        const { wsaddress, wsport, wsauth, keyLayout, hide_mouse, gamepad_no_cef, ...rest } = this.getCurrentSettings();
         return {
             ...rest,
-            keyLayout: this.keyLayoutMode && this.keyLayoutParser ? this.keyLayoutParser.serializeAll(this._withoutGamepad(this.keyLayoutDefs)) : [],
+            keyLayout: this.keyLayoutMode && this.keyLayoutParser ? this.keyLayoutParser.serializeAll(this.keyLayoutDefs) : [],
         };
     }
 
@@ -1198,6 +1340,106 @@ export class ConfiguratorMode {
         this._syncKeyLayoutEditorUI();
     }
 
+    _openKeyPicker(anchor, { scope, getKeys, setKeys, keepOne = false }) {
+        this._closeKeyPicker?.();
+        const accepts = KEY_PICKER_SCOPES[scope] ?? KEY_PICKER_SCOPES.binding;
+
+        const picker = document.createElement("div");
+        picker.className = "kl-key-picker";
+
+        const refreshSelected = () => {
+            const keys = new Set(getKeys());
+            picker.querySelectorAll(".kl-add-tile").forEach(btn => {
+                btn.classList.toggle("kl-add-tile--selected", keys.has(btn.dataset.type));
+            });
+        };
+
+        for (const cat of ELEMENT_CATALOG) {
+            const groups = cat.groups
+                .map(group => ({ label: group.label, tiles: group.tiles.filter(([type]) => accepts(type)) }))
+                .filter(group => group.tiles.length);
+            if (!groups.length) continue;
+
+            const catLabel = document.createElement("div");
+            catLabel.className = "kl-key-picker-cat";
+            catLabel.textContent = cat.label;
+            picker.appendChild(catLabel);
+
+            for (const group of groups) {
+                const groupEl = document.createElement("div");
+                groupEl.className = "kl-tile-group";
+                const groupLbl = document.createElement("div");
+                groupLbl.className = "kl-tile-group-label";
+                groupLbl.textContent = group.label;
+                groupEl.appendChild(groupLbl);
+                for (const [type, name, span] of group.tiles) {
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.className = "kl-add-tile";
+                    btn.dataset.type = type;
+                    btn.textContent = name;
+                    btn.title = type;
+                    if (span > 1) btn.dataset.span = span;
+                    groupEl.appendChild(btn);
+                }
+                picker.appendChild(groupEl);
+            }
+        }
+
+        picker.addEventListener("click", (e) => {
+            const tile = e.target.closest(".kl-add-tile");
+            if (!tile) return;
+            const keys = getKeys();
+            const idx = keys.indexOf(tile.dataset.type);
+            if (idx === -1) keys.push(tile.dataset.type);
+            else if (!keepOne || keys.length > 1) keys.splice(idx, 1);
+            setKeys(keys);
+            refreshSelected();
+        });
+
+        document.body.appendChild(picker);
+        refreshSelected();
+
+        //below the button, kept inside the window
+        const rect = anchor.getBoundingClientRect();
+        const pw = picker.offsetWidth, ph = picker.offsetHeight;
+        let left = Math.min(rect.right - pw, window.innerWidth - pw - 8);
+        let top = rect.bottom + 4;
+        if (top + ph > window.innerHeight - 8) top = Math.max(8, rect.top - ph - 4);
+        picker.style.left = `${Math.max(8, left)}px`;
+        picker.style.top = `${top}px`;
+
+        const onPointerDown = (e) => {
+            if (!picker.contains(e.target) && e.target !== anchor) close();
+        };
+        const onKeyDown = (e) => { if (e.key === "Escape") close(); };
+        const close = () => {
+            picker.remove();
+            document.removeEventListener("pointerdown", onPointerDown, true);
+            document.removeEventListener("keydown", onKeyDown, true);
+            if (this._closeKeyPicker === close) this._closeKeyPicker = null;
+        };
+        document.addEventListener("pointerdown", onPointerDown, true);
+        document.addEventListener("keydown", onKeyDown, true);
+        this._closeKeyPicker = close;
+    }
+
+    _makeKeyPickerButton(scope, getKeys, setKeys, keepOne = false) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "cfg-btn kl-key-add-btn";
+        btn.textContent = "+";
+        btn.title = "pick keys";
+        btn.draggable = false;
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (this._closeKeyPicker) { this._closeKeyPicker(); return; }
+            this._openKeyPicker(btn, { scope, getKeys, setKeys, keepOne });
+        });
+        return btn;
+    }
+
     _setupKlAddPopup() {
         const popup = document.getElementById("klAddPopup");
         const tabsEl = document.getElementById("klAddTabs");
@@ -1207,6 +1449,18 @@ export class ConfiguratorMode {
         const wInput = document.getElementById("klAddW");
         const hInput = document.getElementById("klAddH");
         const confirmBtn = document.getElementById("klAddConfirmBtn");
+        const keysRow = document.getElementById("klAddKeysRow");
+        const keysInput = document.getElementById("klAddKeys");
+        const DEFAULT_HISTORY_KEYS = ["key_a", "key_d"];
+        
+        if (keysInput) {
+            document.getElementById("klAddKeysField")?.appendChild(this._makeKeyPickerButton(
+                "history",
+                () => parseKeyList(keysInput.value),
+                (keys) => { keysInput.value = keys.join(" "); },
+            ));
+        }
+        
         if (!popup || !tabsEl) return;
 
         const LABEL_DEFAULTS = {
@@ -1221,96 +1475,7 @@ export class ConfiguratorMode {
             input_history: [6, 2],
         };
 
-        const CATS = [
-            {
-                id: "keyboard", label: "keyboard", groups: [
-                    { label: "letters", tiles: [..."abcdefghijklmnopqrstuvwxyz"].map(l => [`key_${l}`, l.toUpperCase()]) },
-                    { label: "numbers", tiles: [..."1234567890"].map(n => [`key_${n}`, n]) },
-                    {
-                        label: "modifiers", tiles: [
-                            ["key_leftshift", "L SHIFT"], ["key_rightshift", "R SHIFT"],
-                            ["key_leftctrl", "L CTRL"], ["key_rightctrl", "R CTRL"],
-                            ["key_leftalt", "L Alt"], ["key_rightalt", "R Alt"],
-                            ["key_leftwin", "Win"], ["key_menu", "Menu"],
-                            ["key_capslock", "Caps"], ["key_tab", "Tab"], ["key_escape", "Esc"],
-                        ]
-                    },
-                    {
-                        label: "editing", tiles: [
-                            ["key_space", "Space", 3], ["key_enter", "Enter", 2], ["key_backspace", "BS", 2],
-                            ["key_delete", "Del"], ["key_insert", "Ins"],
-                            ["key_home", "Home"], ["key_end", "End"],
-                            ["key_pageup", "PgUp"], ["key_pagedown", "PgDn"],
-                        ]
-                    },
-                    {
-                        label: "arrows", tiles: [
-                            ["key_leftarrow", "←"], ["key_uparrow", "↑"], ["key_downarrow", "↓"], ["key_rightarrow", "→"],
-                        ]
-                    },
-                    { label: "function", tiles: Array.from({ length: 24 }, (_, i) => [`key_f${i + 1}`, `F${i + 1}`]) },
-                    {
-                        label: "symbols", tiles: [
-                            ["key_minus", "-"], ["key_equals", "="], ["key_openbracket", "["], ["key_closebracket", "]"],
-                            ["key_backslash", "\\"], ["key_semicolon", ";"], ["key_apostrophe", "'"],
-                            ["key_comma", ","], ["key_period", "."], ["key_slash", "/"],
-                            ["key_iso_backslash", "ISO\\"],
-                        ]
-                    },
-                    {
-                        label: "numpad", tiles: [
-                            ["key_numpad_7", "7"], ["key_numpad_8", "8"], ["key_numpad_9", "9"], ["key_numpad_divide", "÷"],
-                            ["key_numpad_4", "4"], ["key_numpad_5", "5"], ["key_numpad_6", "6"], ["key_numpad_multiply", "×"],
-                            ["key_numpad_1", "1"], ["key_numpad_2", "2"], ["key_numpad_3", "3"], ["key_numpad_subtract", "−"],
-                            ["key_numpad_0", "0", 2], ["key_numpad_decimal", "."], ["key_numpad_add", "+"],
-                            ["key_numpad_enter", "Ent"], ["key_numlock", "NL"],
-                        ]
-                    },
-                    {
-                        label: "misc", tiles: [
-                            ["input_history", "history", 3]
-                        ]
-                    },
-                ]
-            },
-            {
-                id: "mouse", label: "mouse", groups: [
-                    {
-                        label: "buttons", tiles: [
-                            ["mouse_left", "M1"], ["mouse_right", "M2"], ["mouse_middle", "M3"],
-                            ["mouse_4", "M4"], ["mouse_5", "M5"],
-                        ]
-                    },
-                    {
-                        label: "scroll", tiles: [
-                            ["scroller", "wheel"], ["scroll_updown", "↑↓"], ["scroll_up", "↑"], ["scroll_down", "↓"],
-                        ]
-                    },
-                    {
-                        label: "pad", tiles: [
-                            ["mouse_pad", "mouse pad", 3]
-                        ]
-                    },
-                ]
-            },
-            {
-                id: "gamepad", label: "gamepad", groups: [
-                    { label: "face", tiles: [["gp_a", "A"], ["gp_b", "B"], ["gp_x", "X"], ["gp_y", "Y"]] },
-                    { label: "shoulders", tiles: [["gp_lb", "LB"], ["gp_rb", "RB"], ["gp_lt", "LT"], ["gp_rt", "RT"]] },
-                    { label: "d-pad", tiles: [["gp_up", "↑"], ["gp_down", "↓"], ["gp_left", "←"], ["gp_right", "→"]] },
-                    {
-                        label: "system", tiles: [
-                            ["gp_select", "Back"], ["gp_start", "Menu"], ["gp_guide", "Home"], ["gp_ls", "LS"], ["gp_rs", "RS"],
-                        ]
-                    },
-                    {
-                        label: "sticks", tiles: [
-                            ["gp_joystick_ls", "L stick", 2], ["gp_joystick_rs", "R stick", 2],
-                        ]
-                    },
-                ]
-            },
-        ];
+        const CATS = ELEMENT_CATALOG;
 
         const NO_MULTIBIND = new Set(["mouse_pad", "gp_joystick_ls", "gp_joystick_rs", "input_history"]);
         let selectedTypes = [];
@@ -1390,6 +1555,13 @@ export class ConfiguratorMode {
             }
         };
 
+        const updateKeys = () => {
+            if (!keysRow) return;
+            const isHistory = primaryType() === "input_history";
+            keysRow.style.display = isHistory ? "flex" : "none";
+            if (isHistory && keysInput) keysInput.value = DEFAULT_HISTORY_KEYS.join(" ");
+        };
+
         const updateSize = () => {
             const sd = SIZE_DEFAULTS[primaryType()];
             wInput.value = sd ? sd[0] : 1;
@@ -1419,11 +1591,12 @@ export class ConfiguratorMode {
             updateDisabledTiles();
             updateConfirmState();
             const primary = primaryType();
-            if (primary !== prevPrimary) { updateLabels(); updateSize(); }
+            if (primary !== prevPrimary) { updateLabels(); updateSize(); updateKeys(); }
         };
 
         updateLabels();
         updateSize();
+        updateKeys();
         updateDisabledTiles();
         updateConfirmState();
 
@@ -1433,7 +1606,7 @@ export class ConfiguratorMode {
             toggleTile(tile.dataset.type, tile);
         });
 
-        const close = () => { popup.style.display = "none"; };
+        const close = () => { popup.style.display = "none"; this._closeKeyPicker?.(); };
 
         confirmBtn?.addEventListener("click", () => {
             const type = primaryType();
@@ -1451,7 +1624,7 @@ export class ConfiguratorMode {
                 const defs = LABEL_DEFAULTS[type] || [];
                 def.labels = Array.from(inps).map((inp, i) => inp.value || defs[i] || "");
             } else if (type === "input_history") {
-                def.trackedKeys = ["key_a", "key_d"];
+                def.trackedKeys = keysInput ? parseKeyList(keysInput.value) : [...DEFAULT_HISTORY_KEYS];
                 def.vertical = false;
                 def.scrollSpeed = 200;
                 def.highlightOverlap = false;
@@ -1481,6 +1654,7 @@ export class ConfiguratorMode {
             tabsEl.querySelectorAll(".kl-add-tile").forEach(t => { t.disabled = false; });
             updateLabels();
             updateSize();
+            updateKeys();
             updateConfirmState();
         };
     }
@@ -1876,35 +2050,73 @@ export class ConfiguratorMode {
             const attrList = document.createElement("ul");
             attrList.draggable = false;
 
-            const makeAttrRow = (labelText, getValue, setValue, type = "text") => {
+            const makeSettingRow = (labelText, valueEl, extraClass = "") => {
                 const li = document.createElement("li");
-                li.className = "kl-tree-attr";
+                li.className = "kl-tree-attr" + (extraClass ? ` ${extraClass}` : "");
                 const lbl = document.createElement("span");
                 lbl.className = "kl-tree-attr-label";
                 lbl.textContent = labelText;
-                const inp = document.createElement("input");
-                inp.className = "kl-tree-attr-input";
-                inp.type = type;
-                if (type === "checkbox") inp.checked = !!getValue();
-                else inp.value = getValue();
-                if (type === "number") { inp.step = "0.25"; }
-                inp.addEventListener("change", () => {
-                    setValue(type === "checkbox" ? inp.checked : inp.value);
-                    posEl.textContent = `${numFmt(def.x - LAYOUT_ORIGIN.x)},${numFmt(def.y - LAYOUT_ORIGIN.y)}`;
-                    nameEl.textContent = getShortName(def);
-                    this._commitKeyLayoutDefs();
-                });
-                li.append(lbl, inp);
+                const valueList = document.createElement("ul");
+                valueList.className = "kl-tree-attr-value";
+                valueList.draggable = false;
+                const valueItem = document.createElement("li");
+                
+                valueItem.appendChild(valueEl);
+                valueList.appendChild(valueItem);
+                li.append(lbl, valueList);
+                
                 return li;
             };
 
-            const makeColorOverrideRow = (labelText, styleKey) => {
-                const li = document.createElement("li");
-                li.className = "kl-tree-attr kl-tree-attr--color";
-                const lbl = document.createElement("span");
-                lbl.className = "kl-tree-attr-label";
-                lbl.textContent = labelText;
+            //picker { scope, get, set, keepOne }
+            const makeAttrRow = (labelText, getValue, setValue, type = "text", picker = null) => {
+                const inp = document.createElement("input");
+                inp.type = type;
+                const commitChange = (value) => {
+                    setValue(value);
+                    posEl.textContent = `${numFmt(def.x - LAYOUT_ORIGIN.x)},${numFmt(def.y - LAYOUT_ORIGIN.y)}`;
+                    nameEl.textContent = getShortName(def);
+                    this._commitKeyLayoutDefs();
+                };
 
+                if (type === "checkbox") {
+                    inp.checked = !!getValue();
+                    inp.addEventListener("change", () => commitChange(inp.checked));
+                    const li = document.createElement("li");
+                    li.className = "kl-tree-attr kl-tree-attr--check";
+                    const label = document.createElement("label");
+                    label.className = "cfg-checkbox";
+                    const box = document.createElement("span");
+                    box.className = "cfg-checkbox-box";
+                    const text = document.createElement("span");
+                    text.className = "cfg-checkbox-label";
+                    text.textContent = labelText;
+                    label.append(inp, box, text);
+                    li.appendChild(label);
+                    return li;
+                }
+
+                inp.className = "kl-tree-attr-input";
+                inp.value = getValue();
+                if (type === "number") { inp.step = "0.25"; }
+                inp.addEventListener("change", () => commitChange(inp.value));
+                if (!picker) return makeSettingRow(labelText, inp);
+
+                const wrap = document.createElement("div");
+                wrap.className = "kl-key-field";
+                const btn = this._makeKeyPickerButton(picker.scope, picker.get, (keys) => {
+                    picker.set(keys);
+                    inp.value = getValue();
+                    nameEl.textContent = getShortName(def);
+                    this._commitKeyLayoutDefs();
+                }, picker.keepOne);
+                
+                wrap.append(inp, btn);
+                
+                return makeSettingRow(labelText, wrap);
+            };
+
+            const makeColorOverrideRow = (labelText, styleKey) => {
                 const wrap = document.createElement("div");
                 wrap.className = "kl-tree-color-wrap";
 
@@ -1948,17 +2160,10 @@ export class ConfiguratorMode {
                 });
 
                 wrap.append(swatch, hexInput);
-                li.append(lbl, wrap);
-                return li;
+                return makeSettingRow(labelText, wrap, "kl-tree-attr--color");
             };
 
             const makeRadiusOverrideRow = (labelText, styleKey, globalInputId) => {
-                const li = document.createElement("li");
-                li.className = "kl-tree-attr kl-tree-attr--slider";
-                const lbl = document.createElement("span");
-                lbl.className = "kl-tree-attr-label";
-                lbl.textContent = labelText;
-
                 const wrap = document.createElement("div");
                 wrap.className = "kl-tree-slider-wrap";
 
@@ -1988,8 +2193,7 @@ export class ConfiguratorMode {
                 });
 
                 wrap.append(range, val);
-                li.append(lbl, wrap);
-                return li;
+                return makeSettingRow(labelText, wrap, "kl-tree-attr--slider");
             };
 
             attrList.appendChild(makeAttrRow("x", () => numFmt(def.x - LAYOUT_ORIGIN.x), (v) => { def.x = parseFloat(v) + LAYOUT_ORIGIN.x; }, "number"));
@@ -1997,7 +2201,15 @@ export class ConfiguratorMode {
             attrList.appendChild(makeAttrRow("w", () => numFmt(def.w), (v) => { def.w = Math.max(0.25, parseFloat(v) || 1); }, "number"));
             attrList.appendChild(makeAttrRow("h", () => numFmt(def.h), (v) => { def.h = Math.max(0.25, parseFloat(v) || 1); }, "number"));
             if ("label" in def) {
-                attrList.appendChild(makeAttrRow("key", () => def.type, (v) => { def.type = normalizePipeType(v.trim() || "key_a"); }));
+                const keyScope = SCROLL_TYPES.has(def.type.split("|")[0]) ? "alias" : "binding";
+                
+                attrList.appendChild(makeAttrRow("key", () => def.type, (v) => { def.type = normalizePipeType(v.trim() || "key_a"); }, "text", {
+                    scope: keyScope,
+                    keepOne: true,
+                    get: () => def.type.split("|"),
+                    set: (keys) => { def.type = normalizePipeType(keys.join("|") || "key_a"); },
+                }));
+                
                 attrList.appendChild(makeAttrRow("label", () => def.label || "", (v) => { def.label = v; }));
                 attrList.appendChild(makeAttrRow("move to top when active", () => def.moveToTop, (v) => { def.moveToTop = v; }, "checkbox"));
             }
@@ -2009,17 +2221,27 @@ export class ConfiguratorMode {
                     attrList.appendChild(makeAttrRow(labelName, () => def.labels[li] || "", (v) => { def.labels[li] = v; }));
                 });
                 if (baseType === "scroller" || baseType === "scroll_updown") {
-                    attrList.appendChild(makeAttrRow("also keys", () => def.type.split("|").slice(1).join("|"), (v) => {
-                        const extras = v.trim().split(/[|,\s]+/).filter(Boolean);
-                        def.type = extras.length ? [baseType, ...extras].join("|") : baseType;
+                    const setExtras = (extras) => { def.type = extras.length ? [baseType, ...extras].join("|") : baseType; };
+                    
+                    attrList.appendChild(makeAttrRow("also keys", () => def.type.split("|").slice(1).join("|"), (v) => setExtras(parseKeyList(v)), "text", {
+                        scope: "alias",
+                        get: () => def.type.split("|").slice(1),
+                        set: setExtras,
                     }));
                 }
                 attrList.appendChild(makeAttrRow("move to top when active", () => def.moveToTop, (v) => { def.moveToTop = v; }, "checkbox"));
             }
             if (def.type === "input_history") {
                 attrList.appendChild(makeAttrRow("keys", () => (def.trackedKeys ?? []).join(" "), (v) => {
-                    def.trackedKeys = v.trim().split(/[|,\s]+/).filter(Boolean);
+                    def.trackedKeys = parseKeyList(v);
+                },
+                "text",
+                {
+                    scope: "history",
+                    get: () => [...(def.trackedKeys ?? [])],
+                    set: (keys) => { def.trackedKeys = keys; },
                 }));
+                
                 attrList.appendChild(makeAttrRow("vertical", () => def.vertical, (v) => { def.vertical = v; }, "checkbox"));
                 attrList.appendChild(makeAttrRow("reverse direction", () => def.reverseDirection, (v) => { def.reverseDirection = v; }, "checkbox"));
                 attrList.appendChild(makeAttrRow("highlight overlap", () => def.highlightOverlap, (v) => { def.highlightOverlap = v; }, "checkbox"));
@@ -2027,12 +2249,24 @@ export class ConfiguratorMode {
                 attrList.appendChild(makeAttrRow("perfect gap (ms)", () => def.perfectGapMs ?? 0, (v) => { def.perfectGapMs = Math.max(0, parseFloat(v) || 0); }, "number"));
             }
 
+            const groupsList = document.createElement("ul");
+            
+            groupsList.className = "kl-tree-groups";
+            groupsList.draggable = false;
+            
+            const groupItem = (groupDetails) => {
+                const li = document.createElement("li");
+                li.appendChild(groupDetails);
+                return li;
+            };
+
             const optionsDetails = document.createElement("details");
             optionsDetails.className = "kl-tree-subgroup";
             optionsDetails.open = true;
             const optionsSummary = document.createElement("summary");
             optionsSummary.textContent = "options";
             optionsDetails.append(optionsSummary, attrList);
+            groupsList.appendChild(groupItem(optionsDetails));
 
             if (styleSupported) {
                 const KEY_STYLE_LABELS = {
@@ -2065,17 +2299,23 @@ export class ConfiguratorMode {
                 }
 
                 const overridesDetails = document.createElement("details");
-                overridesDetails.className = "kl-tree-subgroup kl-tree-subgroup--nested";
+                overridesDetails.className = "kl-tree-subgroup";
                 const overridesSummary = document.createElement("summary");
                 overridesSummary.textContent = "style overrides";
                 overridesDetails.append(overridesSummary, overridesList);
-                optionsDetails.appendChild(overridesDetails);
+                groupsList.appendChild(groupItem(overridesDetails));
             }
 
-            itemDetails.appendChild(optionsDetails);
+            itemDetails.appendChild(groupsList);
             node.appendChild(itemDetails);
-            node.draggable = true;
+            node.draggable = false;
+            
+            handle.addEventListener("pointerdown", () => {
+                node.draggable = true;
+                document.addEventListener("pointerup", () => { node.draggable = false; }, { once: true });
+            });
             node.addEventListener("dragstart", (e) => {
+                if (e.target !== node) return;
                 dragSrcIdx = idx;
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", String(idx));
@@ -2088,6 +2328,7 @@ export class ConfiguratorMode {
             });
 
             node.addEventListener("dragend", () => {
+                node.draggable = false;
                 node.classList.remove("kl-dragging");
                 clearDropIndicators();
                 dragSrcIdx = -1;
@@ -2122,9 +2363,23 @@ export class ConfiguratorMode {
         const root = document.createElement("ul");
         root.className = "tree-view";
 
+        const rootItem = document.createElement("li");
+        rootItem.className = "kl-tree-root";
+        const rootLabel = document.createElement("span");
+        rootLabel.className = "kl-tree-root-label";
+        rootLabel.textContent = "elements";
+        const rootCount = document.createElement("span");
+        rootCount.className = "kl-tree-count";
+        rootCount.textContent = String(this.keyLayoutDefs.length);
+        const branch = document.createElement("ul");
+        branch.className = "kl-tree-branch";
+        
         for (let i = this.keyLayoutDefs.length - 1; i >= 0; i--) {
-            root.appendChild(makeNode(this.keyLayoutDefs[i], i));
+            branch.appendChild(makeNode(this.keyLayoutDefs[i], i));
         }
+        
+        rootItem.append(rootLabel, rootCount, branch);
+        root.appendChild(rootItem);
 
         root.addEventListener("dragleave", (e) => {
             if (!root.contains(e.relatedTarget)) clearDropIndicators();

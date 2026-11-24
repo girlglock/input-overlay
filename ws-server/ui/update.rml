@@ -17,7 +17,7 @@
 		</div>
 		<div class="window-body update-popup-content">
 			<div class="update-header">
-				<img src="assets/update.gif" class="update-gif"/>
+				<img src="assets/update.webp" class="update-gif"/>
 				<p id="update-version-text" class="update-popup-version"></p>
 			</div>
 			<fieldset class="update-notes-group">

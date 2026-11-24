@@ -53,6 +53,7 @@ unsafe impl Sync for ObsSourceInfo {}
 
 pub const OBS_SOURCE_TYPE_INPUT: i32 = 0;
 pub const OBS_SOURCE_VIDEO: u32 = 1 << 0;
+pub const OBS_SOURCE_CAP_DISABLED: u32 = 1 << 10;
 pub const OBS_TEXT_DEFAULT: i32 = 0;
 pub const OBS_TEXT_INFO: i32 = 3;
 pub const OBS_GROUP_NORMAL: i32 = 1;
@@ -74,6 +75,19 @@ type FnDataSetDefaultString = unsafe extern "C" fn(*mut ObsData, *const c_char, 
 type FnDataSetDefaultBool = unsafe extern "C" fn(*mut ObsData, *const c_char, bool);
 type FnDataGetString = unsafe extern "C" fn(*mut ObsData, *const c_char) -> *const c_char;
 type FnDataGetBool = unsafe extern "C" fn(*mut ObsData, *const c_char) -> bool;
+type FnDataSetDefaultInt = unsafe extern "C" fn(*mut ObsData, *const c_char, i64);
+type FnDataGetInt = unsafe extern "C" fn(*mut ObsData, *const c_char) -> i64;
+type FnPropertiesAddInt = unsafe extern "C" fn(
+    *mut ObsProperties,
+    *const c_char,
+    *const c_char,
+    i32,
+    i32,
+    i32,
+) -> *mut ObsProperty;
+type FnPropertyIntSetSuffix = unsafe extern "C" fn(*mut ObsProperty, *const c_char);
+type FnGetVideo = unsafe extern "C" fn() -> *mut std::ffi::c_void;
+type FnVideoOutputGetFrameRate = unsafe extern "C" fn(*const std::ffi::c_void) -> f64;
 type FnPropertiesCreate = unsafe extern "C" fn() -> *mut ObsProperties;
 type FnPropertiesAddText =
     unsafe extern "C" fn(*mut ObsProperties, *const c_char, *const c_char, i32) -> *mut ObsProperty;
@@ -155,6 +169,12 @@ pub struct ObsApi {
     pub data_set_default_bool: FnDataSetDefaultBool,
     pub data_get_string: FnDataGetString,
     pub data_get_bool: FnDataGetBool,
+    pub data_set_default_int: FnDataSetDefaultInt,
+    pub data_get_int: FnDataGetInt,
+    pub properties_add_int: FnPropertiesAddInt,
+    pub get_video: FnGetVideo,
+    pub video_output_get_frame_rate: FnVideoOutputGetFrameRate,
+    pub property_int_set_suffix: FnPropertyIntSetSuffix,
     pub properties_create: FnPropertiesCreate,
     pub properties_add_text: FnPropertiesAddText,
     pub properties_add_bool: FnPropertiesAddBool,
@@ -251,6 +271,12 @@ pub fn init() -> bool {
         data_set_default_bool: load!("obs.dll", "obs_data_set_default_bool", FnDataSetDefaultBool),
         data_get_string: load!("obs.dll", "obs_data_get_string", FnDataGetString),
         data_get_bool: load!("obs.dll", "obs_data_get_bool", FnDataGetBool),
+        data_set_default_int: load!("obs.dll", "obs_data_set_default_int", FnDataSetDefaultInt),
+        data_get_int: load!("obs.dll", "obs_data_get_int", FnDataGetInt),
+        properties_add_int: load!("obs.dll", "obs_properties_add_int", FnPropertiesAddInt),
+        get_video: load!("obs.dll", "obs_get_video", FnGetVideo),
+        video_output_get_frame_rate: load!("obs.dll", "video_output_get_frame_rate", FnVideoOutputGetFrameRate),
+        property_int_set_suffix: load!("obs.dll", "obs_property_int_set_suffix", FnPropertyIntSetSuffix),
         properties_create: load!("obs.dll", "obs_properties_create", FnPropertiesCreate),
         properties_add_text: load!("obs.dll", "obs_properties_add_text", FnPropertiesAddText),
         properties_add_bool: load!("obs.dll", "obs_properties_add_bool", FnPropertiesAddBool),
@@ -365,6 +391,12 @@ pub fn init() -> bool {
         data_set_default_bool: load!(hobs, "obs_data_set_default_bool", FnDataSetDefaultBool),
         data_get_string: load!(hobs, "obs_data_get_string", FnDataGetString),
         data_get_bool: load!(hobs, "obs_data_get_bool", FnDataGetBool),
+        data_set_default_int: load!(hobs, "obs_data_set_default_int", FnDataSetDefaultInt),
+        data_get_int: load!(hobs, "obs_data_get_int", FnDataGetInt),
+        properties_add_int: load!(hobs, "obs_properties_add_int", FnPropertiesAddInt),
+        get_video: load!(hobs, "obs_get_video", FnGetVideo),
+        video_output_get_frame_rate: load!(hobs, "video_output_get_frame_rate", FnVideoOutputGetFrameRate),
+        property_int_set_suffix: load!(hobs, "obs_property_int_set_suffix", FnPropertyIntSetSuffix),
         properties_create: load!(hobs, "obs_properties_create", FnPropertiesCreate),
         properties_add_text: load!(hobs, "obs_properties_add_text", FnPropertiesAddText),
         properties_add_bool: load!(hobs, "obs_properties_add_bool", FnPropertiesAddBool),
@@ -435,4 +467,71 @@ pub fn init() -> bool {
             true
         }
     }
+}
+
+//without this the plugin works.. there is just no tools menu entry for the global settings
+type FnFrontendAddToolsMenuItem =
+    unsafe extern "C" fn(*const c_char, Option<unsafe extern "C" fn(*mut std::ffi::c_void)>, *mut std::ffi::c_void);
+type FnFrontendOpenSourceProperties = unsafe extern "C" fn(*mut ObsSource);
+
+pub struct FrontendApi {
+    pub add_tools_menu_item: FnFrontendAddToolsMenuItem,
+    pub open_source_properties: FnFrontendOpenSourceProperties,
+}
+
+static FRONTEND_API: OnceLock<Option<FrontendApi>> = OnceLock::new();
+
+pub fn frontend() -> Option<&'static FrontendApi> {
+    FRONTEND_API.get_or_init(load_frontend).as_ref()
+}
+
+#[cfg(windows)]
+fn load_frontend() -> Option<FrontendApi> {
+    use windows::core::PCSTR;
+    use windows::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
+
+    let hmod = unsafe { GetModuleHandleA(PCSTR(c"obs-frontend-api.dll".as_ptr() as *const u8)) }.ok()?;
+    macro_rules! load {
+        ($name:literal, $ty:ty) => {{
+            let proc = unsafe { GetProcAddress(hmod, PCSTR(concat!($name, "\0").as_bytes().as_ptr())) };
+            
+            match proc {
+                Some(p) => unsafe { std::mem::transmute::<unsafe extern "system" fn() -> isize, $ty>(p) },
+                None => {
+                    tracing::warn!("obs frontend api: '{}' not found", $name);
+                    return None;
+                }
+            }
+        }};
+    }
+    
+    Some(FrontendApi {
+        add_tools_menu_item: load!("obs_frontend_add_tools_menu_item", FnFrontendAddToolsMenuItem),
+        open_source_properties: load!("obs_frontend_open_source_properties", FnFrontendOpenSourceProperties),
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn load_frontend() -> Option<FrontendApi> {
+    let handle = ["libobs-frontend-api.so.0", "libobs-frontend-api.so"]
+        .iter()
+        .filter_map(|name| std::ffi::CString::new(*name).ok())
+        .map(|name| unsafe { libc::dlopen(name.as_ptr(), libc::RTLD_NOLOAD | libc::RTLD_NOW) })
+        .find(|h| !h.is_null())?;
+    
+    macro_rules! load {
+        ($name:literal, $ty:ty) => {{
+            let sym = unsafe { libc::dlsym(handle, concat!($name, "\0").as_ptr() as *const libc::c_char) };
+            if sym.is_null() {
+                tracing::warn!("obs frontend api: '{}' not found", $name);
+                return None;
+            }
+            unsafe { std::mem::transmute::<*mut libc::c_void, $ty>(sym) }
+        }};
+    }
+    
+    Some(FrontendApi {
+        add_tools_menu_item: load!("obs_frontend_add_tools_menu_item", FnFrontendAddToolsMenuItem),
+        open_source_properties: load!("obs_frontend_open_source_properties", FnFrontendOpenSourceProperties),
+    })
 }

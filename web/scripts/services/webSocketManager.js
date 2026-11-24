@@ -196,6 +196,8 @@ export class WebSocketManager {
         const els = viz.previewElements;
         if (!els) return;
 
+        viz.noteInput(info.name, isPressed);
+
         const isKey = info.type === "key";
         const map = isKey ? els.keyElements : els.mouseElements;
         const activeSet = isKey ? viz.activeKeys : viz.activeMouseButtons;
@@ -239,7 +241,18 @@ export class WebSocketManager {
             return;
         }
 
+        if (event_type === "gamepad_button" || event_type === "gamepad_axis") {
+            const gp = this.gamepadManager;
+            if (!gp || gp.poll) return;
+            
+            if (event_type === "gamepad_button") gp.applyButton(event.pad ?? 0, event.button, !!event.pressed, event.value ?? (event.pressed ? 1 : 0));
+            else gp.applyAxis(event.pad ?? 0, event.axis, event.value ?? 0);
+            
+            return;
+        }
+
         if (event_type === "mouse_wheel") {
+            this.visualizer.noteScroll(event.rotation ?? 1);
             if (this.visualizer.previewElements?.scrollDisplay)
                 this.visualizer.handleScroll(event.rotation ?? 1);
             return;
@@ -264,6 +277,7 @@ export class WebSocketManager {
 
     clearStuckKeys() {
         const viz = this.visualizer;
+        viz.releaseHeldInputs();
         if (!viz.previewElements) return;
 
         const clearMap = (map) => {
@@ -306,6 +320,7 @@ export class WebSocketManager {
         viz.currentScrollCount = 0;
         this.keyStates = {};
         this.keyDepths = {};
+        if (this.gamepadManager && !this.gamepadManager.poll) this.gamepadManager.clearAll();
 
         if (viz.analogRafId) {
             cancelAnimationFrame(viz.analogRafId);

@@ -30,6 +30,9 @@ pub struct HistoryState {
     reverse_direction: bool,
     perfect_gap_ms: f32,
     log: VecDeque<LogEntry>,
+    cache: Option<(Pixmap, Instant)>,
+    interval: Duration,
+    dirty: bool,
 }
 
 impl HistoryState {
@@ -50,7 +53,14 @@ impl HistoryState {
             reverse_direction,
             perfect_gap_ms,
             log: VecDeque::new(),
+            cache: None,
+            interval: Duration::ZERO,
+            dirty: true,
         }
+    }
+
+    pub fn set_frame_interval(&mut self, interval: Duration) {
+        self.interval = interval;
     }
 
     pub fn tracks(&self, key: &str) -> bool {
@@ -59,6 +69,8 @@ impl HistoryState {
 
     //overlayVisualiser.js:125-142
     pub fn record_edge(&mut self, key: &str, is_press: bool) {
+        self.dirty = true;
+        
         if is_press {
             self.log.push_back(LogEntry {
                 key: key.to_string(),
@@ -75,8 +87,29 @@ impl HistoryState {
         }
     }
 
-    pub fn is_live(&self) -> bool {
-        !self.log.is_empty()
+    //min duration for a scroll or other 0tick inputs
+    pub fn pulse(&mut self, key: &str, duration: Duration) {
+        let now = Instant::now();
+        self.dirty = true;
+        
+        if let Some(entry) = self.log.iter_mut().rev().find(|e| e.key == key) {
+            if entry.end.is_some_and(|end| end >= now) {
+                entry.end = Some(now + duration);
+                return;
+            }
+        }
+        
+        self.log.push_back(LogEntry {
+            key: key.to_string(),
+            start: now,
+            end: Some(now + duration),
+        });
+    }
+
+    pub fn needs_redraw(&self) -> bool {
+        self.dirty
+            || (!self.log.is_empty()
+                && self.cache.as_ref().is_none_or(|(_, at)| at.elapsed() >= self.interval))
     }
 
     pub fn draw(
@@ -101,9 +134,42 @@ impl HistoryState {
 
         let buf_w = content_rect.width().round().max(1.0) as u32;
         let buf_h = content_rect.height().round().max(1.0) as u32;
-        let Some(mut content) = Pixmap::new(buf_w, buf_h) else {
+        
+        let reuse = !self.dirty
+            && self.cache.as_ref().is_some_and(|(c, at)| {
+                c.width() == buf_w && c.height() == buf_h && at.elapsed() < self.interval
+            });
+        
+        if !reuse {
+            let Some(content) = self.render_content(buf_w, buf_h, scale, params) else {
+                return;
+            };
+            self.cache = Some((content, Instant::now()));
+            self.dirty = false;
+        }
+        
+        let Some((content, _)) = &self.cache else {
             return;
         };
+        
+        pixmap.draw_pixmap(
+            content_rect.x().round() as i32,
+            content_rect.y().round() as i32,
+            content.as_ref(),
+            &PixmapPaint::default(),
+            Transform::identity(),
+            None,
+        );
+    }
+
+    fn render_content(
+        &mut self,
+        buf_w: u32,
+        buf_h: u32,
+        scale: f32,
+        params: &HistoryDrawParams,
+    ) -> Option<Pixmap> {
+        let mut content = Pixmap::new(buf_w, buf_h)?;
         let (w, h) = (buf_w as f32, buf_h as f32);
 
         let now = Instant::now();
@@ -174,29 +240,36 @@ impl HistoryState {
         }
 
         if self.highlight_overlap {
-            for (range_start, range_end) in overlap_ranges(&self.log, now) {
-                let (bar_start, bar_len) = bar_range(range_start, range_end);
-                let rect = if self.vertical {
-                    Rect::from_xywh(0.0, bar_start, w, bar_len)
-                } else {
-                    Rect::from_xywh(bar_start, 0.0, bar_len, h)
-                };
-                if let Some(rect) = rect {
-                    fill_rect(&mut content, &rect, params.highlight_color);
+            let ranges = overlap_ranges(&self.log, now);
+            if !ranges.is_empty() {
+                for (i, key_name) in self.tracked_keys.iter().enumerate() {
+                    let lane_start = i as f32 * lane_size + lane_inset;
+                    for entry in self.log.iter().filter(|e| &e.key == key_name) {
+                        let entry_end = entry.end.map_or(now, |end| end.min(now));
+                        for &(range_start, range_end) in &ranges {
+                            let (from, to) = (entry.start.max(range_start), entry_end.min(range_end));
+                            if to <= from {
+                                continue;
+                            }
+                            let (bar_start, bar_len) = bar_range(from, to);
+                            let rect = if self.vertical {
+                                Rect::from_xywh(lane_start, bar_start, bar_thickness, bar_len)
+                            } else {
+                                Rect::from_xywh(bar_start, lane_start, bar_len, bar_thickness)
+                            };
+                            if let Some(rect) = rect {
+                                fill_rect(&mut content, &rect, params.highlight_color);
+                            }
+                        }
+                    }
                 }
             }
         }
 
         let content_radius = (params.border_radius - params.border_width).max(0.0);
         clip_to_rounded_rect(&mut content, content_radius);
-        pixmap.draw_pixmap(
-            content_rect.x().round() as i32,
-            content_rect.y().round() as i32,
-            content.as_ref(),
-            &PixmapPaint::default(),
-            Transform::identity(),
-            None,
-        );
+        
+        Some(content)
     }
 }
 
@@ -204,7 +277,7 @@ impl HistoryState {
 fn overlap_ranges(log: &VecDeque<LogEntry>, now: Instant) -> Vec<(Instant, Instant)> {
     let mut events: Vec<(Instant, i32)> = Vec::new();
     for e in log {
-        let end = e.end.unwrap_or(now);
+        let end = e.end.map_or(now, |end| end.min(now)); //a running scroll pulse ends in the future
         if end <= e.start {
             continue;
         }

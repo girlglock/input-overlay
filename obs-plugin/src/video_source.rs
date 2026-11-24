@@ -1,8 +1,8 @@
 use std::ffi::c_void;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tiny_skia::{Color, Pixmap};
 use tokio::sync::broadcast;
@@ -14,24 +14,30 @@ use crate::obs::{
     GS_COLOR_FORMAT_RGBA, GS_TEXTURE_DYNAMIC, GS_ZS_NONE, OBS_SOURCE_TYPE_INPUT, OBS_SOURCE_VIDEO,
     OBS_TEXT_DEFAULT,
 };
-use crate::obs_helpers::{
-    checkbox, file_path, group, info, list, list_header_str, list_item, list_item_str, read_str,
-    set_visible, text,
-};
+use crate::obs_helpers::{checkbox, file_path, group, info, read_str, set_visible, text};
 use crate::overlay_link::{
     decode_json_config, decode_link, default_layout, default_settings, DecodedLink,
 };
-use crate::render::Renderer;
-use io_ws_common::services::config::Config;
+use crate::render::{frame_interval, FpsCaps, Renderer};
 use io_ws_common::input_event::InputEvent;
 
-const SOURCE_ID: &[u8] = b"input-overlay-ws-video\0";
+const SOURCE_ID: &[u8] = b"input-overlay-gg-video\0";
 const DEFAULT_WIDTH: u32 = 512;
 const DEFAULT_HEIGHT: u32 = 512;
 const MIN_DIMENSION: i32 = 64;
 const MAX_DIMENSION: i32 = 7680;
 
 const RENDER_POLL_INTERVAL: Duration = Duration::from_millis(2);
+
+//advanced settings
+const MAX_FPS_CAP: i64 = 1000;
+const FPS_CAP_KEYS: [&std::ffi::CStr; 4] = [
+    c"fps_cap_overlay",
+    c"fps_cap_pad_background",
+    c"fps_cap_pad_trail",
+    c"fps_cap_history",
+];
+
 const VIDEO_MAX_WIDTH: u32 = 640;
 
 struct RenderedFrame {
@@ -43,6 +49,7 @@ struct RenderedFrame {
 enum RenderCommand {
     Reconfigure(Option<Box<DecodedLink>>),
     Resize(u32, u32),
+    SetFpsCaps(FpsCaps),
 }
 
 type FrameSlot = Arc<Mutex<Option<RenderedFrame>>>;
@@ -56,15 +63,10 @@ struct MediaBackground {
     texrender: *mut ObsTexrender,
     stagesurf: *mut ObsStagesurf,
     stage_size: (u32, u32),
-}
-
-struct PluginConfigState {
-    config: Arc<Mutex<Config>>,
-    config_path: PathBuf,
+    last_readback: Option<Instant>,
 }
 
 static EVENT_BUS: OnceLock<broadcast::Sender<InputEvent>> = OnceLock::new();
-static PLUGIN_CONFIG: Mutex<Option<PluginConfigState>> = Mutex::new(None);
 
 struct VideoSourceData {
     width: u32,
@@ -86,23 +88,17 @@ struct VideoSourceData {
     video_url: VideoUrlSlot,
     video_frame: VideoFrameSlot,
     media: Option<MediaBackground>,
+    fps_caps: FpsCaps,
+    canvas_fps: Arc<AtomicU64>,
 }
 
-pub fn init(
-    bus: broadcast::Sender<InputEvent>,
-    config: Arc<Mutex<Config>>,
-    config_path: PathBuf,
-) -> bool {
+pub fn init(bus: broadcast::Sender<InputEvent>) -> bool {
     let Some(api) = crate::obs::api() else {
         tracing::error!("video_source: OBS API not loaded");
         return false;
     };
 
     let _ = EVENT_BUS.set(bus);
-    *PLUGIN_CONFIG.lock().unwrap() = Some(PluginConfigState {
-        config,
-        config_path,
-    });
 
     let info_struct = ObsSourceInfo {
         id: SOURCE_ID.as_ptr() as *const _,
@@ -138,7 +134,7 @@ fn idle_pixmap(width: u32, height: u32) -> Pixmap {
 }
 
 unsafe extern "C" fn source_get_name(_type_data: *mut c_void) -> *const std::ffi::c_char {
-    c"Input Overlay".as_ptr()
+    c"Input Overlay (GG)".as_ptr()
 }
 
 unsafe extern "C" fn source_create(settings: *mut ObsData, source: *mut ObsSource) -> *mut c_void {
@@ -148,6 +144,11 @@ unsafe extern "C" fn source_create(settings: *mut ObsData, source: *mut ObsSourc
     let video_url: VideoUrlSlot = Arc::new(Mutex::new(None));
     let video_frame: VideoFrameSlot = Arc::new(Mutex::new(None));
     let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+    
+    let canvas_fps = Arc::new(AtomicU64::new(
+        crate::obs::api().map_or(0.0, |api| obs_canvas_fps(api)).to_bits(),
+    ));
+    
     let render_thread = spawn_render_worker(
         EVENT_BUS.get().map(|bus| bus.subscribe()),
         cmd_rx,
@@ -156,6 +157,7 @@ unsafe extern "C" fn source_create(settings: *mut ObsData, source: *mut ObsSourc
         video_frame.clone(),
         shown.clone(),
         active.clone(),
+        canvas_fps.clone(),
         DEFAULT_WIDTH,
         DEFAULT_HEIGHT,
     );
@@ -183,6 +185,8 @@ unsafe extern "C" fn source_create(settings: *mut ObsData, source: *mut ObsSourc
         video_url,
         video_frame,
         media: None,
+        fps_caps: FpsCaps::default(),
+        canvas_fps,
     };
     update_from_settings(&mut data, settings);
     Box::into_raw(Box::new(data)) as *mut c_void
@@ -267,11 +271,9 @@ unsafe extern "C" fn source_get_defaults(settings: *mut ObsData) {
     (api.data_set_default_string)(settings, c"json_file".as_ptr(), c"".as_ptr());
     (api.data_set_default_bool)(settings, c"use_link".as_ptr(), false);
     (api.data_set_default_string)(settings, c"resolution".as_ptr(), c"512x512".as_ptr());
-    (api.data_set_default_string)(settings, c"analog_keyboard".as_ptr(), c"".as_ptr());
-    #[cfg(target_os = "linux")]
-    {
-        (api.data_set_default_string)(settings, c"linux_kbd_device".as_ptr(), c"".as_ptr());
-        (api.data_set_default_string)(settings, c"linux_mouse_device".as_ptr(), c"".as_ptr());
+    
+    for key in FPS_CAP_KEYS {
+        (api.data_set_default_int)(settings, key.as_ptr(), 0);
     }
 }
 
@@ -303,7 +305,7 @@ unsafe extern "C" fn source_get_properties(data: *mut c_void) -> *mut ObsPropert
     let p = (api.properties_create)();
 
     #[cfg(windows)]
-    if !is_admin() {
+    if !crate::settings_source::is_admin() {
         info(
             api,
             p,
@@ -313,6 +315,13 @@ unsafe extern "C" fn source_get_properties(data: *mut c_void) -> *mut ObsPropert
     }
 
     group(api, p, b"grp_overlay\0", b"Overlay\0", |g| {
+        info(
+            api,
+            g,
+            b"overlay_configurator\0",
+            b"<a href=\"https://overlay.girlglock.com\">Open Overlay Configurator</a>\0",
+        );
+        
         let json_prop = file_path(
             api,
             g,
@@ -320,11 +329,15 @@ unsafe extern "C" fn source_get_properties(data: *mut c_void) -> *mut ObsPropert
             b"Config File\0",
             b"JSON Files (*.json)\0",
         );
+        
         let link_prop = text(api, g, b"link\0", b"Overlay Link\0", OBS_TEXT_DEFAULT);
         let use_link_prop = checkbox(api, g, b"use_link\0", b"Use Web link instead\0");
+        
         set_visible(api, json_prop, !use_link_now);
         set_visible(api, link_prop, use_link_now);
+        
         (api.property_set_modified_callback)(use_link_prop, Some(on_use_link_toggled));
+        
         text(
             api,
             g,
@@ -334,88 +347,26 @@ unsafe extern "C" fn source_get_properties(data: *mut c_void) -> *mut ObsPropert
         );
     });
 
-    group(api, p, b"grp_global\0", b"Global Settings\0", |g| {
-        group(api, g, b"grp_capture\0", b"Capture\0", |g2| {
-            let ak = list(api, g2, b"analog_keyboard\0", b"Analog Keyboard\0");
-            list_item(api, ak, b"Disabled\0", b"\0");
-            list_item(api, ak, b"Auto detect\0", b"auto\0");
-            for brand in io_ws_common::services::analog::ANALOG_BRANDS {
-                list_header_str(api, ak, &format!("\u{2500}\u{2500} {} \u{2500}\u{2500}", brand.label()));
-                if let Some(all) = brand.all_label {
-                    list_item_str(api, ak, &format!("    {all}"), brand.id);
-                }
-                for model in brand.models {
-                    list_item_str(api, ak, &format!("    {}", model.name), model.id);
-                }
+    group(api, p, b"grp_advanced\0", b"Advanced\0", |g| {
+        for (key, label) in FPS_CAP_KEYS.iter().zip([
+            c"Entire Overlay FPS Cap",
+            c"Mousepad Background FPS Cap",
+            c"Mousepad Trail FPS Cap",
+            c"Input History FPS Cap",
+        ]) {
+            let prop = (api.properties_add_int)(g, key.as_ptr(), label.as_ptr(), 0, MAX_FPS_CAP as i32, 1);
+            
+            if !prop.is_null() {
+                (api.property_int_set_suffix)(prop, c" fps".as_ptr());
             }
-
-            info(
-                api,
-                g2,
-                b"analogsense_note\0",
-                b"(R) Razer Synapse needs to be installed and running for analogue inputs to be received from this keyboard.<br>(P) The official firmware only supports polling, which can lead to lag and missed inputs.<br>(F) <a href=\"https://analogsense.org/firmware/\">Custom firmware with full analog report functionality is available.</a><br><br>Analog support mirrors the <a href=\"https://github.com/AnalogSense/JavaScript-SDK\">AnalogSense SDK</a> ported to Rust. Amazing project, please show them some love and PR new keyboards if you can!\0",
-            );
-
-            #[cfg(target_os = "linux")]
-            {
-                use io_ws_common::services::linux::evdev_input;
-
-                for (id, label, devices) in [
-                    (&b"linux_kbd_device\0"[..], &b"Keyboard Device\0"[..], evdev_input::enum_keyboards()),
-                    (&b"linux_mouse_device\0"[..], &b"Mouse Device\0"[..], evdev_input::enum_mice()),
-                ] {
-                    let prop = list(api, g2, id, label);
-                    list_item(api, prop, b"None\0", b"\0");
-                    for (path, name) in devices {
-                        let node = path.rsplit('/').next().unwrap_or(&path);
-                        list_item_str(api, prop, &format!("{name} ({node})"), &path);
-                    }
-                }
-
-                let perms = evdev_input::check_permissions();
-                if !perms.is_empty() {
-                    let msg = format!("\u{26A0}\u{FE0F} {}", perms.join("<br>"));
-                    if let Ok(msg) = std::ffi::CString::new(msg) {
-                        info(api, g2, b"linux_perm_warn\0", msg.as_bytes_with_nul());
-                    }
-                }
-
-                info(
-                    api,
-                    g2,
-                    b"linux_note\0",
-                    b"Device changes require restarting OBS.\0",
-                );
-            }
-            #[cfg(windows)]
-            info(
-                api,
-                g2,
-                b"ak_note\0",
-                b"Analog keyboard change needs restarting OBS to take effect\0",
-            );
-        });
-
-        group(api, g, b"grp_about\0", b"About\0", |g2| {
-            info(
-                api,
-                g2,
-                b"about_ver\0",
-                concat!("input-overlay v", env!("CARGO_PKG_VERSION"), "\0").as_bytes(),
-            );
-            info(
-                api,
-                g2,
-                b"about_configurator\0",
-                b"<a href=\"https://overlay.girlglock.com\">Open Overlay Configurator</a>\0",
-            );
-            info(
-                api,
-                g2,
-                b"about_links\0",
-                b"<a href=\"https://github.com/girlglock/input-overlay\">GitHub</a> | <a href=\"https://twitter.com/girlglock_\">Twitter</a> | <a href=\"https://girlglock.com\">girlglock.com</a>\0",
-            );
-        });
+        }
+        
+        info(
+            api,
+            g,
+            b"fps_cap_note\0",
+            b"0 = the canvas FPS. caps above the canvas FPS are capped to it. if using a video bg for mousepads its recommended to cap it to something reasonable.\0",
+        );
     });
 
     p
@@ -488,6 +439,7 @@ fn spawn_render_worker(
     video_frame: VideoFrameSlot,
     shown: Arc<AtomicBool>,
     active: Arc<AtomicBool>,
+    canvas_fps: Arc<AtomicU64>,
     initial_width: u32,
     initial_height: u32,
 ) -> Option<std::thread::JoinHandle<()>> {
@@ -497,6 +449,9 @@ fn spawn_render_worker(
             let mut renderer: Option<Renderer> = None;
             let mut width = initial_width;
             let mut height = initial_height;
+            let mut caps = FpsCaps::default();
+            let mut last_draw: Option<Instant> = None;
+            let mut pending = false;
 
             loop {
                 let mut shutdown = false;
@@ -511,6 +466,7 @@ fn spawn_render_worker(
                             width = w;
                             height = h;
                         }
+                        Ok(RenderCommand::SetFpsCaps(new_caps)) => caps = new_caps,
                         Err(std::sync::mpsc::TryRecvError::Empty) => break,
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                             shutdown = true;
@@ -553,7 +509,21 @@ fn spawn_render_worker(
                     }
                 }
 
-                changed = changed || renderer.as_ref().is_some_and(|r| r.needs_constant_redraw());
+                let canvas = f64::from_bits(canvas_fps.load(Ordering::Relaxed));
+                
+                if let Some(renderer) = renderer.as_mut() {
+                    renderer.set_frame_intervals(caps, canvas);
+                }
+                
+                let min_frame_time = frame_interval(caps.overlay, canvas);
+
+                changed = changed || pending || renderer.as_ref().is_some_and(|r| r.needs_constant_redraw());
+                
+                if changed {
+                    let too_soon = last_draw.is_some_and(|last| last.elapsed() < min_frame_time);
+                    pending = too_soon;
+                    changed = !too_soon;
+                }
 
                 #[cfg(feature = "profiler")]
                 profiler.mark("POLL");
@@ -577,6 +547,7 @@ fn spawn_render_worker(
                                 height,
                                 pixmap,
                             });
+                            last_draw = Some(Instant::now());
                         }
                     }
                 }
@@ -593,6 +564,12 @@ unsafe fn update_from_settings(data: &mut VideoSourceData, settings: *mut ObsDat
     };
 
     let (width, height) = parse_resolution(&read_str(api, settings, b"resolution\0"));
+    
+    let [overlay, pad_background, pad_trail, history] =
+        FPS_CAP_KEYS.map(|key| (api.data_get_int)(settings, key.as_ptr()).clamp(0, MAX_FPS_CAP) as u32);
+    
+    data.fps_caps = FpsCaps { overlay, pad_background, pad_trail, history };
+    send_command(&data.cmd_tx, RenderCommand::SetFpsCaps(data.fps_caps));
     let size_changed = (width, height) != (data.width, data.height);
     data.width = width;
     data.height = height;
@@ -642,56 +619,6 @@ unsafe fn update_from_settings(data: &mut VideoSourceData, settings: *mut ObsDat
         data.pixmap = idle_pixmap(data.width, data.height);
         data.dirty = true;
     }
-
-    let analog_keyboard = read_str(api, settings, b"analog_keyboard\0");
-    #[cfg(target_os = "linux")]
-    let linux_kbd = read_str(api, settings, b"linux_kbd_device\0");
-    #[cfg(target_os = "linux")]
-    let linux_mouse = read_str(api, settings, b"linux_mouse_device\0");
-
-    persist_capture_settings(
-        analog_keyboard,
-        #[cfg(target_os = "linux")]
-        linux_kbd,
-        #[cfg(target_os = "linux")]
-        linux_mouse,
-    );
-}
-
-fn persist_capture_settings(
-    analog_keyboard: String,
-    #[cfg(target_os = "linux")] linux_kbd: String,
-    #[cfg(target_os = "linux")] linux_mouse: String,
-) {
-    let guard = PLUGIN_CONFIG.lock().unwrap();
-    let Some(state) = guard.as_ref() else {
-        return;
-    };
-
-    let cfg_snapshot = {
-        let mut cfg = state.config.lock().unwrap();
-        cfg.analog_keyboard = analog_keyboard;
-        #[cfg(target_os = "linux")]
-        {
-            cfg.linux_evdev_keyboard_device = linux_kbd;
-            cfg.linux_raw_mouse_device = linux_mouse;
-        }
-        cfg.clone()
-    };
-    let config_path = state.config_path.clone();
-    drop(guard);
-
-    let spawned = std::thread::Builder::new()
-        .name("OverlayConfigSave".into())
-        .spawn(move || {
-            if let Err(e) = io_ws_common::services::config::save(&config_path, &cfg_snapshot) {
-                tracing::error!("failed to save config: {e}");
-            }
-        })
-        .is_ok();
-    if !spawned {
-        tracing::error!("video_source: failed to spawn config save thread");
-    }
 }
 
 unsafe extern "C" fn source_video_tick(data: *mut c_void, _seconds: f32) {
@@ -702,6 +629,8 @@ unsafe extern "C" fn source_video_tick(data: *mut c_void, _seconds: f32) {
     let Some(api) = crate::obs::api() else {
         return;
     };
+
+    data.canvas_fps.store(obs_canvas_fps(api).to_bits(), Ordering::Relaxed);
 
     if !data.shown.load(Ordering::Relaxed) || !data.active.load(Ordering::Relaxed) {
         return;
@@ -832,6 +761,7 @@ fn start_media(url: String) -> MediaBackground {
         texrender: std::ptr::null_mut(),
         stagesurf: std::ptr::null_mut(),
         stage_size: (0, 0),
+        last_readback: None,
     }
 }
 
@@ -901,6 +831,17 @@ unsafe fn update_media(api: &ObsApi, data: &mut VideoSourceData) {
     if media.child.is_null() || data.video_frame.lock().unwrap().is_some() {
         return;
     }
+    
+    let canvas = f64::from_bits(data.canvas_fps.load(Ordering::Relaxed));
+    
+    if media
+        .last_readback
+        .is_some_and(|t| t.elapsed() < frame_interval(data.fps_caps.pad_background, canvas))
+    {
+        return;
+    }
+    
+    media.last_readback = Some(Instant::now());
 
     let (src_w, src_h) = ((api.source_get_width)(media.child), (api.source_get_height)(media.child));
     if src_w == 0 || src_h == 0 {
@@ -956,6 +897,14 @@ unsafe fn update_media(api: &ObsApi, data: &mut VideoSourceData) {
     }
 }
 
+unsafe fn obs_canvas_fps(api: &ObsApi) -> f64 {
+    let video = (api.get_video)();
+    if video.is_null() {
+        return 0.0;
+    }
+    (api.video_output_get_frame_rate)(video)
+}
+
 fn parse_resolution(s: &str) -> (u32, u32) {
     let s = s.trim().to_lowercase();
     if let Some((w, h)) = s.split_once('x') {
@@ -966,30 +915,4 @@ fn parse_resolution(s: &str) -> (u32, u32) {
         }
     }
     (DEFAULT_WIDTH, DEFAULT_HEIGHT)
-}
-
-#[cfg(windows)]
-fn is_admin() -> bool {
-    use windows::Win32::Foundation::{CloseHandle, HANDLE};
-    use windows::Win32::Security::{
-        GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY,
-    };
-    use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
-    unsafe {
-        let mut token = HANDLE::default();
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_err() {
-            return false;
-        }
-        let mut elev = TOKEN_ELEVATION::default();
-        let mut cb = std::mem::size_of::<TOKEN_ELEVATION>() as u32;
-        let ok = GetTokenInformation(
-            token,
-            TokenElevation,
-            Some(&mut elev as *mut _ as *mut _),
-            cb,
-            &mut cb,
-        );
-        let _ = CloseHandle(token);
-        ok.is_ok() && elev.TokenIsElevated != 0
-    }
 }
